@@ -1,0 +1,1 @@
+SELECT DISTINCT t1.username, t2.username from (SELECT * FROM netsession WHERE username LIKE '%$') AS t1, (SELECT * FROM netsession WHERE username NOT LIKE '%$') as t2 WHERE t1.ip == t2.ip
