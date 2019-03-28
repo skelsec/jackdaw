@@ -70,8 +70,11 @@ class LDAPEnumerator:
 			yield s
 			
 	def ace_to_dbo(self, sd):
+		order_ctr = 0
 		for ace in sd.nTSecurityDescriptor.Dacl.aces:
 			acl = JackDawADACL()
+			acl.ace_order = order_ctr
+			order_ctr += 1
 			acl.guid = str(sd.objectGUID)
 			if sd.objectSid:
 				acl.sid = str(sd.objectSid)

@@ -34,6 +34,8 @@ setup(
 	),
 	install_requires=[
 		'winrecon>=0.0.1',
+		'msldap>=0.0.6',
+		'sqlalchemy',
 		'dnspython',
 	],
 

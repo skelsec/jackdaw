@@ -23,3 +23,4 @@ class JackDawADACL(Basemodel):
 	ace_objecttype = Column(String, index=True)
 	ace_inheritedobjecttype = Column(String, index=True)
 	ace_sid = Column(String, index=True)
+	ace_order = Column(Integer, index = True)

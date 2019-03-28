@@ -1,8 +1,12 @@
+#
+#
+#
+# I am legitimately sorry for this multiprocessing-multithreading bullshit but that's the best one can do in python...
 
-from jackdaw.dbmodel.netshare import *
+from jackdaw.dbmodel.localgroup import *
 from jackdaw.dbmodel import *
 
-from winrecon.cf.c_functions import NetShareEnum
+from winrecon.cf.c_functions import NetLocalGroupGetMembers
 from winrecon.file_utils import *
 
 from msldap.core.msldap import *
@@ -15,9 +19,10 @@ from dns import resolver, reversename
 import ipaddress
 
 
-class ShareEnumThread(Thread):
-	def __init__(self, inQ, outQ):
+class LocalGroupEnumThread(Thread):
+	def __init__(self, inQ, outQ, groups = ['Users','Administrators']):
 		Thread.__init__(self)
+		self.groups = groups
 		self.inQ = inQ
 		self.outQ = outQ
 		
@@ -27,13 +32,14 @@ class ShareEnumThread(Thread):
 			if not target:
 				break
 			try:
-				for share in NetShareEnum(target, level=1):
-					self.outQ.put((target, share))
+				for groupname in self.groups:
+					for group in NetLocalGroupGetMembers(target, groupname, level=2):
+						self.outQ.put((target, groupname, group))
 			except Exception as e:
 				print(e)
 				continue
 		
-class ShareEnumProc(Process):
+class LocalGroupEnumProc(Process):
 	def __init__(self, inQ, outQ, threadcnt):
 		Process.__init__(self)
 		self.inQ = inQ
@@ -43,14 +49,14 @@ class ShareEnumProc(Process):
 		
 	def run(self):
 		for i in range(self.threadcnt):
-			t = ShareEnumThread(self.inQ, self.outQ)
+			t = LocalGroupEnumThread(self.inQ, self.outQ)
 			t.daemon = True
 			t.start()
 			self.threads.append(t)			
 		for t in self.threads:
 			t.join()
 		
-class SMResProc(Process):
+class LGResProc(Process):
 	def __init__(self, outQ, sql_con, dns_server = None):
 		Process.__init__(self)
 		self.outQ = outQ
@@ -100,7 +106,7 @@ class SMResProc(Process):
 			if not result:
 				break
 			
-			target, share = result
+			target, groupname, group = result
 			try:
 				ip = str(ipaddress.ip_address(target))
 			except Exception as e:
@@ -113,19 +119,20 @@ class SMResProc(Process):
 			else:
 				rdns = self.rdns_lookup(ip)
 			
-			ns = NetShare()
-			ns.ip = ip
-			ns.rdns = rdns
-			ns.netname = share.netname
-			ns.type    = share.type
-			ns.remark  = share.remark
-			ns.passwd  = share.passwd
-			self.session.add(ns)
+			lg = LocalGroup()
+			lg.ip = ip
+			lg.rdns = rdns
+			lg.sid = str(group.sid)
+			lg.sidusage    = group.sidusage
+			lg.domain  = group.domain
+			lg.username  = group.username
+			lg.groupname  = groupname
+			self.session.add(lg)
 			self.session.commit()
-			print('%s %s %s %s' % (target, ip, rdns, ns.netname))
+			print('%s %s %s %s %s %s' % (target, ip, rdns, lg.domain, lg.username, lg.sid))
 			
 
-class ShareEnumerator:
+class LocalGroupEnumerator:
 	def __init__(self, db_con, dns_server = None):
 		self.db_con = db_con
 		self.hosts = []
@@ -160,17 +167,17 @@ class ShareEnumerator:
 	def run(self):
 		create_db(self.db_con)
 
-		self.result_process = SMResProc(self.outQ, self.db_con, dns_server = self.dns_server)
+		self.result_process = LGResProc(self.outQ, self.db_con, dns_server = self.dns_server)
 		self.result_process.daemon = True
 		self.result_process.start()
 		
 		for i in range(self.agent_proccnt):
-			p = ShareEnumProc(self.inQ, self.outQ, self.agent_threadcnt)
+			p = LocalGroupEnumProc(self.inQ, self.outQ, self.agent_threadcnt)
 			p.daemon = True
 			p.start()
 			self.agents.append(p)
 		
-		print('=== Enumerating shares sessions ===')
+		print('=== Enumerating local groups ===')
 		for t in self.hosts:
 			self.inQ.put(t)
 		

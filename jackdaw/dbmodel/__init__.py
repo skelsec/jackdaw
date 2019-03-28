@@ -55,6 +55,7 @@ from .netshare import *
 from .spnservice import *
 from .tokengroup import *
 from .usergroup import *
+from .localgroup import *
 
 
 def create_db(connection, verbosity = 0):

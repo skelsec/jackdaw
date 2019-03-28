@@ -28,7 +28,7 @@ class SessMonThread(Thread):
 				continue
 		
 class SessMonProc(Process):
-	def __init__(self, inQ, outQ, threadcnt = 4):
+	def __init__(self, inQ, outQ, threadcnt):
 		Process.__init__(self)
 		self.inQ = inQ
 		self.outQ = outQ
@@ -95,11 +95,21 @@ class SessionMonitor:
 	def __init__(self, db_conn, monitor_time = 60):
 		self.db_conn = db_conn
 		self.monitor_time = monitor_time
-		self.hosts = None
+		self.hosts = []
 		self.inQ = Queue()
 		self.outQ = Queue()
 		self.agents = []
 		self.result_process = None
+		
+		self.agent_threadcnt = 4
+		self.agent_proccnt = 4
+		
+	def load_targets_ldap(self, ldap):
+		ldap_filter = r'(&(sAMAccountType=805306369))'
+
+		attributes = ['sAMAccountName']
+		for entry in ldap.pagedsearch(ldap_filter, attributes):
+			self.hosts.append(entry['attributes']['sAMAccountName'][:-1])
 
 	def load_targets_file(self, filename):
 		with open(filename,'r') as f:
@@ -115,19 +125,19 @@ class SessionMonitor:
 	def run(self):
 		create_db(self.db_conn)
 		
-		self.result_process = SessMonResProc(self.outQ, sql_con, dns_server = None)
+		self.result_process = SessMonResProc(self.outQ, self.db_conn, dns_server = None)
 		self.result_process.daemon = True
 		self.result_process.start()
 		
-		for i in range(4):
-			p = SessMonProc(self.inQ, self.outQ)
+		for i in range(self.agent_proccnt):
+			p = SessMonProc(self.inQ, self.outQ, self.agent_threadcnt)
 			p.daemon = True
 			p.start()
-			agents.append(p)
+			self.agents.append(p)
 		
 		while True:
 			print('=== Polling sessions ===')
-			for t in targets:
+			for t in self.hosts:
 				self.inQ.put(t)
 			if self.monitor_time != -1:
 				time.sleep(self.monitor_time)
@@ -135,11 +145,12 @@ class SessionMonitor:
 			
 			time.sleep(10)
 		
-		for a in agents:
-			self.inQ.put(None)
+		for a in self.agents:
+			for i in range(self.agent_threadcnt):
+				self.inQ.put(None)
 		
 		
-		for a in agents:
+		for a in self.agents:
 			a.join()
 			
 		self.outQ.put(None)

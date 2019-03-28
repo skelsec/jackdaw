@@ -14,5 +14,19 @@ if __name__ == '__main__':
 	create_db(db_conn)
 	target = MSLDAPTargetServer(dc_ip)
 	ldap = MSLDAP(None, target, use_sspi = True)	
+	ldap.connect()
+	
 	ldapenum = LDAPEnumerator(db_conn, ldap)
 	ldapenum.run()
+
+	se = ShareEnumerator(db_conn)
+	se.load_targets_ldap(ldap)
+	se.run()
+
+	sm = LocalGroupEnumerator(db_conn)
+	sm.load_targets_ldap(ldap)
+	sm.run()
+	
+	sm = SessionMonitor(db_conn)
+	sm.load_targets_ldap(ldap)
+	sm.run()
