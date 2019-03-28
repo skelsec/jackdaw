@@ -6,6 +6,7 @@ from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship
 from sqlalchemy import create_engine, func
 from sqlalchemy.orm import sessionmaker
+import enum
 
 Basemodel = declarative_base()
 
@@ -15,7 +16,7 @@ def lf(x, sep = ','):
 	"""
 	if isinstance(x, list):
 		return sep.join(x)
-	elif isinstance(x, datetime.datetime):
+	elif isinstance(x, (datetime.datetime, int, enum.IntFlag)):
 		return x
 	return str(x)
 	
@@ -25,6 +26,10 @@ def dt(x):
 	"""
 	if x == '':
 		return None
+	if isinstance(x, str):
+		return datetime.datetime.fromisoformat(x)
+	if not isinstance(x,datetime.datetime):
+		print(x)
 	return x
 	
 def bc(x):
@@ -33,7 +38,8 @@ def bc(x):
 	"""
 	if x is None:
 		return None
-	
+	if isinstance(x,bool):
+		return x
 	if isinstance(x, str):
 		if x.upper() == 'TRUE':
 			return True
@@ -56,6 +62,7 @@ from .spnservice import *
 from .tokengroup import *
 from .usergroup import *
 from .localgroup import *
+from .constrained import *
 
 
 def create_db(connection, verbosity = 0):

@@ -44,14 +44,14 @@ class LDAPEnumerator:
 		
 	def get_all_machines(self):
 		for machine in self.ldap.get_all_machine_objects():
-			yield JackDawADMachine.from_dict(machine.to_dict())
+			yield (machine, JackDawADMachine.from_adcomp(machine))
 			
 	def get_all_users(self):
 		for user in self.ldap.get_all_user_objects():
 			#TODO: fix this ugly stuff here...
 			if user.sAMAccountName[-1] == "$":
 				continue
-			yield JackDawADUser.from_aduser(user)
+			yield (user, JackDawADUser.from_aduser(user))
 
 		
 	def get_all_groups(self):
@@ -126,7 +126,7 @@ class LDAPEnumerator:
 		session.refresh(info)
 		
 		ctr = 0
-		for user in self.get_all_users():
+		for obj, user in self.get_all_users():
 			ctr += 1
 			user.ad_id = info.id
 			for membership in self.get_user_effective_memberships(user):
@@ -136,20 +136,37 @@ class LDAPEnumerator:
 				acl.ad_id = info.id
 				session.add(acl)
 			
-			session.add(user)	
-			if ctr % 1000 == 0:
-				session.commit()
+			session.add(user)
+			session.commit()
+			session.refresh(user)
+			
+			for spn in getattr(obj,'allowedtodelegateto',[]):
+				con = JackDawMachineConstrainedDelegation()
+				con.user_id = user.id
+				con.spn(spn)
+				session.add(con)
+			session.commit()
 		
-		ctr = 0
-		for machine in self.get_all_machines():
+		for obj, machine in self.get_all_machines():
 			machine.ad_id = info.id
 			session.add(machine)
-			for acl in self.get_acls_for_dn(user.dn):
+			session.commit()
+			session.refresh(machine)
+			
+			for spn in getattr(obj,'allowedtodelegateto',[]):
+				con = JackDawMachineConstrainedDelegation()
+				con.machine_id = machine.id
+				con.spn(spn)
+				session.add(con)
+			session.commit()
+			
+			for acl in self.get_acls_for_dn(machine.dn):
 				acl.ad_id = info.id
 				session.add(acl)
 				
-			if ctr % 1000 == 0:
-				session.commit()
+			session.commit()
+			
+			
 		
 		ctr = 0		
 		for group in self.get_all_groups():

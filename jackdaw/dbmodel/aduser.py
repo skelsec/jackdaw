@@ -1,4 +1,5 @@
 from . import Basemodel, lf, dt, bc
+from jackdaw.dbmodel.utils import *
 import datetime
 from sqlalchemy.orm import relationship
 from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Boolean
@@ -54,8 +55,33 @@ class JackDawADUser(Basemodel):
 	must_change_pw = Column(DateTime)
 	canLogon = Column(Boolean)
 	isAdmin = Column(Boolean)
+	
+	UAC_SCRIPT = Column(Boolean)
+	UAC_ACCOUNTDISABLE = Column(Boolean)
+	UAC_HOMEDIR_REQUIRED = Column(Boolean)
+	UAC_LOCKOUT = Column(Boolean)
+	UAC_PASSWD_NOTREQD = Column(Boolean)
+	UAC_PASSWD_CANT_CHANGE = Column(Boolean)
+	UAC_ENCRYPTED_TEXT_PASSWORD_ALLOWED = Column(Boolean)
+	UAC_TEMP_DUPLICATE_ACCOUNT = Column(Boolean)
+	UAC_NORMAL_ACCOUNT = Column(Boolean)
+	UAC_INTERDOMAIN_TRUST_ACCOUNT = Column(Boolean)
+	UAC_WORKSTATION_TRUST_ACCOUNT = Column(Boolean)
+	UAC_SERVER_TRUST_ACCOUNT = Column(Boolean)
+	UAC_NA_1 = Column(Boolean)
+	UAC_NA_2 = Column(Boolean)
+	UAC_DONT_EXPIRE_PASSWD = Column(Boolean)
+	UAC_MNS_LOGON_ACCOUNT = Column(Boolean)
+	UAC_SMARTCARD_REQUIRED = Column(Boolean)
+	UAC_TRUSTED_FOR_DELEGATION = Column(Boolean)
+	UAC_NOT_DELEGATED = Column(Boolean)
+	UAC_USE_DES_KEY_ONLY = Column(Boolean)
+	UAC_DONT_REQUIRE_PREAUTH = Column(Boolean)
+	UAC_PASSWORD_EXPIRED = Column(Boolean)
+	UAC_TRUSTED_TO_AUTHENTICATE_FOR_DELEGATION = Column(Boolean)
 
 	credential = relationship("Credential", back_populates="user")
+	allowedtodelegateto = relationship("JackDawUserConstrainedDelegation", back_populates="user")
 	
 	@staticmethod
 	def from_aduser(u):
@@ -98,47 +124,6 @@ class JackDawADUser(Basemodel):
 		user.must_change_pw = dt(lf(getattr(u,'must_change_pw')))
 		user.canLogon = bc(lf(getattr(u,'canLogon')))
 		user.isAdmin = bc(lf(getattr(u,'isAdmin', None)))
-		return user
-	
-	@staticmethod
-	def from_dict(d):
-		user = JackDawADUser()
-		user.sn = lf(d.get('sn'))
-		user.cn = lf(d.get('cn'))
-		user.dn = lf(d.get('distinguishedName'))
-		user.initials = lf(d.get('initials'))
-		user.givenName = lf(d.get('givenName'))
-		user.displayName = lf(d.get('displayName'))
-		user.name = lf(d.get('name'))
-		user.objectCategory = lf(d.get('objectCategory'))
-		user.objectClass = lf(d.get('objectClass'))
-		user.objectGUID = lf(d.get('objectGUID'))
-		user.objectSid = lf(d.get('objectSid'))
-		user.primaryGroupID = lf(d.get('primaryGroupID'))
-		user.sAMAccountName = lf(d.get('sAMAccountName'))
-		user.userPrincipalName = lf(d.get('userPrincipalName'))
-		user.servicePrincipalName = lf(d.get('servicePrincipalName'))
-	
-		user.memberOf = lf(d.get('memberOf'))
-		user.member = lf(d.get('member'))
-		user.accountExpires = lf(d.get('accountExpires'))
-		user.badPasswordTime = lf(d.get('badPasswordTime'))
-		user.lastLogoff = lf(d.get('lastLogoff'))
-		user.lastLogon = lf(d.get('lastLogon'))
-		user.lastLogonTimestamp = lf(d.get('lastLogonTimestamp'))
-		user.pwdLastSet = lf(d.get('pwdLastSet'))
-		user.whenChanged = lf(d.get('whenChanged'))
-		user.whenCreated = lf(d.get('whenCreated'))
-		user.badPwdCount = lf(d.get('badPwdCount'))
-		user.logonCount = lf(d.get('logonCount'))
-		user.sAMAccountType = lf(d.get('sAMAccountType'))
-		user.userAccountControl = lf(d.get('userAccountControl'))
-	
-		user.codePage = lf(d.get('codePage'))
-		user.countryCode = lf(d.get('countryCode'))
-		user.when_pw_change = lf(d.get('when_pw_change'))
-		user.when_pw_expires = lf(d.get('when_pw_expires'))
-		user.must_change_pw = lf(d.get('must_change_pw'))
-		user.canLogon = lf(d.get('canLogon'))
-		user.canLogon = lf(d.get('isAdmin'))
+		calc_uac_flags(user)
+			
 		return user
