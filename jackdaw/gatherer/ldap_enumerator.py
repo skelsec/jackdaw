@@ -125,10 +125,13 @@ class LDAPEnumerator:
 		session.commit()
 		session.refresh(info)
 		
-		ctr = 0
+		print('Enumerating users...')
 		for obj, user in self.get_all_users():
-			ctr += 1
 			user.ad_id = info.id
+			session.add(user)
+			session.commit()
+			session.refresh(user)
+			
 			for membership in self.get_user_effective_memberships(user):
 				info.group_lookups.append(membership)
 				
@@ -136,17 +139,14 @@ class LDAPEnumerator:
 				acl.ad_id = info.id
 				session.add(acl)
 			
-			session.add(user)
-			session.commit()
-			session.refresh(user)
-			
 			for spn in getattr(obj,'allowedtodelegateto',[]):
 				con = JackDawMachineConstrainedDelegation()
-				con.user_id = user.id
 				con.spn = spn
-				session.add(con)
+				user.allowedtodelegateto.append(con)
+			
 			session.commit()
 		
+		print('Enumerating machines...')
 		for obj, machine in self.get_all_machines():
 			machine.ad_id = info.id
 			session.add(machine)
@@ -155,10 +155,8 @@ class LDAPEnumerator:
 			
 			for spn in getattr(obj,'allowedtodelegateto',[]):
 				con = JackDawMachineConstrainedDelegation()
-				con.machine_id = machine.id
 				con.spn = spn
-				session.add(con)
-			session.commit()
+				machine.allowedtodelegateto.append(con)
 			
 			for acl in self.get_acls_for_dn(machine.dn):
 				acl.ad_id = info.id
@@ -166,8 +164,7 @@ class LDAPEnumerator:
 				
 			session.commit()
 			
-			
-		
+		print('Enumerating groups...')
 		ctr = 0		
 		for group in self.get_all_groups():
 			group.ad_id = info.id	
