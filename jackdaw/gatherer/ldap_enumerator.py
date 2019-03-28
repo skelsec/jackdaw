@@ -143,7 +143,7 @@ class LDAPEnumerator:
 			for spn in getattr(obj,'allowedtodelegateto',[]):
 				con = JackDawMachineConstrainedDelegation()
 				con.user_id = user.id
-				con.spn(spn)
+				con.spn = spn
 				session.add(con)
 			session.commit()
 		
@@ -156,7 +156,7 @@ class LDAPEnumerator:
 			for spn in getattr(obj,'allowedtodelegateto',[]):
 				con = JackDawMachineConstrainedDelegation()
 				con.machine_id = machine.id
-				con.spn(spn)
+				con.spn = spn
 				session.add(con)
 			session.commit()
 			
