@@ -7,7 +7,7 @@ if __name__ == '__main__':
 	username = ''
 	password = ''
 	dc_ip = '10.10.10.2'
-	db_conn = 'sqlite:///test.db'
+	db_conn = 'sqlite:///E:\\test.db'
 	
 	#MSLDAPUserCredential(domain=None, username= None, password = None, is_ntlm = False)
 	#MSLDAP(login_credential, target_server, ldap_query_page_size = 1000, use_sspi = False)

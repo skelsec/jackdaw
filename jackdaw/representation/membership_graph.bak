@@ -1,15 +1,17 @@
-
+import networkx as nx
 from jackdaw.dbmodel.adinfo import JackDawADInfo
 from jackdaw.dbmodel.tokengroup import JackDawTokenGroup
 from jackdaw.dbmodel import *
-
-from pyvis.network import Network
-
+import holoviews as hv
+from bokeh.io import show, output_file
+from bokeh.plotting import figure
+from bokeh.models.graphs import from_networkx
+import pylab as plt
 
 class MembershipPlotter:
 	def __init__(self, db_conn):
 		self.db_conn = db_conn
-		self.graph = Network()
+		self.graph = nx.MultiDiGraph()
 		self.show_group_memberships = True
 		self.show_user_memberships = True
 		self.show_machine_memberships = True
@@ -29,7 +31,11 @@ class MembershipPlotter:
 				if group.sid in distinct_filter:
 					continue
 				distinct_filter[group.sid] = 1
-				self.graph.add_node(group.sid, label=group.name, color="#00ff1e")
+				self.graph.add_node(group.sid, name=group.name, guid=group.guid)
+				if group.sid in node_lables:
+					raise Exception()
+				node_lables[group.sid] = group.name
+				node_color_map.append('r')
 		
 		distinct_filter = {}
 		if self.show_user_memberships == True:
@@ -39,7 +45,9 @@ class MembershipPlotter:
 					continue
 				distinct_filter[user.objectSid] = 1
 				
-				self.graph.add_node(user.objectSid, label=user.sAMAccountName, color="#162347")
+				self.graph.add_node(user.objectSid, name= user.sAMAccountName)
+				node_lables[user.objectSid] = user.sAMAccountName
+				node_color_map.append('b')
 				
 		distinct_filter = {}
 		if self.show_machine_memberships == True:
@@ -48,7 +56,9 @@ class MembershipPlotter:
 				if user.objectSid in distinct_filter:
 					continue
 				distinct_filter[user.objectSid] = 1
-				self.graph.add_node(user.objectSid, label= user.sAMAccountName, color="#dd4b39")
+				self.graph.add_node(user.objectSid, name= user.sAMAccountName)
+				node_lables[user.objectSid] = user.sAMAccountName
+				node_color_map.append('k')
 		
 		"""
 		if self.show_session_memberships == True:
@@ -68,18 +78,21 @@ class MembershipPlotter:
 				continue
 			distinct_filter[tokengroup.sid] = 1
 			if tokengroup.is_user == True and self.show_user_memberships == True:
-				try:
-					self.graph.add_edge(tokengroup.sid, tokengroup.member_sid)
-				except AssertionError as e:
-					print(e)
+				self.graph.add_edge(tokengroup.sid, tokengroup.member_sid)
 			elif tokengroup.is_machine == True and self.show_machine_memberships == True:
-				try:
-					self.graph.add_edge(tokengroup.sid, tokengroup.member_sid)
-				except AssertionError as e:
-					print(e)
+				self.graph.add_edge(tokengroup.sid, tokengroup.member_sid)
 			elif tokengroup.is_group == True and self.show_group_memberships == True:
-				try:
-					self.graph.add_edge(tokengroup.sid, tokengroup.member_sid)
-				except AssertionError as e:
-					print(e)
-		self.graph.show("gameofthrones.html")
+				self.graph.add_edge(tokengroup.sid, tokengroup.member_sid)
+
+		#for group in adinfo.groups:
+			
+		#nx.draw(self.graph, node_size = 600, node_color = node_color_map, labels=node_lables, with_labels = True, prog='neato')
+		nx.draw(self.graph, node_size = 600,  labels=node_lables, with_labels = True, prog='neato')
+		plt.show()
+		#plot = figure(title="Networkx Integration Demonstration", x_range=(-2.10,2.10), y_range=(-2.1,2.1),
+		#				tools="", toolbar_location=None)
+		
+		#g = from_networkx(self.graph, nx.spring_layout, scale=2, center=(0,0))
+		
+		#plot.renderers.append(g)
+		#show(plot)

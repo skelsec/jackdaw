@@ -190,7 +190,7 @@ class LDAPEnumerator:
 			for membership in self.get_user_effective_memberships(group):
 				info.group_lookups.append(membership)
 				
-			for acl in self.get_acls_for_dn(user.dn):
+			for acl in self.get_acls_for_dn(group.dn):
 				acl.ad_id = info.id
 				session.add(acl)
 				
