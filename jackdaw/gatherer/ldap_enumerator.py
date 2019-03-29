@@ -5,6 +5,7 @@ from jackdaw.dbmodel.adacl import JackDawADACL
 from jackdaw.dbmodel.adgroup import JackDawADGroup
 from jackdaw.dbmodel.adinfo import JackDawADInfo
 from jackdaw.dbmodel.aduser import JackDawADUser
+from jackdaw.dbmodel.adcomp import JackDawADMachine
 from jackdaw.dbmodel.usergroup import JackDawGroupUser
 from jackdaw.dbmodel.adinfo import JackDawADInfo
 from jackdaw.dbmodel.tokengroup import JackDawTokenGroup
@@ -64,9 +65,22 @@ class LDAPEnumerator:
 			s = JackDawTokenGroup()
 			s.cn = str(user.cn)
 			s.dn = str(user.dn)
-			s.guid = str(user.objectGUID)
-			s.sid = str(user.objectSid)
-			s.member_sid = sid
+			
+			if isinstance(user, JackDawADUser):
+				s.guid = str(user.objectGUID)
+				s.sid = str(user.objectSid)
+				s.member_sid = sid
+				s.is_user = True
+			elif isinstance(user, JackDawADMachine):
+				s.guid = str(user.objectGUID)
+				s.sid = str(user.objectSid)
+				s.member_sid = sid
+				s.is_machine = True
+			elif isinstance(user, JackDawADGroup):
+				s.guid = str(user.guid)
+				s.sid = str(user.sid)
+				s.member_sid = sid
+				s.is_group = True
 			yield s
 			
 	def ace_to_dbo(self, sd):
@@ -140,7 +154,7 @@ class LDAPEnumerator:
 				session.add(acl)
 			
 			for spn in getattr(obj,'allowedtodelegateto',[]):
-				con = JackDawMachineConstrainedDelegation()
+				con = JackDawUserConstrainedDelegation()
 				con.spn = spn
 				user.allowedtodelegateto.append(con)
 			
@@ -152,6 +166,9 @@ class LDAPEnumerator:
 			session.add(machine)
 			session.commit()
 			session.refresh(machine)
+			
+			for membership in self.get_user_effective_memberships(machine):
+				info.group_lookups.append(membership)
 			
 			for spn in getattr(obj,'allowedtodelegateto',[]):
 				con = JackDawMachineConstrainedDelegation()
@@ -169,6 +186,10 @@ class LDAPEnumerator:
 		for group in self.get_all_groups():
 			group.ad_id = info.id	
 			session.add(group)
+			
+			for membership in self.get_user_effective_memberships(group):
+				info.group_lookups.append(membership)
+				
 			for acl in self.get_acls_for_dn(user.dn):
 				acl.ad_id = info.id
 				session.add(acl)

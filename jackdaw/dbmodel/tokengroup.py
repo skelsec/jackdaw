@@ -1,7 +1,7 @@
 from . import Basemodel
 import datetime
 from sqlalchemy.orm import relationship
-from sqlalchemy import Column, Integer, String, DateTime, ForeignKey
+from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Boolean
 
 class JackDawTokenGroup(Basemodel):
 	__tablename__ = 'tokengroup'
@@ -15,3 +15,6 @@ class JackDawTokenGroup(Basemodel):
 	guid = Column(String, index=True)
 	sid = Column(String, index=True)
 	member_sid = Column(String, index=True)
+	is_group = Column(Boolean)
+	is_user = Column(Boolean)
+	is_machine = Column(Boolean)
