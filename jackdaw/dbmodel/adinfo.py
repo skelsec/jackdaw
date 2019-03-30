@@ -38,12 +38,13 @@ class JackDawADInfo(Basemodel):
 	whenChanged = Column(DateTime)
 	whenCreated = Column(DateTime)
 
-	users = relationship("JackDawADUser", back_populates="ad")
-	computers = relationship("JackDawADMachine", back_populates="ad")
-	groups = relationship("JackDawADGroup", back_populates="ad")
-	group_lookups = relationship("JackDawTokenGroup", back_populates="ad")
-	spnservices = relationship("JackDawSPNService", back_populates="ad")
-	objectacls = relationship("JackDawADACL", back_populates="ad")
+	users = relationship("JackDawADUser", back_populates="ad", lazy = True)
+	computers = relationship("JackDawADMachine", back_populates="ad", lazy = True)
+	groups = relationship("JackDawADGroup", back_populates="ad", lazy = True)
+	group_lookups = relationship("JackDawTokenGroup", back_populates="ad", lazy = True)
+	spnservices = relationship("JackDawSPNService", back_populates="ad", lazy = True)
+	objectacls = relationship("JackDawADACL", back_populates="ad", lazy = True)
+	customrelations = relationship("JackDawCustomRelations", back_populates="ad", lazy = True)
 	
 	@staticmethod
 	def from_dict(d):

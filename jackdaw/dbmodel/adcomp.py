@@ -10,7 +10,7 @@ class JackDawADMachine(Basemodel):
 	# Now for the attributes
 	id = Column(Integer, primary_key=True)
 	ad_id = Column(Integer, ForeignKey('ads.id'))
-	ad = relationship("JackDawADInfo", back_populates="computers")
+	ad = relationship("JackDawADInfo", back_populates="computers", lazy = True)
 	fetched_at = Column(DateTime, default=datetime.datetime.utcnow)
 	sn = Column(String)
 	cn = Column(String)
@@ -47,7 +47,7 @@ class JackDawADMachine(Basemodel):
 	whenCreated = Column(DateTime)
 	servicePrincipalName = Column(String)
 	
-	allowedtodelegateto = relationship("JackDawMachineConstrainedDelegation", back_populates="machine")
+	allowedtodelegateto = relationship("JackDawMachineConstrainedDelegation", back_populates="machine", lazy = True)
 	
 	UAC_SCRIPT = Column(Boolean)
 	UAC_ACCOUNTDISABLE = Column(Boolean)

@@ -127,6 +127,8 @@ class LGResProc(Process):
 			lg.domain  = group.domain
 			lg.username  = group.username
 			lg.groupname  = groupname
+			if group.domain and group.domain != '':
+				lg.hostname  = group.domain.split('.')[0].upper() + '$'
 			self.session.add(lg)
 			self.session.commit()
 			print('%s %s %s %s %s %s' % (target, ip, rdns, lg.domain, lg.username, lg.sid))

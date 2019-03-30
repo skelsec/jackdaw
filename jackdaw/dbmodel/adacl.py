@@ -8,7 +8,7 @@ class JackDawADACL(Basemodel):
 	
 	id = Column(Integer, primary_key=True)
 	ad_id = Column(Integer, ForeignKey('ads.id'))
-	ad = relationship("JackDawADInfo", back_populates="objectacls")
+	ad = relationship("JackDawADInfo", back_populates="objectacls", lazy = True)
 	
 	fetched_at = Column(DateTime, default=datetime.datetime.utcnow)
 	guid = Column(String, index=True)

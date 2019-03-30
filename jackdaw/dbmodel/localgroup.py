@@ -9,6 +9,7 @@ class LocalGroup(Basemodel):
 	fetched_at = Column(DateTime, default=datetime.datetime.utcnow)
 	ip = Column(String, index=True)
 	rdns = Column(String, index=True)
+	hostname = Column(String, index=True)
 	sid = Column(String, index=True)
 	sidusage = Column(String, index=True)
 	domain = Column(String, index=True)

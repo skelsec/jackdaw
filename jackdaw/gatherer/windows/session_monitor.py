@@ -21,7 +21,7 @@ class SessMonThread(Thread):
 			if not target:
 				break
 			try:
-				for session in NetSessionEnum(target):
+				for session in NetSessionEnum(target[:-1]):
 					self.outQ.put((target, session))
 			except Exception as e:
 				print(e)
@@ -109,7 +109,7 @@ class SessionMonitor:
 
 		attributes = ['sAMAccountName']
 		for entry in ldap.pagedsearch(ldap_filter, attributes):
-			self.hosts.append(entry['attributes']['sAMAccountName'][:-1])
+			self.hosts.append(entry['attributes']['sAMAccountName'])
 
 	def load_targets_file(self, filename):
 		with open(filename,'r') as f:

@@ -11,7 +11,7 @@ import pylab as plt
 class MembershipPlotter:
 	def __init__(self, db_conn):
 		self.db_conn = db_conn
-		self.graph = nx.MultiDiGraph()
+		self.graph = nx.Graph()
 		self.show_group_memberships = True
 		self.show_user_memberships = True
 		self.show_machine_memberships = True

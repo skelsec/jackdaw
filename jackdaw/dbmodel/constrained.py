@@ -8,8 +8,9 @@ class JackDawMachineConstrainedDelegation(Basemodel):
 
 	id = Column(Integer, primary_key=True)
 	machine_id = Column(Integer, ForeignKey('machines.id'))
-	machine = relationship("JackDawADMachine", back_populates="allowedtodelegateto")
+	machine = relationship("JackDawADMachine", back_populates="allowedtodelegateto", lazy = True)
 	spn = Column(String, index=True)
+	targetaccount = Column(String, index=True)
 
 
 class JackDawUserConstrainedDelegation(Basemodel):
@@ -17,5 +18,6 @@ class JackDawUserConstrainedDelegation(Basemodel):
 
 	id = Column(Integer, primary_key=True)
 	user_id = Column(Integer, ForeignKey('users.id'))
-	user = relationship("JackDawADUser", back_populates="allowedtodelegateto")
+	user = relationship("JackDawADUser", back_populates="allowedtodelegateto", lazy = True)
 	spn = Column(String, index=True)
+	targetaccount = Column(String, index=True)

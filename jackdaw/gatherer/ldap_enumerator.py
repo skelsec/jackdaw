@@ -131,6 +131,10 @@ class LDAPEnumerator:
 		pass
 		#print(os.environ['LOGONSERVER'])
 		
+	def spn_to_account(self):
+		if spn.find('/') != -1:
+			return spn.rsplit('/')[1].upper() + '$'
+		
 	def run(self):
 		self.ldap.connect()
 		session = get_session(self.db_con)
@@ -156,6 +160,7 @@ class LDAPEnumerator:
 			for spn in getattr(obj,'allowedtodelegateto',[]):
 				con = JackDawUserConstrainedDelegation()
 				con.spn = spn
+				con.targetaccount = self.spn_to_account(spn)
 				user.allowedtodelegateto.append(con)
 			
 			session.commit()
@@ -173,6 +178,7 @@ class LDAPEnumerator:
 			for spn in getattr(obj,'allowedtodelegateto',[]):
 				con = JackDawMachineConstrainedDelegation()
 				con.spn = spn
+				con.targetaccount = self.spn_to_account(spn)
 				machine.allowedtodelegateto.append(con)
 			
 			for acl in self.get_acls_for_dn(machine.dn):

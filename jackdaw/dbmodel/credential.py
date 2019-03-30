@@ -8,7 +8,7 @@ class Credential(Basemodel):
 
 	id = Column(Integer, primary_key=True)
 	user_id = Column(Integer, ForeignKey('users.id'))
-	user = relationship("JackDawADUser", back_populates="credential")
+	user = relationship("JackDawADUser", back_populates="credential", lazy = True)
 	nt_hash = Column(String, index=True)
 	lm_hash = Column(String, index=True)
 	history_no = Column(Integer, index=True)

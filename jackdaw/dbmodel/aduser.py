@@ -10,7 +10,7 @@ class JackDawADUser(Basemodel):
 	# Now for the attributes
 	id = Column(Integer, primary_key=True)
 	ad_id = Column(Integer, ForeignKey('ads.id'))
-	ad = relationship("JackDawADInfo", back_populates="users")
+	ad = relationship("JackDawADInfo", back_populates="users", lazy = True)
 	fetched_at = Column(DateTime, default=datetime.datetime.utcnow)
 	sn = Column(String)
 	cn = Column(String)
@@ -80,8 +80,8 @@ class JackDawADUser(Basemodel):
 	UAC_PASSWORD_EXPIRED = Column(Boolean)
 	UAC_TRUSTED_TO_AUTHENTICATE_FOR_DELEGATION = Column(Boolean)
 
-	credential = relationship("Credential", back_populates="user")
-	allowedtodelegateto = relationship("JackDawUserConstrainedDelegation", back_populates="user")
+	credential = relationship("Credential", back_populates="user", lazy = True)
+	allowedtodelegateto = relationship("JackDawUserConstrainedDelegation", back_populates="user", lazy = True)
 	
 	@staticmethod
 	def from_aduser(u):

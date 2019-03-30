@@ -8,7 +8,7 @@ class JackDawSPNService(Basemodel):
 	
 	id = Column(Integer, primary_key=True)
 	ad_id = Column(Integer, ForeignKey('ads.id'))
-	ad = relationship("JackDawADInfo", back_populates="spnservices")
+	ad = relationship("JackDawADInfo", back_populates="spnservices", lazy = True)
 	fetched_at = Column(DateTime, default=datetime.datetime.utcnow)
 	computername = Column(String, index=True)
 	service = Column(String, index=True)
