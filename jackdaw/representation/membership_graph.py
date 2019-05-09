@@ -10,11 +10,12 @@ class MembershipPlotter:
 	def __init__(self, db_conn):
 		self.db_conn = db_conn
 		self.graph = nx.Graph()
+		self.network_visual = Network("3000px", "3000px")
 		self.show_group_memberships = True
 		self.show_user_memberships = True
 		self.show_machine_memberships = True
 		self.show_session_memberships = True
-		self.show_localgroup_memberships = True
+		self.show_localgroup_memberships = False
 		self.show_constrained_delegations = True
 		self.show_unconstrained_delegations = True
 		self.show_custom_relations = True
@@ -35,6 +36,7 @@ class MembershipPlotter:
 					continue
 				distinct_filter[group.sid] = 1
 				self.graph.add_node(group.sid, name=group.name, guid=group.guid)
+				self.network_visual.add_node(str(group.sid), label=group.name, color="#00ff1e")
 				node_lables[group.sid] = group.name
 				#node_color_map.append('r')
 				#self.graph.add_node(group.sid, label=group.name, color="#00ff1e")
@@ -48,6 +50,7 @@ class MembershipPlotter:
 				#distinct_filter[user.objectSid] = 1
 				
 				self.graph.add_node(user.objectSid, name= user.sAMAccountName)
+				self.network_visual.add_node(str(user.objectSid), label= user.sAMAccountName, color="#162347")
 				node_lables[user.objectSid] = user.sAMAccountName
 				
 		distinct_filter = {}
@@ -58,6 +61,7 @@ class MembershipPlotter:
 					continue
 				distinct_filter[user.objectSid] = 1
 				self.graph.add_node(user.objectSid, name= user.sAMAccountName)
+				self.network_visual.add_node(str(user.objectSid), label= user.sAMAccountName, color="#dd4b39")
 				node_lables[user.objectSid] = user.sAMAccountName
 		
 		
@@ -65,6 +69,7 @@ class MembershipPlotter:
 			for res in session.query(JackDawADUser.objectSid, JackDawADMachine.objectSid).filter(NetSession.username == JackDawADUser.sAMAccountName).filter(NetSession.source == JackDawADMachine.sAMAccountName).distinct(NetSession.username):
 				print(res)
 				self.graph.add_edge(res[0], res[1])
+				self.network_visual.add_edge(res[0], res[1])
 		#return
 		
 		if self.show_localgroup_memberships == True:
@@ -72,6 +77,7 @@ class MembershipPlotter:
 			
 			for res in session.query(JackDawADUser.objectSid, JackDawADMachine.objectSid).filter(LocalGroup.username == JackDawADUser.sAMAccountName).filter(LocalGroup.hostname == JackDawADMachine.sAMAccountName).distinct(LocalGroup.username):
 				self.graph.add_edge(res[0], res[1])
+				self.network_visual.add_edge(res[0], res[1])
 			pass
 			
 			#LocalGroup(Basemodel):
@@ -102,23 +108,30 @@ class MembershipPlotter:
 		if self.show_custom_relations == True:
 			for res in adinfo.customrelations:
 				self.graph.add_edge(res.sid, res.target_sid)
+				self.network_visual.add_edge(res.sid, res.target_sid)
 			
 		
 		#adding membership edges
 		for tokengroup in adinfo.group_lookups:		
+			if tokengroup.member_sid not in self.network_visual.nodes:
+				self.network_visual.add_node(str(tokengroup.member_sid), label=str(tokengroup.member_sid), color="#ffffff")
+				
 			if tokengroup.is_user == True and self.show_user_memberships == True:
 				try:
 					self.graph.add_edge(tokengroup.sid, tokengroup.member_sid)
+					self.network_visual.add_edge(tokengroup.sid, tokengroup.member_sid)
 				except AssertionError as e:
 					print(e)
 			elif tokengroup.is_machine == True and self.show_machine_memberships == True:
 				try:
 					self.graph.add_edge(tokengroup.sid, tokengroup.member_sid)
+					self.network_visual.add_edge(tokengroup.sid, tokengroup.member_sid)
 				except AssertionError as e:
 					print(e)
 			elif tokengroup.is_group == True and self.show_group_memberships == True:
 				try:
 					self.graph.add_edge(tokengroup.sid, tokengroup.member_sid)
+					self.network_visual.add_edge(tokengroup.sid, tokengroup.member_sid)
 				except AssertionError as e:
 					print(e)
 		
@@ -146,6 +159,6 @@ class MembershipPlotter:
 		#print(a)
 		return		
 		"""
-		n = Network()
-		n.from_nx(self.graph)
-		n.show("test.html")
+
+		self.network_visual.show_buttons()
+		self.network_visual.show("test.html")

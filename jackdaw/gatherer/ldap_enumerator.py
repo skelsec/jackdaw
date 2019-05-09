@@ -130,8 +130,9 @@ class LDAPEnumerator:
 	def get_current_dc_ip(self):
 		pass
 		#print(os.environ['LOGONSERVER'])
-		
-	def spn_to_account(self):
+	
+	@staticmethod
+	def spn_to_account(spn):
 		if spn.find('/') != -1:
 			return spn.rsplit('/')[1].upper() + '$'
 		

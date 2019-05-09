@@ -4,6 +4,7 @@ import datetime
 from sqlalchemy.orm import relationship
 from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Boolean
 
+
 class JackDawADUser(Basemodel):
 	__tablename__ = 'users'
 
@@ -80,7 +81,7 @@ class JackDawADUser(Basemodel):
 	UAC_PASSWORD_EXPIRED = Column(Boolean)
 	UAC_TRUSTED_TO_AUTHENTICATE_FOR_DELEGATION = Column(Boolean)
 
-	credential = relationship("Credential", back_populates="user", lazy = True)
+	#credential = relationship("Credential", back_populates="user", lazy = True)
 	allowedtodelegateto = relationship("JackDawUserConstrainedDelegation", back_populates="user", lazy = True)
 	
 	@staticmethod
