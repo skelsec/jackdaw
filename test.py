@@ -32,9 +32,28 @@ def main(args):
 		jdlogger.setLevel(1)
 	
 	db_conn = args.sql
-	#create_db(db_conn)
+	create_db(db_conn)
 	
-	if args.command == 'ldap':
+	if args.command == 'enum':
+		ldap_conn = ldap_from_string(args.ldap_connection_string)
+		ldap_conn.connect()
+	
+		ldapenum = LDAPEnumerator(db_conn, ldap_conn)
+		ldapenum.run()
+		
+		se = ShareEnumerator(db_conn)
+		se.load_targets_ldap(ldap_conn)
+		se.run()
+		
+		sm = LocalGroupEnumerator(db_conn)
+		sm.load_targets_ldap(ldap_conn)
+		sm.run()
+		
+		sm = SessionMonitor(db_conn)
+		sm.load_targets_ldap(ldap_conn)
+		sm.run()
+		
+	elif args.command == 'ldap':
 		ldap_conn = ldap_from_string(args.ldap_connection_string)
 		ldap_conn.connect()
 	
@@ -78,7 +97,6 @@ def main(args):
 		elif args.target_file:
 			sm.load_targets_file(args.target_file)
 			
-		
 		sm.run()
 		
 	elif args.command == 'plot':
@@ -168,6 +186,10 @@ if __name__ == '__main__':
 	ldap_group = subparsers.add_parser('ldap', formatter_class=argparse.RawDescriptionHelpFormatter, help='Enumerate potentially vulnerable users via LDAP', epilog = MSLDAPCredential.help_epilog)
 	ldap_group.add_argument('ldap_connection_string',  help='LDAP connection specitication <domain>/<username>/<secret_type>:<secret>@<dc_ip_or_hostname_or_ldap_url>')
 	
+	enum_group = subparsers.add_parser('enum', formatter_class=argparse.RawDescriptionHelpFormatter, help='Enumerate all stuffs', epilog = MSLDAPCredential.help_epilog)
+	enum_group.add_argument('ldap_connection_string',  help='LDAP connection specitication <domain>/<username>/<secret_type>:<secret>@<dc_ip_or_hostname_or_ldap_url>')
+	
+	
 	share_group = subparsers.add_parser('share', help='Enumerate shares on target')
 	share_group.add_argument('-t', '--target-file', help='taget file with hostnames. One per line.')
 	share_group.add_argument('-l', '--ldap', help='ldap_connection_string. Use this to get targets from the domain controller')
@@ -203,36 +225,3 @@ if __name__ == '__main__':
 	
 	main(args)
 	
-	
-	"""
-	username = ''
-	password = ''
-	dc_ip = '10.10.10.2'
-	db_conn = 'sqlite:///E:\\test.db'
-	
-	
-	
-	create_db(db_conn)
-	
-	target = MSLDAPTargetServer(dc_ip)
-	ldap = MSLDAP(None, target, use_sspi = True)	
-	ldap.connect()
-	
-	ldapenum = LDAPEnumerator(db_conn, ldap)
-	ldapenum.run()
-	
-	se = ShareEnumerator(db_conn)
-	se.load_targets_ldap(ldap)
-	se.run()
-
-	sm = LocalGroupEnumerator(db_conn)
-	sm.load_targets_ldap(ldap)
-	sm.run()
-	
-	sm = SessionMonitor(db_conn)
-	sm.load_targets_ldap(ldap)
-	sm.run()
-	
-	mp = MembershipPlotter(db_conn)
-	mp.run(1)
-	"""
