@@ -5,31 +5,34 @@ from jackdaw.dbmodel import *
 from jackdaw.representation.membership_graph import *
 from jackdaw.representation.passwords_report import *
 
+from jackdaw import logger as jdlogger
+from msldap import logger as msldaplogger
+
+
+
 def ldap_from_string(ldap_connection_string):
-	ldap_creds = MSLDAPCredential.from_connection_string(args.ldap_connection_string)
-	ldap_target = MSLDAPTarget.from_connection_string(args.ldap_connection_string)
+	ldap_creds = MSLDAPCredential.from_connection_string(ldap_connection_string)
+	ldap_target = MSLDAPTarget.from_connection_string(ldap_connection_string)
 	return MSLDAPConnection(ldap_creds, ldap_target)
 
 def main(args):
-	"""
 	if args.verbose == 0:
 		logging.basicConfig(level=logging.INFO)
-		kerblogger.setLevel(logging.WARNING)
+		jdlogger.setLevel(logging.INFO)
 		msldaplogger.setLevel(logging.WARNING)
 		
 	elif args.verbose == 1:
 		logging.basicConfig(level=logging.DEBUG)
-		kerblogger.setLevel(logging.INFO)
+		jdlogger.setLevel(logging.DEBUG)
 		msldaplogger.setLevel(logging.INFO)
 		
 	else:
 		logging.basicConfig(level=1)
-		kerblogger.setLevel(logging.DEBUG)
 		msldaplogger.setLevel(logging.DEBUG)
-	"""
+		jdlogger.setLevel(1)
 	
 	db_conn = args.sql
-	create_db(db_conn)
+	#create_db(db_conn)
 	
 	if args.command == 'ldap':
 		ldap_conn = ldap_from_string(args.ldap_connection_string)
@@ -41,7 +44,7 @@ def main(args):
 	elif args.command == 'share':
 		se = ShareEnumerator(db_conn)
 		if args.ldap:
-			ldap_conn = ldap_from_string(args.ldap_connection_string)
+			ldap_conn = ldap_from_string(args.ldap)
 			ldap_conn.connect()
 		
 			se.load_targets_ldap(ldap_conn)
@@ -55,7 +58,7 @@ def main(args):
 		sm = LocalGroupEnumerator(db_conn)
 		
 		if args.ldap:
-			ldap_conn = ldap_from_string(args.ldap_connection_string)
+			ldap_conn = ldap_from_string(args.ldap)
 			ldap_conn.connect()
 			sm.load_targets_ldap(ldap_conn)
 		
@@ -67,7 +70,7 @@ def main(args):
 	elif args.command == 'session':
 		sm = SessionMonitor(db_conn)
 		if args.ldap:
-			ldap_conn = ldap_from_string(args.ldap_connection_string)
+			ldap_conn = ldap_from_string(args.ldap)
 			ldap_conn.connect()
 			
 			sm.load_targets_ldap(ldap_conn)

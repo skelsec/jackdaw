@@ -1,6 +1,7 @@
 
 from jackdaw.dbmodel.netshare import *
 from jackdaw.dbmodel import *
+from jackdaw import logger
 
 from winrecon.cf.c_functions import NetShareEnum
 from winrecon.file_utils import *
@@ -30,7 +31,7 @@ class ShareEnumThread(Thread):
 				for share in NetShareEnum(target, level=1):
 					self.outQ.put((target, share))
 			except Exception as e:
-				print(e)
+				logger.debug('ShareEnumerator error: %s' % str(e))
 				continue
 		
 class ShareEnumProc(Process):
@@ -86,10 +87,9 @@ class SMResProc(Process):
 			try:
 				answers = dns_resolver.query(target, 'A')
 				for rdata in answers:
-					print(rdata.address)
 					self.dns_table[target] = rdata.address
 			except Exception as e:
-				print(e)
+				logger.debug('ShareEnumerator error: %s' % str(e))
 				self.dns_table[target] = None
 		return self.dns_table[target]
 		
@@ -104,7 +104,7 @@ class SMResProc(Process):
 			try:
 				ip = str(ipaddress.ip_address(target))
 			except Exception as e:
-				print(e)
+				#print(e)
 				ip = None
 			
 			if ip is None:
@@ -122,7 +122,7 @@ class SMResProc(Process):
 			ns.passwd  = share.passwd
 			self.session.add(ns)
 			self.session.commit()
-			print('%s %s %s %s' % (target, ip, rdns, ns.netname))
+			#print('%s %s %s %s' % (target, ip, rdns, ns.netname))
 			
 
 class ShareEnumerator:
@@ -170,7 +170,7 @@ class ShareEnumerator:
 			p.start()
 			self.agents.append(p)
 		
-		print('=== Enumerating shares sessions ===')
+		logger.info('=== Enumerating shares ===')
 		for t in self.hosts:
 			self.inQ.put(t)
 		

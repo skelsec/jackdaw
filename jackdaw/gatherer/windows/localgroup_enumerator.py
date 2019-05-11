@@ -5,6 +5,7 @@
 
 from jackdaw.dbmodel.localgroup import *
 from jackdaw.dbmodel import *
+from jackdaw import logger
 
 from winrecon.cf.c_functions import NetLocalGroupGetMembers
 from winrecon.file_utils import *
@@ -36,7 +37,7 @@ class LocalGroupEnumThread(Thread):
 					for group in NetLocalGroupGetMembers(target, groupname, level=2):
 						self.outQ.put((target, groupname, group))
 			except Exception as e:
-				print(e)
+				logger.debug('LocalGroupEnumThread error: %s' % str(e))
 				continue
 		
 class LocalGroupEnumProc(Process):
@@ -92,10 +93,10 @@ class LGResProc(Process):
 			try:
 				answers = dns_resolver.query(target, 'A')
 				for rdata in answers:
-					print(rdata.address)
+					#print(rdata.address)
 					self.dns_table[target] = rdata.address
 			except Exception as e:
-				print(e)
+				logger.debug('LocalGroupEnumThread error: %s' % str(e))
 				self.dns_table[target] = None
 		return self.dns_table[target]
 		
@@ -110,7 +111,6 @@ class LGResProc(Process):
 			try:
 				ip = str(ipaddress.ip_address(target))
 			except Exception as e:
-				print(e)
 				ip = None
 			
 			if ip is None:
@@ -131,7 +131,7 @@ class LGResProc(Process):
 				lg.hostname  = group.domain.split('.')[0].upper() + '$'
 			self.session.add(lg)
 			self.session.commit()
-			print('%s %s %s %s %s %s' % (target, ip, rdns, lg.domain, lg.username, lg.sid))
+			#print('%s %s %s %s %s %s' % (target, ip, rdns, lg.domain, lg.username, lg.sid))
 			
 
 class LocalGroupEnumerator:
@@ -179,7 +179,7 @@ class LocalGroupEnumerator:
 			p.start()
 			self.agents.append(p)
 		
-		print('=== Enumerating local groups ===')
+		logger.info('=== Enumerating local groups ===')
 		for t in self.hosts:
 			self.inQ.put(t)
 		

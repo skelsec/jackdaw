@@ -1,5 +1,6 @@
 
 from jackdaw.dbmodel import *
+from jackdaw import logger
 from winrecon.cf.c_functions import NetSessionEnum
 from winrecon.file_utils import *
 
@@ -24,7 +25,7 @@ class SessMonThread(Thread):
 				for session in NetSessionEnum(target[:-1]):
 					self.outQ.put((target, session))
 			except Exception as e:
-				print(e)
+				logger.debug('SessionMonitor error: %s' % str(e))
 				continue
 		
 class SessMonProc(Process):
@@ -89,7 +90,7 @@ class SessMonResProc(Process):
 			ns.username = session.username
 			self.session.add(ns)
 			self.session.commit()
-			print('%s: %s\\%s (%s)' % (target, ip, session.username, ns.rdns))
+			#print('%s: %s\\%s (%s)' % (target, ip, session.username, ns.rdns))
 		
 class SessionMonitor:
 	def __init__(self, db_conn, monitor_time = 60):
@@ -136,7 +137,8 @@ class SessionMonitor:
 			self.agents.append(p)
 		
 		while True:
-			print('=== Polling sessions ===')
+			#print('=== Polling sessions ===')
+			logger.info('=== Polling sessions ===')
 			for t in self.hosts:
 				self.inQ.put(t)
 			if self.monitor_time != -1:
