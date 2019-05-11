@@ -20,7 +20,7 @@ import ipaddress
 
 
 class LocalGroupEnumThread(Thread):
-	def __init__(self, inQ, outQ, groups = ['Users','Administrators']):
+	def __init__(self, inQ, outQ, groups = ['Remote Desktop Users','Administrators','Distributed COM Users']):
 		Thread.__init__(self)
 		self.groups = groups
 		self.inQ = inQ

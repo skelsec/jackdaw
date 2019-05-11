@@ -5,6 +5,11 @@ from jackdaw.dbmodel import *
 from jackdaw.representation.membership_graph import *
 from jackdaw.representation.passwords_report import *
 
+def ldap_from_string(ldap_connection_string):
+	ldap_creds = MSLDAPCredential.from_connection_string(args.ldap_connection_string)
+	ldap_target = MSLDAPTarget.from_connection_string(args.ldap_connection_string)
+	return MSLDAPConnection(ldap_creds, ldap_target)
+
 def main(args):
 	"""
 	if args.verbose == 0:
@@ -27,10 +32,7 @@ def main(args):
 	create_db(db_conn)
 	
 	if args.command == 'ldap':
-		ldap_creds = MSLDAPCredential.from_connection_string(args.ldap_connection_string)
-		ldap_target = MSLDAPTarget.from_connection_string(args.ldap_connection_string)
-		ldap_conn = MSLDAPConnection(ldap_creds, ldap_target)
-		
+		ldap_conn = ldap_from_string(args.ldap_connection_string)
 		ldap_conn.connect()
 	
 		ldapenum = LDAPEnumerator(db_conn, ldap_conn)
@@ -39,9 +41,8 @@ def main(args):
 	elif args.command == 'share':
 		se = ShareEnumerator(db_conn)
 		if args.ldap:
-			ldap_creds = MSLDAPCredential.from_connection_string(args.ldap_connection_string)
-			ldap_target = MSLDAPTarget.from_connection_string(args.ldap_connection_string)
-			ldap_conn = MSLDAPConnection(ldap_creds, ldap_target)
+			ldap_conn = ldap_from_string(args.ldap_connection_string)
+			ldap_conn.connect()
 		
 			se.load_targets_ldap(ldap_conn)
 		
@@ -54,10 +55,8 @@ def main(args):
 		sm = LocalGroupEnumerator(db_conn)
 		
 		if args.ldap:
-			ldap_creds = MSLDAPCredential.from_connection_string(args.ldap_connection_string)
-			ldap_target = MSLDAPTarget.from_connection_string(args.ldap_connection_string)
-			ldap_conn = MSLDAPConnection(ldap_creds, ldap_target)
-		
+			ldap_conn = ldap_from_string(args.ldap_connection_string)
+			ldap_conn.connect()
 			sm.load_targets_ldap(ldap_conn)
 		
 		elif args.target_file:
@@ -68,10 +67,9 @@ def main(args):
 	elif args.command == 'session':
 		sm = SessionMonitor(db_conn)
 		if args.ldap:
-			ldap_creds = MSLDAPCredential.from_connection_string(args.ldap_connection_string)
-			ldap_target = MSLDAPTarget.from_connection_string(args.ldap_connection_string)
-			ldap_conn = MSLDAPConnection(ldap_creds, ldap_target)
-		
+			ldap_conn = ldap_from_string(args.ldap_connection_string)
+			ldap_conn.connect()
+			
 			sm.load_targets_ldap(ldap_conn)
 		
 		elif args.target_file:
