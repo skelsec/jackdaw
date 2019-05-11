@@ -43,8 +43,9 @@ class JackDawADInfo(Basemodel):
 	groups = relationship("JackDawADGroup", back_populates="ad", lazy = True)
 	group_lookups = relationship("JackDawTokenGroup", back_populates="ad", lazy = True)
 	spnservices = relationship("JackDawSPNService", back_populates="ad", lazy = True)
-	objectacls = relationship("JackDawADACL", back_populates="ad", lazy = True)
+	objectacls = relationship("JackDawADDACL", back_populates="ad", lazy = True)
 	customrelations = relationship("JackDawCustomRelations", back_populates="ad", lazy = True)
+	ou = relationship("JackDawADOU", back_populates="ad", lazy = True)
 	
 	@staticmethod
 	def from_dict(d):

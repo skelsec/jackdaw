@@ -6,7 +6,6 @@ from jackdaw.representation.membership_graph import *
 from jackdaw.representation.passwords_report import *
 
 def main(args):
-	#setting verbosity
 	"""
 	if args.verbose == 0:
 		logging.basicConfig(level=logging.INFO)
@@ -39,22 +38,57 @@ def main(args):
 		
 	elif args.command == 'share':
 		se = ShareEnumerator(db_conn)
-		se.load_targets_ldap(ldap)
+		if args.ldap:
+			ldap_creds = MSLDAPCredential.from_connection_string(args.ldap_connection_string)
+			ldap_target = MSLDAPTarget.from_connection_string(args.ldap_connection_string)
+			ldap_conn = MSLDAPConnection(ldap_creds, ldap_target)
+		
+			se.load_targets_ldap(ldap_conn)
+		
+		elif args.target_file:
+			se.load_targets_file(args.target_file)
+		
 		se.run()
 		
 	elif args.command == 'localgroup':
 		sm = LocalGroupEnumerator(db_conn)
-		sm.load_targets_ldap(ldap)
+		
+		if args.ldap:
+			ldap_creds = MSLDAPCredential.from_connection_string(args.ldap_connection_string)
+			ldap_target = MSLDAPTarget.from_connection_string(args.ldap_connection_string)
+			ldap_conn = MSLDAPConnection(ldap_creds, ldap_target)
+		
+			sm.load_targets_ldap(ldap_conn)
+		
+		elif args.target_file:
+			sm.load_targets_file(args.target_file)
+		
 		sm.run()
 
 	elif args.command == 'session':
 		sm = SessionMonitor(db_conn)
-		sm.load_targets_ldap(ldap)
+		if args.ldap:
+			ldap_creds = MSLDAPCredential.from_connection_string(args.ldap_connection_string)
+			ldap_target = MSLDAPTarget.from_connection_string(args.ldap_connection_string)
+			ldap_conn = MSLDAPConnection(ldap_creds, ldap_target)
+		
+			sm.load_targets_ldap(ldap_conn)
+		
+		elif args.target_file:
+			sm.load_targets_file(args.target_file)
+			
+		
 		sm.run()
 		
 	elif args.command == 'plot':
+		ad_id = 1
 		mp = MembershipPlotter(db_conn)
-		mp.run(1)
+		mp.get_network_data(ad_id)
+		
+		src = 'victim'
+		dst = 'Domain Admins'
+		network = mp.show_path(src, dst)
+		mp.plot(network)
 		
 	elif args.command == 'creds':
 		ctr = 0

@@ -1,11 +1,12 @@
 
 import os
 from jackdaw.dbmodel.spnservice import JackDawSPNService
-from jackdaw.dbmodel.adacl import JackDawADACL
+from jackdaw.dbmodel.addacl import JackDawADDACL
 from jackdaw.dbmodel.adgroup import JackDawADGroup
 from jackdaw.dbmodel.adinfo import JackDawADInfo
 from jackdaw.dbmodel.aduser import JackDawADUser
 from jackdaw.dbmodel.adcomp import JackDawADMachine
+from jackdaw.dbmodel.adou import JackDawADOU
 from jackdaw.dbmodel.usergroup import JackDawGroupUser
 from jackdaw.dbmodel.adinfo import JackDawADInfo
 from jackdaw.dbmodel.tokengroup import JackDawTokenGroup
@@ -53,6 +54,11 @@ class LDAPEnumerator:
 			if user.sAMAccountName[-1] == "$":
 				continue
 			yield (user, JackDawADUser.from_aduser(user))
+			
+			
+	def get_all_ous(self):
+		for ou in self.ldap.get_all_ous():
+			yield (ou, JackDawADOU.from_adou(ou))
 
 		
 	def get_all_groups(self):
@@ -80,14 +86,30 @@ class LDAPEnumerator:
 				s.guid = str(user.guid)
 				s.sid = str(user.sid)
 				s.member_sid = sid
-				s.is_group = True
+				s.is_group = True		
+				
 			yield s
 			
-	def ace_to_dbo(self, sd):
+	def ace_to_dbo(self, obj, sd):
+		if isinstance(obj, JackDawADUser):
+			obj_type = 'user'
+		elif isinstance(obj, JackDawADMachine):
+			obj_type = 'machine'
+		elif isinstance(obj, JackDawADGroup):
+			obj_type = 'group'
+		elif isinstance(obj, JackDawADOU):
+			obj_type = 'ou'
+		else:
+			raise Exception('Unknown object type %s' % type(obj))
+		
 		order_ctr = 0
 		for ace in sd.nTSecurityDescriptor.Dacl.aces:
-			acl = JackDawADACL()
+			acl = JackDawADDACL()
+			acl.object_type = obj_type
+			acl.owner_sid = str(sd.nTSecurityDescriptor.Owner)
+			acl.group_sid = str(sd.nTSecurityDescriptor.Group)
 			acl.ace_order = order_ctr
+			
 			order_ctr += 1
 			acl.guid = str(sd.objectGUID)
 			if sd.objectSid:
@@ -107,24 +129,30 @@ class LDAPEnumerator:
 			t = getattr(ace,'InheritedObjectType', None)
 			if t:
 				acl.ace_inheritedobjecttype = str(t)
+				
+			true_attr, false_attr = JackDawADDACL.mask2attr(ace.Mask)
+			
+			for attr in true_attr:	
+				setattr(acl, attr, True)
+			for attr in false_attr:	
+				setattr(acl, attr, False)
+				
+			true_attr, false_attr = JackDawADDACL.hdrflag2attr(ace.Header.AceFlags)
+			
+			for attr in true_attr:	
+				setattr(acl, attr, True)
+			for attr in false_attr:	
+				setattr(acl, attr, False)
 			
 			acl.ace_sid = str(ace.Sid)
 			yield acl
-		
-	def get_all_acls(self):
-		for sd in self.ldap.get_all_objectacl():
-			if not sd.nTSecurityDescriptor or not sd.nTSecurityDescriptor.Dacl:
-				continue
-			
-			for acl in self.ace_to_dbo(sd):
-				yield acl
 				
-	def get_acls_for_dn(self, dn):
-		for sd in self.ldap.get_objectacl_by_dn(dn):
+	def get_acls_for_dn(self, obj):
+		for sd in self.ldap.get_objectacl_by_dn(obj.dn):
 			if not sd.nTSecurityDescriptor or not sd.nTSecurityDescriptor.Dacl:
 				continue
 			
-			for acl in self.ace_to_dbo(sd):
+			for acl in self.ace_to_dbo(obj, sd):
 				yield acl
 		
 	def get_current_dc_ip(self):
@@ -154,7 +182,7 @@ class LDAPEnumerator:
 			for membership in self.get_user_effective_memberships(user):
 				info.group_lookups.append(membership)
 				
-			for acl in self.get_acls_for_dn(user.dn):
+			for acl in self.get_acls_for_dn(user):
 				acl.ad_id = info.id
 				session.add(acl)
 			
@@ -182,7 +210,7 @@ class LDAPEnumerator:
 				con.targetaccount = self.spn_to_account(spn)
 				machine.allowedtodelegateto.append(con)
 			
-			for acl in self.get_acls_for_dn(machine.dn):
+			for acl in self.get_acls_for_dn(machine):
 				acl.ad_id = info.id
 				session.add(acl)
 				
@@ -197,13 +225,27 @@ class LDAPEnumerator:
 			for membership in self.get_user_effective_memberships(group):
 				info.group_lookups.append(membership)
 				
-			for acl in self.get_acls_for_dn(group.dn):
+			for acl in self.get_acls_for_dn(group):
 				acl.ad_id = info.id
 				session.add(acl)
 				
 			if ctr % 1000 == 0:
 				session.commit()
+				
+		print('Enumerating OUs...')
+		for obj, ou in self.get_all_ous():
+			ou.ad_id = info.id
+			session.add(ou)
+			session.commit()
+			session.refresh(ou)
+				
+			for acl in self.get_acls_for_dn(ou):
+				acl.ad_id = info.id
+				session.add(acl)
+				
+			session.commit()
 			
+		print('Enumerating service users')
 		for spnservice in self.spnservice_enumerator():
 			spnservice.ad_id = info.id	
 			session.add(spnservice)
