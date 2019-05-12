@@ -37,6 +37,7 @@ setup(
 		'msldap>=0.1.0',
 		'sqlalchemy',
 		'dnspython',
+		'pyvis',
 	],
 
 	

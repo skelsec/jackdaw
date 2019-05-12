@@ -3,17 +3,14 @@ from jackdaw.dbmodel.adinfo import JackDawADInfo
 from jackdaw.dbmodel.tokengroup import JackDawTokenGroup
 from jackdaw.dbmodel import *
 from jackdaw.wintypes.well_known_sids import get_name_or_sid, get_sid_for_name
+from jackdaw.wintypes.lookup_tables import *
+from sqlalchemy import not_, and_, or_
 
 from pyvis.network import Network
+from pyvis.options import Layout
 import networkx as nx
 
-OBJECTTYPE_GUID_MAP = {
-    'group': 'bf967a9c-0de6-11d0-a285-00aa003049e2',
-    'domain': '19195a5a-6da0-11d0-afd3-00c04fd930c9',
-    'organizationalUnit': 'bf967aa5-0de6-11d0-a285-00aa003049e2',
-    'user': 'bf967aba-0de6-11d0-a285-00aa003049e2',
-    'groupPolicyContainer': 'f30e3bc2-9ff0-11d1-b603-0000f80367c1'
-}
+
 
 def ace_applies(ace_guid, object_class):
 	'''
@@ -44,6 +41,7 @@ class MembershipPlotter:
 		self.show_constrained_delegations = True
 		self.show_unconstrained_delegations = True
 		self.show_custom_relations = True
+		self.show_acl = True
 		self.unknown_node_color = "#ffffff"
 		
 		self.blacklist_sids = {'S-1-5-32-545': ''}
@@ -67,10 +65,10 @@ class MembershipPlotter:
 			color = self.unknown_node_color
 		
 		if node not in self.graph.nodes:
-			self.graph.add_node(str(node), name=name)
+			self.graph.add_node(str(node), name=name, color=color)
 		
-		if node not in self.network_visual.nodes:
-			self.network_visual.add_node(str(node), label=name, color=color)
+		#if node not in self.network_visual.nodes:
+		#	self.network_visual.add_node(str(node), label=name, color=color)
 			
 	def add_edge(self, sid_src, sid_dst, label = None, weight = 1):
 		if not sid_src or not sid_dst:
@@ -78,8 +76,12 @@ class MembershipPlotter:
 		if self.is_blacklisted_sid(sid_src) or self.is_blacklisted_sid(sid_dst):
 			return
 			
+		self.add_sid_to_node(sid_src, color="#ffffff")
+		self.add_sid_to_node(sid_dst, color="#ffffff")
+			
 		self.graph.add_edge(sid_src, sid_dst, label = label, weight = weight)
-		self.network_visual.add_edge(sid_src, sid_dst, label = label, weight = weight)
+		
+		#self.network_visual.add_edge(sid_src, sid_dst, label = label, weight = weight)
 			
 	def sid2cn(self, sid, throw = False):
 		session = get_session(self.db_conn)
@@ -112,21 +114,28 @@ class MembershipPlotter:
 		src_sid = self.cn2sid(src_cn, True, domain_sid)	
 		dst_sid = self.cn2sid(dst_cn, True, domain_sid)	
 	
-		nv = Network("1000px", "1000px")
-		
-		for a in nx.all_shortest_paths(self.graph, source = src_sid, target = dst_sid):
-			#print(a)
-			#print(a[0])
-			
-			for sid in a:
-				nv.add_node(sid, label = self.sid2cn(sid))
-			
-			for i in range(len(a) - 1):
-				for edge in self.graph.edges([a[i], ], data=True):
-					if edge[1] == a[i + 1]:
-						name = edge[2].get('label', None)
-						nv.add_edge(a[i], a[i + 1], label=name)
-						print(edge)
+		nv = Network("1000px", "1000px", layout=None)
+		print(len(self.graph.nodes))
+		for node in self.graph.nodes:
+			try:
+				for a in nx.all_shortest_paths(self.graph, source = node, target = dst_sid):
+				#for a in nx.single_target_shortest_path(self.graph, dst_sid):
+					#print(a)
+					#print(a[0])
+					
+					for sid in a:
+						print(sid)
+						#input(self.graph.nodes[sid])
+						nv.add_node(sid, label = self.graph.nodes[sid].get('name', self.sid2cn(sid)), color = self.graph.nodes[sid].get('color', '#222222'))
+					
+					for i in range(len(a) - 1):
+						for edge in self.graph.edges([a[i], ], data=True):
+							if edge[1] == a[i + 1]:
+								name = edge[2].get('label', None)
+								nv.add_edge(a[i], a[i + 1], label=name)
+								
+			except nx.exception.NetworkXNoPath:
+				continue
 					
 			
 		
@@ -139,8 +148,150 @@ class MembershipPlotter:
 		
 		network: pyvis network
 		"""
-		network.show_buttons()
+		layout = Layout()
+		layout.hierarchical.sortMethod = 'directed'
+		layout.hierarchical.edgeMinimization = False
+		layout.hierarchical.blockShifting = False
+		layout.hierarchical.levelSeparation = 150
+		layout.hierarchical.enabled = True
+		layout.hierarchical.nodeSpacing = 240
+		layout.hierarchical.treeSpacing = 250
+		layout.hierarchical.direction = 'LR'
+		network.options.layout = layout
+		network.show_buttons(filter_=['layout'])
 		network.show("test.html")
+		
+	def calc_acl_edges_sql(self, session, ad_id):
+		#enumerating owners
+		query = session.query(JackDawADDACL.owner_sid, JackDawADDACL.sid).filter(~JackDawADDACL.owner_sid.in_(["S-1-3-0", "S-1-5-18"])).filter(JackDawADDACL.ad_id == ad_id)
+		for owner_sid, sid in query.all():
+			self.add_edge(owner_sid, sid, label='Owner')
+		
+		#queriing generic access
+		query = session.query(JackDawADDACL.owner_sid, JackDawADDACL.sid)\
+						.filter(JackDawADDACL.ace_type == 'ACCESS_ALLOWED_ACE_TYPE')\
+						.filter(~JackDawADDACL.owner_sid.in_(["S-1-3-0", "S-1-5-18"]))\
+						.filter(JackDawADDACL.ad_id == ad_id)
+		
+		#GenericALL
+		for owner_sid, sid in query.filter(JackDawADDACL.ace_mask_generic_all == True).all():
+			self.add_edge(owner_sid, sid, label='GenericALL')
+			
+		#GenericWrite
+		for owner_sid, sid in query.filter(JackDawADDACL.ace_mask_generic_write == True).all():
+			self.add_edge(owner_sid, sid, label='GenericWrite')
+			
+		#WriteOwner
+		for owner_sid, sid in query.filter(JackDawADDACL.ace_mask_write_owner == True).all():
+			self.add_edge(owner_sid, sid, label='WriteOwner')
+			
+		#WriteDacl
+		for owner_sid, sid in query.filter(JackDawADDACL.ace_mask_write_dacl == True).all():
+			self.add_edge(owner_sid, sid, label='WriteDacl')
+			
+		#ExtendedRightALL
+		for owner_sid, sid in query.filter(JackDawADDACL.ace_mask_control_access == True).filter(JackDawADDACL.object_type.in_(['user', 'domain'])).all():
+			self.add_edge(owner_sid, sid, label='ExtendedRightALL')
+			
+			
+		#queriing object type access
+		query = session.query(JackDawADDACL.owner_sid, JackDawADDACL.sid)\
+						.filter(JackDawADDACL.ace_type == 'ACCESS_ALLOWED_OBJECT_ACE_TYPE')\
+						.filter(~JackDawADDACL.owner_sid.in_(["S-1-3-0", "S-1-5-18"]))\
+						.filter(~and_(JackDawADDACL.ace_hdr_flag_inherited == True, JackDawADDACL.ace_hdr_flag_inherit_only == True))\
+						.filter(and_(and_(JackDawADDACL.ace_hdr_flag_inherited == True, JackDawADDACL.ace_inheritedobjecttype != None), JackDawADDACL.ace_inheritedobjecttype == JackDawADDACL.object_type_guid))\
+						.filter(JackDawADDACL.ad_id == ad_id)
+		
+		print('ACCESS_ALLOWED_OBJECT_ACE_TYPE')
+		for owner_sid, sid in query.all():
+			input(owner_sid)
+	
+	def calc_acl_edges(self, session, adinfo):
+		for acl in adinfo.objectacls:
+			##SUPER-IMPORTANT!!!!
+			##THE ACCESS RIGHTS CALCULATIONS ARE FLAWED (JUST LIKE IN BLOODHOUND)
+			##CORRECT WAY WOULD BE TO TRAVERSE ALL ACES IN A GIVEN ACL IN THE ORDER OF "ACE-ODER" AND CHECK FOR DENY POLICIES AS WELL!!!
+			##TODO: CALCULATE THE EFFECTIVE PERMISSIONS IN A CORRECT MANNER :)
+			
+			##TODO: The DB is designed that most of these calculations can (and should) be offloaded to the DB itself
+			##      Currently it's in python bc I'm laze and Dirkjan already wrote the major part
+			##      https://github.com/fox-it/BloodHound.py/blob/0d3897ba4cc00818c0fc3e01fa3a91fc42e799e2/bloodhound/enumeration/acls.py
+			
+			if acl.owner_sid not in self.ignoresids:
+				self.add_edge(acl.owner_sid, acl.sid, label='Owner')
+				
+			if acl.ace_sid in self.ignoresids:
+				continue
+			
+			if acl.ace_type in ['ACCESS_ALLOWED_ACE_TYPE','ACCESS_ALLOWED_OBJECT_ACE_TYPE']:
+				if acl.ace_type == 'ACCESS_ALLOWED_ACE_TYPE':
+					if acl.ace_mask_generic_all == True:
+						self.add_edge(acl.ace_sid, acl.sid, label='GenericALL')
+					
+					if acl.ace_mask_generic_write == True:
+						self.add_edge(acl.ace_sid, acl.sid, label='GenericWrite')
+						
+					if acl.ace_mask_write_owner == True:
+						self.add_edge(acl.ace_sid, acl.sid, label='WriteOwner')
+						
+					if acl.ace_mask_write_dacl == True:
+						self.add_edge(acl.ace_sid, acl.sid, label='WriteDacl')
+						
+					if acl.object_type in ['user', 'domain'] and acl.ace_mask_control_access == True:
+						self.add_edge(acl.ace_sid, acl.sid, label='ExtendedRightALL')
+				
+				if acl.ace_type == 'ACCESS_ALLOWED_OBJECT_ACE_TYPE':
+					if acl.ace_hdr_flag_inherited == True and acl.ace_hdr_flag_inherit_only == True:
+						continue
+					
+					if acl.ace_hdr_flag_inherited == True and acl.ace_inheritedobjecttype is not None:
+						if not ace_applies(acl.ace_inheritedobjecttype, acl.object_type):
+							continue
+					
+					if any([acl.ace_mask_generic_all, acl.ace_mask_write_dacl, acl.ace_mask_write_owner, acl.ace_mask_generic_write]):
+						if acl.ace_objecttype is not None and not ace_applies(acl.ace_objecttype, acl.object_type):
+							continue
+						
+						if acl.ace_mask_generic_all == True:
+							self.add_edge(acl.ace_sid, acl.sid, label='GenericALL')
+							continue
+				
+						if acl.ace_mask_generic_write == True:
+							self.add_edge(acl.ace_sid, acl.sid, label='GenericWrite')
+							
+						if acl.object_type != 'domain':
+							continue
+							
+						if acl.ace_mask_write_dacl == True:
+							self.add_edge(acl.ace_sid, acl.sid, label='WriteDacl')
+							
+						if acl.ace_mask_write_owner == True:
+							self.add_edge(acl.ace_sid, acl.sid, label='WriteOwner')
+							
+					if acl.ace_mask_write_prop == True:
+						if acl.object_type in ['user','group'] and acl.ace_objecttype is None:
+							self.add_edge(acl.ace_sid, acl.sid, label='GenericWrite')
+							
+						if acl.object_type == 'group' and acl.ace_objecttype == 'bf9679c0-0de6-11d0-a285-00aa003049e2':
+							self.add_edge(acl.ace_sid, acl.sid, label='AddMember')
+							
+						
+				
+					if acl.ace_mask_control_access == True:
+						if acl.object_type in ['user','group'] and acl.ace_objecttype is None:
+							self.add_edge(acl.ace_sid, acl.sid, label='ExtendedAll')
+						
+						if acl.object_type == 'domain' and acl.ace_objecttype == '1131f6ad-9c07-11d1-f79f-00c04fc2dcd2':
+							# 'Replicating Directory Changes All'
+							self.add_edge(acl.ace_sid, acl.sid, label='GetChangesALL')
+								
+						if acl.object_type == 'domain' and acl.ace_objecttype == '1131f6aa-9c07-11d1-f79f-00c04fc2dcd2':
+								# 'Replicating Directory Changes'
+								self.add_edge(acl.ace_sid, acl.sid, label='GetChanges')
+								
+						if acl.object_type == 'user' and acl.ace_objecttype == '00299570-246d-11d0-a768-00aa006e0529':
+								# 'Replicating Directory Changes'
+								self.add_edge(acl.ace_sid, acl.sid, label='User-Force-Change-Password')
 		
 	def get_network_data(self, ad_id):
 		"""
@@ -210,7 +361,7 @@ class MembershipPlotter:
 			for res in adinfo.customrelations:
 				self.add_edge(res.sid, res.target_sid)
 			
-		
+		print('adding membership edges')
 		#adding membership edges
 		for tokengroup in adinfo.group_lookups:
 			self.add_sid_to_node(tokengroup.sid)
@@ -231,93 +382,15 @@ class MembershipPlotter:
 					self.add_edge(tokengroup.sid, tokengroup.member_sid, label='member')
 				except AssertionError as e:
 					print(e)
-					
-		#adding ACL edges
-		for acl in adinfo.objectacls:
-			##SUPER-IMPORTANT!!!!
-			##THE ACCESS RIGHTS CALCULATIONS ARE FLAWED (JUST LIKE IN BLOODHOUND)
-			##CORRECT WAY WOULD BE TO TRAVERSE ALL ACES IN A GIVEN ACL IN THE ORDER OF "ACE-ODER" AND CHECK FOR DENY POLICIES AS WELL!!!
-			##TODO: CALCULATE THE EFFECTIVE PERMISSIONS IN A CORRECT MANNER :)
-			
-			##TODO: The DB is designed that most of these calculations can (and should) be offloaded to the DB itself
-			##      Currently it's in python bc I'm laze and Dirkjan already wrote the major part
-			##      https://github.com/fox-it/BloodHound.py/blob/0d3897ba4cc00818c0fc3e01fa3a91fc42e799e2/bloodhound/enumeration/acls.py
-			
-			if acl.owner_sid not in self.ignoresids:
-				self.add_edge(acl.owner_sid, acl.sid, label='Owner')
-				
-			if acl.ace_sid in self.ignoresids:
-				continue
-			
-			if acl.ace_objecttype in ['ACCESS_ALLOWED_ACE_TYPE','ACCESS_ALLOWED_OBJECT_ACE_TYPE']:
-				if acl.ace_objecttype == 'ACCESS_ALLOWED_ACE_TYPE':
-					if acl.ace_mask_generic_all == True:
-						self.add_edge(acl.ace_sid, acl.sid, label='GenericALL')
-					
-					if acl.ace_mask_generic_write == True:
-						self.add_edge(acl.ace_sid, acl.sid, label='GenericWrite')
-						
-					if acl.ace_mask_write_owner == True:
-						self.add_edge(acl.ace_sid, acl.sid, label='WriteOwner')
-						
-					if acl.ace_mask_write_dacl == True:
-						self.add_edge(acl.ace_sid, acl.sid, label='WriteDacl')
-						
-					if acl.object_type in ['user', 'domain'] and acl.ace_mask_control_access == True:
-						self.add_edge(acl.ace_sid, acl.sid, label='ExtendedRightALL')
-				
-				if acl.ace_objecttype == 'ACCESS_ALLOWED_OBJECT_ACE_TYPE':
-					if acl.ace_hdr_flag_inherited == True and acl.ace_hdr_flag_inherit_only == True:
-						continue
-					
-					if acl.ace_hdr_flag_inherited == True and acl.ace_inheritedobjecttype is not None:
-						if not ace_applies(acl.ace_inheritedobjecttype, acl.object_type):
-							continue
-					
-					if any([acl.ace_mask_generic_all, acl.ace_mask_write_dacl, acl.ace_mask_write_owner, acl.ace_mask_generic_write]):
-						if acl.ace_objecttype is not None and not ace_applies(acl.ace_objecttype, acl.object_type):
-							continue
-						
-						if acl.ace_mask_generic_all == True:
-							self.add_edge(acl.ace_sid, acl.sid, label='GenericALL')
-							continue
-				
-						if acl.ace_mask_generic_write == True:
-							self.add_edge(acl.ace_sid, acl.sid, label='GenericWrite')
-							
-						if acl.object_type != 'domain':
-							continue
-							
-						if acl.ace_mask_write_dacl == True:
-							self.add_edge(acl.ace_sid, acl.sid, label='WriteDacl')
-							
-						if acl.ace_mask_write_owner == True:
-							self.add_edge(acl.ace_sid, acl.sid, label='WriteOwner')
-							
-					if acl.ace_mask_write_prop == True:
-						if acl.object_type in ['user','group'] and acl.ace_objecttype is None:
-							self.add_edge(acl.ace_sid, acl.sid, label='GenericWrite')
-							
-						if acl.object_type == 'group' and acl.ace_objecttype == 'bf9679c0-0de6-11d0-a285-00aa003049e2':
-							self.add_edge(acl.ace_sid, acl.sid, label='AddMember')
-							
-						
-				
-					if acl.ace_mask_control_access == True:
-						if acl.object_type in ['user','group'] and acl.ace_objecttype is not None:
-							self.add_edge(acl.ace_sid, acl.sid, label='ExtendedAll')
-						
-						if acl.object_type == 'domain' and acl.ace_objecttype == '1131f6ad-9c07-11d1-f79f-00c04fc2dcd2':
-							# 'Replicating Directory Changes All'
-							self.add_edge(acl.ace_sid, acl.sid, label='GetChangesALL')
-								
-						if acl.object_type == 'domain' and acl.ace_objecttype == '1131f6aa-9c07-11d1-f79f-00c04fc2dcd2':
-								# 'Replicating Directory Changes'
-								self.add_edge(acl.ace_sid, acl.sid, label='GetChanges')
-								
-						if acl.object_type == 'user' and acl.ace_objecttype == '00299570-246d-11d0-a768-00aa006e0529':
-								# 'Replicating Directory Changes'
-								self.add_edge(acl.ace_sid, acl.sid, label='User-Force-Change-Password')
+		
+		if self.show_acl == True:
+			print('Adding ACL edges')
+			#adding ACL edges
+			#self.calc_acl_edges(adinfo)
+			self.calc_acl_edges_sql(session, ad_id)
+		else:
+			print('Not adding ACL edges')
+		
 						
 				
 					

@@ -11,6 +11,7 @@ from jackdaw.dbmodel.usergroup import JackDawGroupUser
 from jackdaw.dbmodel.adinfo import JackDawADInfo
 from jackdaw.dbmodel.tokengroup import JackDawTokenGroup
 from jackdaw.dbmodel import *
+from jackdaw.wintypes.lookup_tables import *
 
 from msldap.core.msldap import *
 from msldap.ldap_objects import *
@@ -106,6 +107,7 @@ class LDAPEnumerator:
 		for ace in sd.nTSecurityDescriptor.Dacl.aces:
 			acl = JackDawADDACL()
 			acl.object_type = obj_type
+			acl.object_type_guid = OBJECTTYPE_GUID_MAP.get(obj_type)
 			acl.owner_sid = str(sd.nTSecurityDescriptor.Owner)
 			acl.group_sid = str(sd.nTSecurityDescriptor.Group)
 			acl.ace_order = order_ctr

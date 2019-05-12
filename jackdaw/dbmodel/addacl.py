@@ -5,6 +5,7 @@ from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Boolean
 
 from msldap.wintypes.security_descriptor import *
 
+
 am_lookup_table = {
 			ADS_ACCESS_MASK.CREATE_CHILD : 'ace_mask_create_child',
 			ADS_ACCESS_MASK.DELETE_CHILD : 'ace_mask_delete_child',
@@ -50,6 +51,7 @@ class JackDawADDACL(Basemodel):
 	sid = Column(String, index=True)
 	
 	object_type = Column(String, index=True)
+	object_type_guid = Column(String, index=True)
 	owner_sid = Column(String, index=True)
 	group_sid = Column(String, index=True)
 	
