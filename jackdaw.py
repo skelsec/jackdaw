@@ -7,6 +7,7 @@ from jackdaw.representation.passwords_report import *
 
 from jackdaw import logger as jdlogger
 from msldap import logger as msldaplogger
+import sys
 
 
 
@@ -30,6 +31,10 @@ def main(args):
 		logging.basicConfig(level=1)
 		msldaplogger.setLevel(logging.DEBUG)
 		jdlogger.setLevel(1)
+	
+	if not args.sql:
+		print('SQL connection identification is missing! You need to provide the --sql parameter')
+		sys.exit()
 	
 	db_conn = args.sql
 	create_db(db_conn)
