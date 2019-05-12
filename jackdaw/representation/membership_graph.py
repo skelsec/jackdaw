@@ -4,8 +4,8 @@ from jackdaw.dbmodel.tokengroup import JackDawTokenGroup
 from jackdaw.dbmodel import *
 from jackdaw.wintypes.well_known_sids import get_name_or_sid, get_sid_for_name
 from jackdaw.wintypes.lookup_tables import *
-from sqlalchemy import not_, and_, or_
-
+from sqlalchemy import not_, and_, or_, case
+from sqlalchemy.orm import load_only
 from pyvis.network import Network
 from pyvis.options import Layout
 import networkx as nx
@@ -43,6 +43,7 @@ class MembershipPlotter:
 		self.show_custom_relations = True
 		self.show_acl = True
 		self.unknown_node_color = "#ffffff"
+		self.domain_sid = None
 		
 		self.blacklist_sids = {'S-1-5-32-545': ''}
 		self.ignoresids = {"S-1-3-0": '', "S-1-5-18": ''}
@@ -95,10 +96,8 @@ class MembershipPlotter:
 		return tsid[0]
 	
 	def cn2sid(self, cn, throw = False, domain_sid = None):
-		
 		sid = get_sid_for_name(cn, domain_sid)
 		
-	
 		session = get_session(self.db_conn)
 		tsid = session.query(JackDawTokenGroup.sid).filter(JackDawTokenGroup.cn == cn).first()
 		print(tsid)
@@ -109,36 +108,78 @@ class MembershipPlotter:
 		return tsid[0]
 			
 			
-	def show_path(self, src_cn, dst_cn, domain_sid = None):
-		
-		src_sid = self.cn2sid(src_cn, True, domain_sid)	
-		dst_sid = self.cn2sid(dst_cn, True, domain_sid)	
-	
-		nv = Network("1000px", "1000px", layout=None)
-		print(len(self.graph.nodes))
-		for node in self.graph.nodes:
-			try:
-				for a in nx.all_shortest_paths(self.graph, source = node, target = dst_sid):
-				#for a in nx.single_target_shortest_path(self.graph, dst_sid):
-					#print(a)
-					#print(a[0])
-					
-					for sid in a:
-						print(sid)
-						#input(self.graph.nodes[sid])
-						nv.add_node(sid, label = self.graph.nodes[sid].get('name', self.sid2cn(sid)), color = self.graph.nodes[sid].get('color', '#222222'))
-					
-					for i in range(len(a) - 1):
-						for edge in self.graph.edges([a[i], ], data=True):
-							if edge[1] == a[i + 1]:
-								name = edge[2].get('label', None)
-								nv.add_edge(a[i], a[i + 1], label=name)
-								
-			except nx.exception.NetworkXNoPath:
-				continue
-					
+	def show_domain_admins(self):
+		dst_sid = self.cn2sid('Domain Admins', True, self.domain_sid)
+		return self.all_shortest_paths( dst_sid = dst_sid)
 			
+	def show_all_sources(self, src):
+		src_sid = self.cn2sid(src, True, self.domain_sid)	
+		nv = Network("1000px", "1000px", layout=None)
 		
+		return self.all_shortest_paths(src_sid = src_sid)
+		
+		
+	def show_all_destinations(self, dst):
+		dst_sid = self.cn2sid(dst, True, self.domain_sid)	
+		return self.all_shortest_paths( dst_sid = dst_sid)
+	
+	def show_path(self, src, dst):
+		src_sid = self.cn2sid(src, True, self.domain_sid)	
+		dst_sid = self.cn2sid(dst, True, self.domain_sid)	
+		nv = Network("1000px", "1000px", layout=None)
+		
+		return self.all_shortest_paths(src_sid = src_sid, dst_sid = dst_sid)
+			
+	def __add_path(self, network, path):
+		"""
+		Adds the path to the representational network (pyvis)
+		Path is a list of sids (nodes), so we need to find the edges matching
+		"""
+		for sid in path:
+			network.add_node(sid, label = self.graph.nodes[sid].get('name', self.sid2cn(sid)), color = self.graph.nodes[sid].get('color', '#222222'))
+					
+		for i in range(len(path) - 1):
+			for edge in self.graph.edges([path[i], ], data=True):
+				if edge[1] == path[i + 1]:
+					name = edge[2].get('label', None)
+					network.add_edge(path[i], path[i + 1], label=name)
+
+
+	def all_shortest_paths(self, src_sid = None, dst_sid = None):
+		nv = Network("1000px", "1000px", layout=None)
+		
+		if not src_sid and not dst_sid:
+			raise Exception('Either source or destination MUST be specified')
+		
+		elif not src_sid and dst_sid:
+			#for each node we calculate the shortest path to the destination node, silently skip the ones who do not have path to dst
+			for node in self.graph.nodes:
+				if node == dst_sid:
+					continue
+				try:
+					for path in nx.all_shortest_paths(self.graph, source = node, target = dst_sid):
+						self.__add_path(nv, path)
+									
+				except nx.exception.NetworkXNoPath:
+					continue
+			
+		elif src_sid and not dst_sid:
+			#for each node we calculate the shortest path to the destination node, silently skip the ones who do not have path to dst
+			
+			for node in self.graph.nodes:
+				if node == src_sid:
+					continue
+				try:
+					for path in nx.all_shortest_paths(self.graph, source = src_sid, target = node):
+						self.__add_path(nv, path)
+									
+				except nx.exception.NetworkXNoPath:
+					continue
+					
+		else:
+			#for each node we calculate the shortest path to the destination node, silently skip the ones who do not have path to dst
+			for path in nx.all_shortest_paths(self.graph, source = src_sid, target = dst_sid):
+				self.__add_path(nv, path)
 		
 		return nv
 		
@@ -152,9 +193,9 @@ class MembershipPlotter:
 		layout.hierarchical.sortMethod = 'directed'
 		layout.hierarchical.edgeMinimization = False
 		layout.hierarchical.blockShifting = False
-		layout.hierarchical.levelSeparation = 150
+		layout.hierarchical.levelSeparation = 325
 		layout.hierarchical.enabled = True
-		layout.hierarchical.nodeSpacing = 240
+		layout.hierarchical.nodeSpacing = 325
 		layout.hierarchical.treeSpacing = 250
 		layout.hierarchical.direction = 'LR'
 		network.options.layout = layout
@@ -168,45 +209,89 @@ class MembershipPlotter:
 			self.add_edge(owner_sid, sid, label='Owner')
 		
 		#queriing generic access
-		query = session.query(JackDawADDACL.owner_sid, JackDawADDACL.sid)\
+		query = session.query(JackDawADDACL)\
 						.filter(JackDawADDACL.ace_type == 'ACCESS_ALLOWED_ACE_TYPE')\
-						.filter(~JackDawADDACL.owner_sid.in_(["S-1-3-0", "S-1-5-18"]))\
+						.filter(~JackDawADDACL.ace_sid.in_(["S-1-3-0", "S-1-5-18"]))\
 						.filter(JackDawADDACL.ad_id == ad_id)
+		print('ACCESS_ALLOWED_ACE_TYPE')
+		for acl in query.all():
+			if acl.ace_mask_generic_all == True:
+				self.add_edge(acl.ace_sid, acl.sid, label='GenericALL')
+			
+			if acl.ace_mask_generic_write == True:
+				self.add_edge(acl.ace_sid, acl.sid, label='GenericWrite')
+				
+			if acl.ace_mask_write_owner == True:
+				self.add_edge(acl.ace_sid, acl.sid, label='WriteOwner')
+				
+			if acl.ace_mask_write_dacl == True:
+				self.add_edge(acl.ace_sid, acl.sid, label='WriteDacl')
+				
+			if acl.object_type in ['user', 'domain'] and acl.ace_mask_control_access == True:
+				self.add_edge(acl.ace_sid, acl.sid, label='ExtendedRightALL')
 		
-		#GenericALL
-		for owner_sid, sid in query.filter(JackDawADDACL.ace_mask_generic_all == True).all():
-			self.add_edge(owner_sid, sid, label='GenericALL')
-			
-		#GenericWrite
-		for owner_sid, sid in query.filter(JackDawADDACL.ace_mask_generic_write == True).all():
-			self.add_edge(owner_sid, sid, label='GenericWrite')
-			
-		#WriteOwner
-		for owner_sid, sid in query.filter(JackDawADDACL.ace_mask_write_owner == True).all():
-			self.add_edge(owner_sid, sid, label='WriteOwner')
-			
-		#WriteDacl
-		for owner_sid, sid in query.filter(JackDawADDACL.ace_mask_write_dacl == True).all():
-			self.add_edge(owner_sid, sid, label='WriteDacl')
-			
-		#ExtendedRightALL
-		for owner_sid, sid in query.filter(JackDawADDACL.ace_mask_control_access == True).filter(JackDawADDACL.object_type.in_(['user', 'domain'])).all():
-			self.add_edge(owner_sid, sid, label='ExtendedRightALL')
-			
-			
+		#queriing only necessary fileds
+		fields = ['ace_mask_generic_all', 'ace_mask_write_dacl', 'ace_mask_write_owner', 'ace_mask_generic_write', 'ace_objecttype', 'object_type', 'ace_mask_write_prop', 'ace_mask_control_access']
 		#queriing object type access
-		query = session.query(JackDawADDACL.owner_sid, JackDawADDACL.sid)\
+		query = session.query(JackDawADDACL)\
+						.options(load_only(*fields))\
 						.filter(JackDawADDACL.ace_type == 'ACCESS_ALLOWED_OBJECT_ACE_TYPE')\
-						.filter(~JackDawADDACL.owner_sid.in_(["S-1-3-0", "S-1-5-18"]))\
+						.filter(JackDawADDACL.ad_id == ad_id)\
+						.filter(~JackDawADDACL.ace_sid.in_(["S-1-3-0", "S-1-5-18"]))\
 						.filter(~and_(JackDawADDACL.ace_hdr_flag_inherited == True, JackDawADDACL.ace_hdr_flag_inherit_only == True))\
-						.filter(and_(and_(JackDawADDACL.ace_hdr_flag_inherited == True, JackDawADDACL.ace_inheritedobjecttype != None), JackDawADDACL.ace_inheritedobjecttype == JackDawADDACL.object_type_guid))\
-						.filter(JackDawADDACL.ad_id == ad_id)
-		
+						.filter(or_(JackDawADDACL.ace_hdr_flag_inherited == False,\
+									JackDawADDACL.ace_hdr_flag_inherit_only == False,\
+									and_(JackDawADDACL.ace_hdr_flag_inherited == True, JackDawADDACL.ace_hdr_flag_inherit_only == True, JackDawADDACL.ace_inheritedobjecttype == JackDawADDACL.object_type_guid)))
+								
+
 		print('ACCESS_ALLOWED_OBJECT_ACE_TYPE')
-		for owner_sid, sid in query.all():
-			input(owner_sid)
+		for acl in query.all():			
+			if any([acl.ace_mask_generic_all, acl.ace_mask_write_dacl, acl.ace_mask_write_owner, acl.ace_mask_generic_write]):
+				if acl.ace_objecttype is not None and not ace_applies(acl.ace_objecttype, acl.object_type):
+					continue
+				
+				if acl.ace_mask_generic_all == True:
+					self.add_edge(acl.ace_sid, acl.sid, label='GenericALL')
+					continue
+			
+				if acl.ace_mask_generic_write == True:
+					self.add_edge(acl.ace_sid, acl.sid, label='GenericWrite')
+					
+					if acl.object_type != 'domain':
+						continue
+					
+				if acl.ace_mask_write_dacl == True:
+					self.add_edge(acl.ace_sid, acl.sid, label='WriteDacl')
+					
+				if acl.ace_mask_write_owner == True:
+					self.add_edge(acl.ace_sid, acl.sid, label='WriteOwner')
+					
+			if acl.ace_mask_write_prop == True:
+				if acl.object_type in ['user','group'] and acl.ace_objecttype is None:
+					self.add_edge(acl.ace_sid, acl.sid, label='GenericWrite')
+					
+				if acl.object_type == 'group' and acl.ace_objecttype == 'bf9679c0-0de6-11d0-a285-00aa003049e2':
+					self.add_edge(acl.ace_sid, acl.sid, label='AddMember')
+					
+				
+			
+			if acl.ace_mask_control_access == True:
+				if acl.object_type in ['user','group'] and acl.ace_objecttype is None:
+					self.add_edge(acl.ace_sid, acl.sid, label='ExtendedAll')
+				
+				if acl.object_type == 'domain' and acl.ace_objecttype == '1131f6ad-9c07-11d1-f79f-00c04fc2dcd2':
+					# 'Replicating Directory Changes All'
+					self.add_edge(acl.ace_sid, acl.sid, label='GetChangesALL')
+						
+				if acl.object_type == 'domain' and acl.ace_objecttype == '1131f6aa-9c07-11d1-f79f-00c04fc2dcd2':
+						# 'Replicating Directory Changes'
+						self.add_edge(acl.ace_sid, acl.sid, label='GetChanges')
+						
+				if acl.object_type == 'user' and acl.ace_objecttype == '00299570-246d-11d0-a768-00aa006e0529':
+						# 'Replicating Directory Changes'
+						self.add_edge(acl.ace_sid, acl.sid, label='User-Force-Change-Password')
 	
-	def calc_acl_edges(self, session, adinfo):
+	def calc_acl_edges(self, adinfo):
 		for acl in adinfo.objectacls:
 			##SUPER-IMPORTANT!!!!
 			##THE ACCESS RIGHTS CALCULATIONS ARE FLAWED (JUST LIKE IN BLOODHOUND)
@@ -259,8 +344,8 @@ class MembershipPlotter:
 						if acl.ace_mask_generic_write == True:
 							self.add_edge(acl.ace_sid, acl.sid, label='GenericWrite')
 							
-						if acl.object_type != 'domain':
-							continue
+							if acl.object_type != 'domain':
+								continue
 							
 						if acl.ace_mask_write_dacl == True:
 							self.add_edge(acl.ace_sid, acl.sid, label='WriteDacl')
@@ -300,6 +385,8 @@ class MembershipPlotter:
 		session = get_session(self.db_conn)
 		adinfo = session.query(JackDawADInfo).get(ad_id)
 		
+		self.domain_sid = str(adinfo.objectSid)
+		
 		node_lables = {}
 		node_color_map = []
 		
@@ -331,6 +418,7 @@ class MembershipPlotter:
 		if self.show_session_memberships == True:
 			for res in session.query(JackDawADUser.objectSid, JackDawADMachine.objectSid).filter(NetSession.username == JackDawADUser.sAMAccountName).filter(NetSession.source == JackDawADMachine.sAMAccountName).distinct(NetSession.username):
 				self.add_edge(res[0], res[1], label='hasSession')
+				self.add_edge(res[1], res[0], label='hasSession')
 		
 		if self.show_localgroup_memberships == True:
 			#TODO: maybe create edges based on local username similarities??
@@ -386,8 +474,8 @@ class MembershipPlotter:
 		if self.show_acl == True:
 			print('Adding ACL edges')
 			#adding ACL edges
-			#self.calc_acl_edges(adinfo)
-			self.calc_acl_edges_sql(session, ad_id)
+			self.calc_acl_edges(adinfo)
+			#self.calc_acl_edges_sql(session, ad_id)
 		else:
 			print('Not adding ACL edges')
 		

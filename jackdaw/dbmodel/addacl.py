@@ -109,7 +109,6 @@ class JackDawADDACL(Basemodel):
 
 		return true_attrs, false_attrs
 		
-		
 	
 	@staticmethod
 	def mask2attr(ace_mask):

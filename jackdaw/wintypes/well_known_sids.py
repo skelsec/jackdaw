@@ -111,7 +111,7 @@ WELL_KNOWN_SIDS_INV = {v: k for k, v in WELL_KNOWN_DOMAIN_SIDS.items()}
 def get_sid_for_name(name, domain_sid = None):
 	if domain_sid:
 		if name in WELL_KNOWN_DOMAIN_SIDS_INV:
-			return domain_sid + '-' + WELL_KNOWN_DOMAIN_SIDS_INV['name']
+			return domain_sid + '-' + WELL_KNOWN_DOMAIN_SIDS_INV[name]
 	else:
 		if name in WELL_KNOWN_SIDS_INV:
 			return WELL_KNOWN_SIDS_INV[name]
