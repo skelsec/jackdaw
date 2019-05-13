@@ -3,6 +3,11 @@ gather gather gather
 
 ![jackdaw_small](https://user-images.githubusercontent.com/19204702/57587578-6159b280-7507-11e9-8762-c5e9022e37bc.png)
 
+
+# What is this?
+Jackdaw is here to collect all information in your domain, store it in a SQL database and show you nice graphs on how your domain objects interact with each-other an how a potential attacker may exploit these interactions.
+It also comes with a handy feature to help you in a password-cracking project by storing/looking up/reporting hashes/passowrds/users.
+
 # Example commands
 ### Enumeration
 #### Full enumeration with integrated sspi
@@ -21,9 +26,6 @@ This project is in experimental phase! This means multiple things:
 2. the controls you are using might change in the future (most likely)
 3. (worst part) The database design is not necessary suitable for future requests so it may change. There will be no effor to maintain backwards compatibility with experimental-phase DB structure!
 
-# What is this?
-Jackdaw is here to collect all information in your domain, store it in a SQL database and show you nice graphs on how your domain objects interact with each-other an how a potential attacker may exploit these interactions.
-It also comes with a handy feature to help you in a password-cracking project by storing/looking up/reporting hashes/passowrds/users.
 
 # Technical part
 ## Database backend
