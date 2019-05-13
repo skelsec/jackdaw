@@ -27,7 +27,6 @@ class JackDawADUser(Basemodel):
 	primaryGroupID = Column(String)
 	sAMAccountName = Column(String, index=True)
 	userPrincipalName = Column(String)
-	servicePrincipalName = Column(String)
 	## groups
 	memberOf = Column(String) #list, should be extra table
 	member = Column(String) #list, should be extra table
@@ -82,7 +81,7 @@ class JackDawADUser(Basemodel):
 	UAC_TRUSTED_TO_AUTHENTICATE_FOR_DELEGATION = Column(Boolean)
 
 	#credential = relationship("Credential", back_populates="user", lazy = True)
-	allowedtodelegateto = relationship("JackDawUserConstrainedDelegation", back_populates="user", lazy = True)
+	#allowedtodelegateto = relationship("JackDawUserConstrainedDelegation", back_populates="user", lazy = True)
 	
 	@staticmethod
 	def from_aduser(u):
@@ -101,7 +100,7 @@ class JackDawADUser(Basemodel):
 		user.primaryGroupID = lf(getattr(u,'primaryGroupID'))
 		user.sAMAccountName = lf(getattr(u,'sAMAccountName'))
 		user.userPrincipalName = lf(getattr(u,'userPrincipalName'))
-		user.servicePrincipalName = lf(getattr(u,'servicePrincipalName'))
+		#user.servicePrincipalName = lf(getattr(u,'servicePrincipalName'))
 	
 		user.memberOf = lf(getattr(u,'memberOf'))
 		user.member = lf(getattr(u,'member'))

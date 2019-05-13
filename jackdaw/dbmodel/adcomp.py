@@ -47,7 +47,6 @@ class JackDawADMachine(Basemodel):
 	whenCreated = Column(DateTime)
 	servicePrincipalName = Column(String)
 	
-	allowedtodelegateto = relationship("JackDawMachineConstrainedDelegation", back_populates="machine", lazy = True)
 	
 	UAC_SCRIPT = Column(Boolean)
 	UAC_ACCOUNTDISABLE = Column(Boolean)

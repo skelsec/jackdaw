@@ -37,7 +37,7 @@ class MembershipPlotter:
 		self.show_user_memberships = True
 		self.show_machine_memberships = True
 		self.show_session_memberships = True
-		self.show_localgroup_memberships = False
+		self.show_localgroup_memberships = True
 		self.show_constrained_delegations = True
 		self.show_unconstrained_delegations = True
 		self.show_custom_relations = True
@@ -439,7 +439,11 @@ class MembershipPlotter:
 				self.add_edge(res[0], res[1], label=label, weight = weight)
 			
 		if self.show_constrained_delegations == True:
-			pass
+			for res in session.query(JackDawMachineConstrainedDelegation.sid, JackDawADMachine.objectSid).filter(JackDawMachineConstrainedDelegation.spn == JackDawSPNService.full_spn).filter(JackDawSPNService.sid == JackDawADMachine.objectSid):
+				self.add_edge(res[0], res[1], label='AllowedToDelegate')
+				
+			for res in session.query(JackDawMachineConstrainedDelegation.sid, JackDawADUser.objectSid).filter(JackDawMachineConstrainedDelegation.spn == JackDawSPNService.full_spn).filter(JackDawSPNService.sid == JackDawADUser.objectSid):
+				self.add_edge(res[0], res[1], label='AllowedToDelegate')
 			
 			
 		if self.show_unconstrained_delegations == True:

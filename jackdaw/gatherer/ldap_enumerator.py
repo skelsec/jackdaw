@@ -21,25 +21,23 @@ class LDAPEnumerator:
 		self.db_con = db_conn
 		self.ldap = ldap
 		
-	def spnservice_enumerator(self):
-		ldap_filter = r'(&(sAMAccountType=805306369))'
-		attributes = ['sAMAccountName', 'servicePrincipalName']
 		
-		for entry in self.ldap.pagedsearch(ldap_filter, attributes):
-			for spn in entry['attributes']['servicePrincipalName']:			
-				port = None
-				service, t = spn.rsplit('/',1)
-				m = t.find(':')
-				if m != -1:
-					computername, port = spn.rsplit(':',1)
-				else:
-					computername = t
-					
-				s = JackDawSPNService()
-				s.computername = computername
-				s.service = service
-				s.port = port
-				yield s
+	def create_spn(self, object_sid, full_spn):
+		port = None
+		service, t = full_spn.rsplit('/',1)
+		m = t.find(':')
+		if m != -1:
+			computername, port = full_spn.rsplit(':',1)
+		else:
+			computername = t
+			
+		s = JackDawSPNService()
+		s.sid = object_sid
+		s.full_spn = full_spn
+		s.computername = computername
+		s.service = service
+		s.port = port
+		return s
 			
 	def get_domain_info(self):
 		info = self.ldap.get_ad_info()
@@ -181,6 +179,11 @@ class LDAPEnumerator:
 			session.commit()
 			session.refresh(user)
 			
+			for spn in getattr(obj,'servicePrincipalName', []):
+				spn_obj = self.create_spn(user.objectSid, spn)
+				spn_obj.ad_id = info.id
+				session.add(spn_obj)
+			
 			for membership in self.get_user_effective_memberships(user):
 				info.group_lookups.append(membership)
 				
@@ -188,29 +191,31 @@ class LDAPEnumerator:
 				acl.ad_id = info.id
 				session.add(acl)
 			
-			for spn in getattr(obj,'allowedtodelegateto',[]):
-				con = JackDawUserConstrainedDelegation()
-				con.spn = spn
-				con.targetaccount = self.spn_to_account(spn)
-				user.allowedtodelegateto.append(con)
-			
 			session.commit()
 		
 		print('Enumerating machines...')
+		input('testttt')
 		for obj, machine in self.get_all_machines():
 			machine.ad_id = info.id
 			session.add(machine)
 			session.commit()
 			session.refresh(machine)
 			
+			for spn in getattr(obj,'servicePrincipalName', []):
+				spn_obj = self.create_spn(user.objectSid, spn)
+				spn_obj.ad_id = info.id
+				session.add(spn_obj)
+			
 			for membership in self.get_user_effective_memberships(machine):
 				info.group_lookups.append(membership)
 			
 			for spn in getattr(obj,'allowedtodelegateto',[]):
 				con = JackDawMachineConstrainedDelegation()
+				con.ad_id = info.id
+				con.sid = machine.objectSid
 				con.spn = spn
 				con.targetaccount = self.spn_to_account(spn)
-				machine.allowedtodelegateto.append(con)
+				session.add(con)
 			
 			for acl in self.get_acls_for_dn(machine):
 				acl.ad_id = info.id
@@ -247,11 +252,6 @@ class LDAPEnumerator:
 				
 			session.commit()
 			
-		print('Enumerating service users')
-		for spnservice in self.spnservice_enumerator():
-			spnservice.ad_id = info.id	
-			session.add(spnservice)
-		session.commit()
 		
 		"""
 		ctr = 0		
