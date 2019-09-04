@@ -13,7 +13,7 @@ from jackdaw.dbmodel.tokengroup import JackDawTokenGroup
 from jackdaw.dbmodel import *
 from jackdaw.wintypes.lookup_tables import *
 
-from msldap.core.msldap import *
+from msldap.core.common import *
 from msldap.ldap_objects import *
 
 class LDAPEnumerator:

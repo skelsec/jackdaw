@@ -1,14 +1,16 @@
-from sqlalchemy import exc
-from jackdaw.gatherer import *
-from msldap.core import *
-from jackdaw.dbmodel import *
-from jackdaw.representation.membership_graph import *
-from jackdaw.representation.passwords_report import *
 
-from jackdaw import logger as jdlogger
-from msldap import logger as msldaplogger
 import sys
+from sqlalchemy import exc
 
+from msldap.core import *
+from msldap import logger as msldaplogger
+
+from jackdaw.dbmodel import *
+from jackdaw.common.apq import AsyncProcessQueue
+from jackdaw.gatherer.universal.smb import SMBGathererManager
+#from jackdaw.representation.membership_graph import *
+from jackdaw.representation.passwords_report import *
+from jackdaw import logger as jdlogger
 
 
 def ldap_from_string(ldap_connection_string):
@@ -132,7 +134,9 @@ def main(args):
 		for cred in Credential.from_impacket_file(args.impacket_file):
 			try:
 				dbsession.add(cred)
-				dbsession.commit()
+				if ctr % 10000 == 0:
+					print(ctr)
+					dbsession.commit()
 				
 			except exc.IntegrityError as e:
 				ctr_fail += 1
@@ -140,30 +144,64 @@ def main(args):
 				continue
 			else:
 				ctr += 1
+
+		dbsession.commit()
 		
 		print('Added %d users. Failed inserts: %d' % (ctr, ctr_fail))
 		
 	elif args.command == 'passwords':
+		mem_filter = {}
 		dbsession = get_session(db_conn)
 		ctr = 0
 		for he in HashEntry.from_potfile(args.potfile):
-			if he.nt_hash:
-				qry = dbsession.query(Credential.nt_hash).filter(Credential.nt_hash == he.nt_hash)
-			elif he.lm_hash:
-				qry = dbsession.query(Credential.lm_hash).filter(Credential.lm_hash == he.lm_hash)
-			else:
+			if he.nt_hash in mem_filter:
 				continue
-					
-			if qry.first():
+			mem_filter[he.nt_hash] = 1
+
+			exists = False
+
+			if args.disable_passwordcheck is False:
+				#check if hash is already in HashEntry, if yes, skip
+				if he.nt_hash:
+					exists = dbsession.query(HashEntry.id).filter_by(nt_hash=he.nt_hash).scalar() is not None
+				elif he.lm_hash:
+					exists = dbsession.query(HashEntry.id).filter_by(lm_hash=he.lm_hash).scalar() is not None
+				else:
+					continue
+
+				#print(exists)
+				if exists is True:
+					continue
+			
+			
+			if args.disable_usercheck is False:
+				#check if hash actually belongs to a user, if not, skip, otherwise put it in DB
+				if he.nt_hash:
+					qry = dbsession.query(Credential.nt_hash).filter(Credential.nt_hash == he.nt_hash)
+				elif he.lm_hash:
+					qry = dbsession.query(Credential.lm_hash).filter(Credential.lm_hash == he.lm_hash)
+				else:
+					continue
+				
+				exists = True if qry.first() else False
+			
+			if exists is True:
 				try:
 					dbsession.add(he)
+					if ctr % 10000 == 0:
+						print(ctr)
+					#	dbsession.commit()
 					dbsession.commit()
+					
+
 				except exc.IntegrityError as e:
+					print(e)
 					dbsession.rollback()
 					continue
 				else:
 					ctr += 1
-					
+
+		dbsession.commit()
 		print('Added %d plaintext passwords to the DB' % ctr)
 		
 	elif args.command == 'uncracked':
@@ -180,7 +218,7 @@ def main(args):
 			print(some_hash[0])
 			
 	elif args.command == 'pwreport':
-		report = PasswordsReport(db_conn)
+		report = PasswordsReport(db_conn, out_folder = 'test')
 		report.generate(args.domain_id)
 		
 	elif args.command == 'cracked':
@@ -229,6 +267,8 @@ if __name__ == '__main__':
 	passwords_group = subparsers.add_parser('passwords', help='Add password information from hashcat potfile')
 	passwords_group.add_argument('potfile', help='hashcat potfile with cracked hashes')
 	passwords_group.add_argument('-t','--hash-type', default='NT', choices= ['NT', 'LM'])
+	passwords_group.add_argument('--disable-usercheck', action='store_true', help = 'Disables the user pre-check when inserting to DB. All unique passwords will be uploaded.')
+	passwords_group.add_argument('--disable-passwordcheck', action='store_true', help = 'Disables the password uniqueness check. WILL FAIL IF PW IS ALREADY IN THE DB.')
 	
 	uncracked_group = subparsers.add_parser('uncracked', help='Polls the DB for uncracked passwords')
 	uncracked_group.add_argument('-t','--hash-type', default='NT', choices= ['NT', 'LM'])
@@ -237,7 +277,7 @@ if __name__ == '__main__':
 	cracked_group = subparsers.add_parser('cracked', help='Polls the DB for cracked passwords')
 	
 	pwreport_group = subparsers.add_parser('pwreport', help='Generates credential statistics')
-	pwreport_group.add_argument('-d','--domain-id', type=int, help='Domain ID to identify the domain')
+	pwreport_group.add_argument('-d','--domain-id', type=int, default = -1, help='Domain ID to identify the domain')
 	pwreport_group.add_argument('-o','--out-file', help='Base file name to creates report files in')
 	
 	args = parser.parse_args()

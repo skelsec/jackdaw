@@ -173,7 +173,7 @@ class LocalGroupEnumerator:
 		self.result_process.daemon = True
 		self.result_process.start()
 		
-		for i in range(self.agent_proccnt):
+		for _ in range(self.agent_proccnt):
 			p = LocalGroupEnumProc(self.inQ, self.outQ, self.agent_threadcnt)
 			p.daemon = True
 			p.start()

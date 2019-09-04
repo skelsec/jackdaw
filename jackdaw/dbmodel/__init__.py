@@ -1,6 +1,8 @@
 import datetime
 import logging
 
+from sqlalchemy.engine import Engine
+from sqlalchemy import event
 from sqlalchemy import create_engine, Column, Integer, String, DateTime, Boolean, ForeignKey, Table, Enum
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship
@@ -11,6 +13,17 @@ import enum
 from msldap.wintypes.security_descriptor import *
 
 Basemodel = declarative_base()
+
+
+
+@event.listens_for(Engine, "connect")
+def set_sqlite_pragma(dbapi_connection, connection_record):
+	cursor = dbapi_connection.cursor()
+	cursor.execute("PRAGMA journal_mode = MEMORY")
+	cursor.execute("PRAGMA synchronous = OFF")
+	cursor.execute("PRAGMA temp_store = MEMORY")
+	cursor.execute("PRAGMA cache_size = 500000")
+	cursor.close()
 
 def lf(x, sep = ','):
 	"""
