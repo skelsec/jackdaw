@@ -57,6 +57,7 @@ def main(args):
 		mgr = SMBGathererManager(args.credential_string)
 		mgr.gathering_type = ['all']
 		mgr.ldap_conn =  ldap_conn
+		mgr.db_conn =  db_conn
 		mgr.run()
 		
 	elif args.command == 'ldap':
