@@ -26,7 +26,7 @@ def main(args):
 		logging.basicConfig(level=logging.INFO)
 		jdlogger.setLevel(logging.INFO)
 		msldaplogger.setLevel(logging.WARNING)
-		smblogger.setLevel(logging.INFO)
+		smblogger.setLevel(logging.CRITICAL)
 		
 	elif args.verbose == 1:
 		logging.basicConfig(level=logging.DEBUG)
