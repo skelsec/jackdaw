@@ -2,6 +2,8 @@
 import sys
 from sqlalchemy import exc
 
+from aiosmb import logger as smblogger
+
 from msldap.core import *
 from msldap import logger as msldaplogger
 
@@ -11,6 +13,7 @@ from jackdaw.gatherer.universal.smb import SMBGathererManager
 #from jackdaw.representation.membership_graph import *
 from jackdaw.representation.passwords_report import *
 from jackdaw import logger as jdlogger
+from jackdaw.gatherer.ldap import LDAPEnumerator
 
 
 def ldap_from_string(ldap_connection_string):
@@ -23,16 +26,19 @@ def main(args):
 		logging.basicConfig(level=logging.INFO)
 		jdlogger.setLevel(logging.INFO)
 		msldaplogger.setLevel(logging.WARNING)
+		smblogger.setLevel(logging.INFO)
 		
 	elif args.verbose == 1:
 		logging.basicConfig(level=logging.DEBUG)
 		jdlogger.setLevel(logging.DEBUG)
 		msldaplogger.setLevel(logging.INFO)
+		smblogger.setLevel(logging.INFO)
 		
-	else:
+	elif args.verbose > 1:
 		logging.basicConfig(level=1)
 		msldaplogger.setLevel(logging.DEBUG)
 		jdlogger.setLevel(1)
+		smblogger.setLevel(1)
 	
 	if not args.sql:
 		print('SQL connection identification is missing! You need to provide the --sql parameter')
@@ -48,17 +54,10 @@ def main(args):
 		ldapenum = LDAPEnumerator(db_conn, ldap_conn)
 		ldapenum.run()
 		
-		se = ShareEnumerator(db_conn)
-		se.load_targets_ldap(ldap_conn)
-		se.run()
-		
-		sm = LocalGroupEnumerator(db_conn)
-		sm.load_targets_ldap(ldap_conn)
-		sm.run()
-		
-		sm = SessionMonitor(db_conn)
-		sm.load_targets_ldap(ldap_conn)
-		sm.run()
+		mgr = SMBGathererManager(args.credential_string)
+		mgr.gathering_type = ['all']
+		mgr.ldap_conn =  ldap_conn
+		mgr.run()
 		
 	elif args.command == 'ldap':
 		ldap_conn = ldap_from_string(args.ldap_connection_string)
@@ -67,44 +66,20 @@ def main(args):
 		ldapenum = LDAPEnumerator(db_conn, ldap_conn)
 		ldapenum.run()
 		
-	elif args.command == 'share':
-		se = ShareEnumerator(db_conn)
-		if args.ldap:
-			ldap_conn = ldap_from_string(args.ldap)
-			ldap_conn.connect()
-		
-			se.load_targets_ldap(ldap_conn)
-		
-		elif args.target_file:
-			se.load_targets_file(args.target_file)
-		
-		se.run()
-		
-	elif args.command == 'localgroup':
-		sm = LocalGroupEnumerator(db_conn)
+	elif args.command in ['shares', 'sessions', 'localgroups']:
+		mgr = SMBGathererManager(args.credential_string)
+		mgr.gathering_type = [args.command]
+		mgr.db_conn = db_conn
 		
 		if args.ldap:
 			ldap_conn = ldap_from_string(args.ldap)
 			ldap_conn.connect()
-			sm.load_targets_ldap(ldap_conn)
+			mgr.ldap_conn =  ldap_conn
 		
 		elif args.target_file:
-			sm.load_targets_file(args.target_file)
+			mgr.targets_file = args.target_file
 		
-		sm.run()
-
-	elif args.command == 'session':
-		sm = SessionMonitor(db_conn)
-		if args.ldap:
-			ldap_conn = ldap_from_string(args.ldap)
-			ldap_conn.connect()
-			
-			sm.load_targets_ldap(ldap_conn)
-		
-		elif args.target_file:
-			sm.load_targets_file(args.target_file)
-			
-		sm.run()
+		mgr.run()
 		
 	elif args.command == 'plot':
 		ad_id = 1
@@ -238,21 +213,25 @@ if __name__ == '__main__':
 	subparsers.dest = 'command'
 	
 	ldap_group = subparsers.add_parser('ldap', formatter_class=argparse.RawDescriptionHelpFormatter, help='Enumerate potentially vulnerable users via LDAP', epilog = MSLDAPCredential.help_epilog)
-	ldap_group.add_argument('ldap_connection_string',  help='LDAP connection specitication <domain>/<username>/<secret_type>:<secret>@<dc_ip_or_hostname_or_ldap_url>')
+	ldap_group.add_argument('ldap_connection_string',  help='Connection specitication <domain>/<username>/<secret_type>:<secret>@<dc_ip_or_hostname_or_ldap_url>')
 	
 	enum_group = subparsers.add_parser('enum', formatter_class=argparse.RawDescriptionHelpFormatter, help='Enumerate all stuffs', epilog = MSLDAPCredential.help_epilog)
-	enum_group.add_argument('ldap_connection_string',  help='LDAP connection specitication <domain>/<username>/<secret_type>:<secret>@<dc_ip_or_hostname_or_ldap_url>')
+	enum_group.add_argument('ldap_connection_string',  help='Connection specitication <domain>/<username>/<secret_type>:<secret>@<dc_ip_or_hostname_or_ldap_url>')
+	enum_group.add_argument('credential_string',  help='Credential specitication <domain>/<username>/<secret_type>:<secret>')
 	
-	
-	share_group = subparsers.add_parser('share', help='Enumerate shares on target')
+	share_group = subparsers.add_parser('shares', help='Enumerate shares on target')
+	share_group.add_argument('credential_string',  help='Credential specitication <domain>/<username>/<secret_type>:<secret>')
 	share_group.add_argument('-t', '--target-file', help='taget file with hostnames. One per line.')
 	share_group.add_argument('-l', '--ldap', help='ldap_connection_string. Use this to get targets from the domain controller')
 	
-	localgroup_group = subparsers.add_parser('localgroup', help='Enumerate local group memberships on target')
+	
+	localgroup_group = subparsers.add_parser('localgroups', help='Enumerate local group memberships on target')
+	localgroup_group.add_argument('credential_string',  help='Credential specitication <domain>/<username>/<secret_type>:<secret>')
 	localgroup_group.add_argument('-t', '--target-file', help='taget file with hostnames. One per line.')
 	localgroup_group.add_argument('-l', '--ldap', help='ldap_connection_string. Use this to get targets from the domain controller')
 	
-	session_group = subparsers.add_parser('session', help='Enumerate connected sessions on target')
+	session_group = subparsers.add_parser('sessions', help='Enumerate connected sessions on target')
+	session_group.add_argument('credential_string',  help='Credential specitication <domain>/<username>/<secret_type>:<secret>')
 	session_group.add_argument('-t', '--target-file', help='taget file with hostnames. One per line.')
 	session_group.add_argument('-l', '--ldap', help='ldap_connection_string. Use this to get targets from the domain controller')
 	
