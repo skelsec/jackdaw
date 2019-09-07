@@ -72,7 +72,6 @@ class IPHLookup:
 			try:
 				answer = str(dns_resolver.query(reversename.from_address(ip), "PTR")[0])
 			except Exception as e:
-				#print(e)
 				answer = 'NA'
 				pass
 				
@@ -176,7 +175,6 @@ class SMBGathererManager:
 		
 		for target in self.__target_generator():
 			self.total_targets += 1
-			print(target)
 			smbt = SMBTarget()
 			smbt.ip = target
 			#target.hostname = None
@@ -254,9 +252,9 @@ class AIOSMBGatherer(multiprocessing.Process):
 
 										await self.out_q.coro_put((target, share, None))
 
-								except Exception as e:
-									traceback.print_exc()
-									await self.out_q.coro_put((target, None, 'Failed to list shares. Reason: %s' % e))
+								except:
+									tb = traceback.format_exc()
+									await self.out_q.coro_put((target, None, 'Failed to list shares. Reason: %s' % tb))
 
 				if 'all' in self.gather or 'localgroups' in self.gather:
 					async with LSAD(connection) as lsad:
@@ -264,7 +262,7 @@ class AIOSMBGatherer(multiprocessing.Process):
 						try:
 							await lsad.connect()
 						except Exception as e:
-							await self.out_q.put((target, None, 'Failed to connect to LSAD. Reason: %s' % e))
+							await self.out_q.coro_put((target, None, 'Failed to connect to LSAD. Reason: %s' % e))
 						
 						else:
 							async with SMBSAMR(connection) as samr:
@@ -272,8 +270,7 @@ class AIOSMBGatherer(multiprocessing.Process):
 								try:
 									await samr.connect()
 								except Exception as e:
-									#print('Failed to connect to SAMR. Reason: %s' % e)
-									await self.out_q.put((target, None, 'Failed to connect to SAMR. Reason: %s' % e))
+									await self.out_q.coro_put((target, None, 'Failed to connect to SAMR. Reason: %s' % e))
 								else:
 									try:
 										policy_handle = await lsad.open_policy2()
@@ -281,7 +278,6 @@ class AIOSMBGatherer(multiprocessing.Process):
 										found = False
 										try:
 											async for domain in samr.list_domains():
-												#print(domain)
 												if domain == 'Builtin':
 													found = True
 													logging.debug('[+] Found Builtin domain')
@@ -292,8 +288,8 @@ class AIOSMBGatherer(multiprocessing.Process):
 											domain_sid = await samr.get_domain_sid('Builtin')
 											domain_handle = await samr.open_domain(domain_sid)
 										except Exception as e:
-											traceback.print_exc()
-											await self.out_q.put((target, None, 'Failed to list domains. Reason: %s' % e))
+											tb = traceback.format_exc()
+											await self.out_q.coro_put((target, None, 'Failed to list domains. Reason: %s' % tb))
 										
 										#list aliases
 										target_group_rids = {}
@@ -327,15 +323,15 @@ class AIOSMBGatherer(multiprocessing.Process):
 						
 						
 									except Exception as e:
-										traceback.print_exc()
-										await self.out_q.put((target, None, 'Failed to connect to poll group memeberships. Reason: %s' % e))
+										tb = traceback.format_exc()
+										await self.out_q.coro_put((target, None, 'Failed to connect to poll group memeberships. Reason: %s' % tb))
 		
 		except Exception as e:
 			await self.out_q.coro_put((target, None, 'Failed to connect to host. Reason: %s' % e))
 			return
 
 		finally:
-			await self.out_q.put((target, None, None)) #target finished
+			await self.out_q.coro_put((target, None, None)) #target finished
 
 	async def worker(self):
 		while True:
@@ -358,11 +354,9 @@ class AIOSMBGatherer(multiprocessing.Process):
 		"""
 		self.worker_q = asyncio.Queue()
 		tasks = []
-		#print('Creating workers')
 		for _ in range(self.concurrent_connections):
 			tasks.append(asyncio.create_task(self.worker()))
 
-		#print('Reading targets')
 		while True:
 			target = await self.in_q.coro_get()
 			if target is None:
@@ -372,11 +366,10 @@ class AIOSMBGatherer(multiprocessing.Process):
 			else:
 				await self.worker_q.put(target)
 
-		#print('Terminating scan')
 		results = await asyncio.gather(*tasks, return_exceptions = True)
 		for res in results:
 			if isinstance(res, Exception):
-				print('Error! %s' % res)
+				logger.error('Error! %s' % res)
 		await self.out_q.coro_put(None)
 		
 
@@ -387,5 +380,4 @@ class AIOSMBGatherer(multiprocessing.Process):
 		#loop.set_debug(True)  # Enable debug
 		loop.run_until_complete(self.scan_queue())
 
-		#asyncio.run(self.scan_queue())
 
