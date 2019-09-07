@@ -5,7 +5,7 @@ setup(
 	name="jackdaw",
 
 	# Version number (initial):
-	version="0.0.1",
+	version="0.0.3",
 
 	# Application author details:
 	author="Tamas Jos",
@@ -34,6 +34,7 @@ setup(
 	),
 	install_requires=[
 		'winrecon>=0.0.1',
+		'aiosmb>=0.0.2',
 		'msldap>=0.1.0',
 		'sqlalchemy',
 		'dnspython',
