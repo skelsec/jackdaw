@@ -77,7 +77,7 @@ def main(args):
 		mgr.db_conn = db_conn
 		
 		if args.ldap:
-			ldap_conn = ldap_from_string(args.ldap)
+			ldap_conn = ldap_from_string(args.ldap_connection_string, args.proxy)
 			ldap_conn.connect()
 			mgr.ldap_conn =  ldap_conn
 		
