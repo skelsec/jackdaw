@@ -59,7 +59,8 @@ def main(args):
 		
 		mgr = SMBGathererManager(args.credential_string, proxy = args.proxy)
 		mgr.gathering_type = ['all']
-		mgr.ldap_conn =  ldap_conn
+		mgr.ldap_conn =  ldap_from_string(args.ldap_connection_string, args.proxy) #remember to create a new connection object every time it's needed!!!!!
+		mgr.ldap_conn.connect()
 		mgr.db_conn =  db_conn
 		mgr.run()
 		
