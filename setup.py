@@ -5,7 +5,7 @@ setup(
 	name="jackdaw",
 
 	# Version number (initial):
-	version="0.0.3",
+	version="0.0.4",
 
 	# Application author details:
 	author="Tamas Jos",
@@ -33,13 +33,16 @@ setup(
 		"Operating System :: OS Independent",
 	),
 	install_requires=[
-		'winrecon>=0.0.1',
-		'aiosmb>=0.0.2',
-		'msldap>=0.1.0',
+		'aiosmb>=0.0.3',
+		'msldap>=0.1.2',
 		'sqlalchemy',
 		'dnspython',
+		'tqdm',
 		'pyvis',
 	],
-
-	
+	entry_points={
+		'console_scripts': [
+			'jackdaw = jackdaw.__main__:main',
+		],
+	}
 )
