@@ -185,7 +185,8 @@ class SMBGathererManager:
 			smbt.timeout = self.timeout
 			smbt.dc_ip = self.dc_ip
 			smbt.domain = self.domain
-			smbt.proxy = proxy
+			if self.proxy_connection:
+				smbt.proxy = proxy
 
 			self.in_q.put(smbt)
 		
