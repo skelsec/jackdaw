@@ -20,7 +20,7 @@ def ldap_from_string(ldap_connection_string, proxy_connection_string = None):
 	ldap_creds = MSLDAPCredential.from_connection_string(ldap_connection_string)
 	ldap_target = MSLDAPTarget.from_connection_string(ldap_connection_string)
 	if proxy_connection_string is not None:
-		ldap_proxy = MSLDAPTargetProxy.from_connection_string(proxy_connection_string)
+		ldap_proxy = MSLDAPTargetProxy.from_url(proxy_connection_string)
 		ldap_target.proxy = ldap_proxy
 	return MSLDAPConnection(ldap_creds, ldap_target)
 
@@ -59,9 +59,9 @@ def run(args):
 		
 		mgr = SMBGathererManager(args.credential_string, proxy = args.proxy)
 		mgr.gathering_type = ['all']
-		mgr.ldap_conn =  ldap_from_string(args.ldap_connection_string, args.proxy) #remember to create a new connection object every time it's needed!!!!!
+		mgr.ldap_conn = ldap_from_string(args.ldap_connection_string, args.proxy) #remember to create a new connection object every time it's needed!!!!!
 		mgr.ldap_conn.connect()
-		mgr.db_conn =  db_conn
+		mgr.db_conn = db_conn
 		mgr.run()
 		
 	elif args.command == 'ldap':

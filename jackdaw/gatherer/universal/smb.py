@@ -28,72 +28,6 @@ from jackdaw import logger
 from jackdaw.dbmodel import get_session
 
 
-
-class IPHLookup:
-	def __init__(self):
-		self.dns_server = None
-		self.rdns_table = {}
-		self.dns_table = {}
-
-	def lookup_dbo(self, dbo):
-		"""
-		Performs IP and rdns lookup on DB object
-		"""
-		if dbo.ip is None and dbo.rdns is None:
-			logger.warning()
-			return dbo
-
-		if dbo.ip is None and dbo.rdns is not None:
-			dbo.rdns = self.rdns_lookup(dbo.ip)
-			return dbo
-		if dbo.ip is not None and dbo.rdns is None:
-			dbo.ip = self.rdns_lookup(dbo.rdns)
-			return dbo
-
-		return dbo
-
-	def lookup_unknown(self, x):
-		"""
-		Takes string, decides wether it's and IP address or not, and performs lookup accordingly
-		"""
-		if x[-1] == '$':
-			return (self.ip_lookup(x[:-1]), x[:-1])
-		try:
-			ipaddress.ip_address(x)
-		except:
-			return (self.ip_lookup(x), x)
-		else:
-			return (x, self.rdns_lookup(x))
-
-	def rdns_lookup(self, ip):
-		if ip not in self.rdns_table:
-			dns_resolver = resolver.Resolver()
-			if self.dns_server:
-				dns_resolver.nameservers = [self.dns_server]
-			try:
-				answer = str(dns_resolver.query(reversename.from_address(ip), "PTR")[0])
-			except Exception as e:
-				answer = 'NA'
-				pass
-				
-			self.rdns_table[ip] = answer
-		return self.rdns_table[ip]
-		
-	def ip_lookup(self, target):
-		if target not in self.dns_table:
-			dns_resolver = resolver.Resolver()
-			if self.dns_server:
-				dns_resolver.nameservers = [self.dns_server]
-			try:
-				answers = dns_resolver.query(target, 'A')
-				for rdata in answers:
-					self.dns_table[target] = rdata.address
-			except Exception as e:
-				logger.debug('ShareEnumerator error: %s' % str(e))
-				self.dns_table[target] = None
-		return self.dns_table[target]
-
-
 class SMBGathererManager:
 	def __init__(self, credential_string, proxy = None):
 		self.in_q = AsyncProcessQueue()
@@ -234,7 +168,7 @@ class AIOSMBGatherer(multiprocessing.Process):
 										async for username, ip_addr in srvs.list_sessions(level = level):
 											sess = NetSession()
 											sess.source = target.get_ip()
-											sess.ip = ip_addr
+											sess.ip = ip_addr.replace('\\','').strip()
 											sess.username = username
 
 											await self.out_q.coro_put((target, sess, None))
@@ -326,8 +260,6 @@ class AIOSMBGatherer(multiprocessing.Process):
 														lg.username = user_name
 														await self.out_q.coro_put((target, lg, None))
 						
-						
-						
 									except Exception as e:
 										tb = traceback.format_exc()
 										await self.out_q.coro_put((target, None, 'Failed to connect to poll group memeberships. Reason: %s' % tb))
@@ -382,7 +314,10 @@ class AIOSMBGatherer(multiprocessing.Process):
 	
 	def run(self):
 		self.setup()
-		loop = asyncio.get_event_loop()
+		try:
+			loop = asyncio.get_event_loop()
+		except:
+			loop = asyncio.new_event_loop()
 		#loop.set_debug(True)  # Enable debug
 		loop.run_until_complete(self.scan_queue())
 
