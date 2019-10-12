@@ -3,26 +3,29 @@ import sys
 from sqlalchemy import exc
 
 from aiosmb import logger as smblogger
-
-from msldap.core import *
-from msldap.core.common import MSLDAPTargetProxy
 from msldap import logger as msldaplogger
+
+from msldap.core.common import MSLDAPTargetProxy, MSLDAPCredential
 
 from jackdaw.dbmodel import *
 from jackdaw.common.apq import AsyncProcessQueue
+from jackdaw.common.proxy import ProxyConnection
+from jackdaw.common.ldap import LDAPConnectionManager
+from jackdaw.common.smb import SMBConnectionManager
 from jackdaw.gatherer.universal.smb import SMBGathererManager
 #from jackdaw.representation.membership_graph import *
 from jackdaw.representation.passwords_report import *
 from jackdaw import logger as jdlogger
 from jackdaw.gatherer.ldap import LDAPEnumerator
 
-def ldap_from_string(ldap_connection_string, proxy_connection_string = None):
-	ldap_creds = MSLDAPCredential.from_connection_string(ldap_connection_string)
-	ldap_target = MSLDAPTarget.from_connection_string(ldap_connection_string)
-	if proxy_connection_string is not None:
-		ldap_proxy = MSLDAPTargetProxy.from_url(proxy_connection_string)
-		ldap_target.proxy = ldap_proxy
-	return MSLDAPConnection(ldap_creds, ldap_target)
+
+#def ldap_from_string(ldap_connection_string, proxy_connection_string = None):
+#	ldap_creds = MSLDAPCredential.from_connection_string(ldap_connection_string)
+#	ldap_target = MSLDAPTarget.from_connection_string(ldap_connection_string)
+#	if proxy_connection_string is not None:
+#		ldap_proxy = MSLDAPTargetProxy.from_url(proxy_connection_string)
+#		ldap_target.proxy = ldap_proxy
+#	return MSLDAPConnection(ldap_creds, ldap_target)
 
 def run(args):
 	if args.verbose == 0:
@@ -49,35 +52,42 @@ def run(args):
 	
 	db_conn = args.sql
 	create_db(db_conn)
+
+	if hasattr(args, 'ldap_connection_string'):
+		print(args.ldap_connection_string)
+		ldap_mgr = LDAPConnectionManager(args.ldap_connection_string, proxy_connection_string = args.lproxy)
+	if hasattr(args, 'smb_credential_string'):
+		smb_mgr = SMBConnectionManager(args.smb_credential_string, proxy_connection_string = args.sproxy)
+	
 	
 	if args.command == 'enum':
-		ldap_conn = ldap_from_string(args.ldap_connection_string, args.proxy)
+		ldap_conn = ldap_mgr.get_connection()
 		ldap_conn.connect()
 	
 		ldapenum = LDAPEnumerator(db_conn, ldap_conn)
 		ldapenum.run()
 		
-		mgr = SMBGathererManager(args.credential_string, proxy = args.proxy)
+		mgr = SMBGathererManager(smb_mgr)
 		mgr.gathering_type = ['all']
-		mgr.ldap_conn = ldap_from_string(args.ldap_connection_string, args.proxy) #remember to create a new connection object every time it's needed!!!!!
+		mgr.ldap_conn = ldap_mgr.get_connection() #remember to create a new connection object every time it's needed!!!!!
 		mgr.ldap_conn.connect()
 		mgr.db_conn = db_conn
 		mgr.run()
 		
 	elif args.command == 'ldap':
-		ldap_conn = ldap_from_string(args.ldap_connection_string, args.proxy)
+		ldap_conn = ldap_mgr.get_connection()
 		ldap_conn.connect()
 	
 		ldapenum = LDAPEnumerator(db_conn, ldap_conn)
 		ldapenum.run()
 		
 	elif args.command in ['shares', 'sessions', 'localgroups']:
-		mgr = SMBGathererManager(args.credential_string, proxy = args.proxy)
+		mgr = SMBGathererManager(smb_mgr)
 		mgr.gathering_type = [args.command]
 		mgr.db_conn = db_conn
 		
 		if args.ldap:
-			ldap_conn = ldap_from_string(args.ldap, args.proxy)
+			ldap_conn = ldap_mgr.get_connection()
 			ldap_conn.connect()
 			mgr.ldap_conn = ldap_conn
 		
@@ -217,31 +227,31 @@ def main():
 	
 	ldap_group = subparsers.add_parser('ldap', formatter_class=argparse.RawDescriptionHelpFormatter, help='Enumerate potentially vulnerable users via LDAP', epilog = MSLDAPCredential.help_epilog)
 	ldap_group.add_argument('ldap_connection_string',  help='Connection specitication <domain>/<username>/<secret_type>:<secret>@<dc_ip_or_hostname_or_ldap_url>')
-	ldap_group.add_argument('--proxy',  help='Proxy connction specitication <proxy_type>/<domain>/<username>/<secret_type>:<secret>@<proxy_ip>:<proxy_port>')
+	ldap_group.add_argument('--lproxy',  help='LDAP Proxy connction specitication <proxy_type>://<domain>\\<username>:<password>@<proxy_ip>:<proxy_port>')
 	
 	enum_group = subparsers.add_parser('enum', formatter_class=argparse.RawDescriptionHelpFormatter, help='Enumerate all stuffs', epilog = MSLDAPCredential.help_epilog)
 	enum_group.add_argument('ldap_connection_string',  help='Connection specitication <domain>/<username>/<secret_type>:<secret>@<dc_ip_or_hostname_or_ldap_url>')
-	enum_group.add_argument('credential_string',  help='Credential specitication <domain>/<username>/<secret_type>:<secret>')
-	enum_group.add_argument('--proxy',  help='Proxy connction specitication <proxy_type>/<domain>/<username>/<secret_type>:<secret>@<proxy_ip>:<proxy_port>')
+	enum_group.add_argument('smb_credential_string',  help='Credential specitication <domain>/<username>/<secret_type>:<secret>')
+	enum_group.add_argument('--sproxy',  help='SMB Proxy connction specitication <proxy_type>://<domain>\\<username>:<password>@<proxy_ip>:<proxy_port>')
 	
 	share_group = subparsers.add_parser('shares', help='Enumerate shares on target')
-	share_group.add_argument('credential_string',  help='Credential specitication <domain>/<username>/<secret_type>:<secret>')
+	share_group.add_argument('smb_credential_string',  help='Credential specitication <domain>/<username>/<secret_type>:<secret>')
 	share_group.add_argument('-t', '--target-file', help='taget file with hostnames. One per line.')
 	share_group.add_argument('-l', '--ldap', help='ldap_connection_string. Use this to get targets from the domain controller')
-	share_group.add_argument('--proxy',  help='Proxy connction specitication <proxy_type>/<domain>/<username>/<secret_type>:<secret>@<proxy_ip>:<proxy_port>')
+	share_group.add_argument('--sproxy',  help='SMB Proxy connction specitication <proxy_type>://<domain>\\<username>:<password>@<proxy_ip>:<proxy_port>')
 	
 	
 	localgroup_group = subparsers.add_parser('localgroups', help='Enumerate local group memberships on target')
-	localgroup_group.add_argument('credential_string',  help='Credential specitication <domain>/<username>/<secret_type>:<secret>')
+	localgroup_group.add_argument('smb_credential_string',  help='Credential specitication <domain>/<username>/<secret_type>:<secret>')
 	localgroup_group.add_argument('-t', '--target-file', help='taget file with hostnames. One per line.')
 	localgroup_group.add_argument('-l', '--ldap', help='ldap_connection_string. Use this to get targets from the domain controller')
-	localgroup_group.add_argument('--proxy',  help='Proxy connction specitication <proxy_type>/<domain>/<username>/<secret_type>:<secret>@<proxy_ip>:<proxy_port>')
+	localgroup_group.add_argument('--sproxy',  help='SMB Proxy connction specitication <proxy_type>://<domain>\\<username>:<password>@<proxy_ip>:<proxy_port>')
 	
 	session_group = subparsers.add_parser('sessions', help='Enumerate connected sessions on target')
-	session_group.add_argument('credential_string',  help='Credential specitication <domain>/<username>/<secret_type>:<secret>')
+	session_group.add_argument('smb_credential_string',  help='Credential specitication <domain>/<username>/<secret_type>:<secret>')
 	session_group.add_argument('-t', '--target-file', help='taget file with hostnames. One per line.')
 	session_group.add_argument('-l', '--ldap', help='ldap_connection_string. Use this to get targets from the domain controller')
-	session_group.add_argument('--proxy',  help='Proxy connction specitication <proxy_type>/<domain>/<username>/<secret_type>:<secret>@<proxy_ip>:<proxy_port>')
+	session_group.add_argument('--sproxy',  help='SMB Proxy connction specitication <proxy_type>://<domain>\\<username>:<password>@<proxy_ip>:<proxy_port>')
 	
 	plot_group = subparsers.add_parser('plot', help='Plot AD object relationshipts')
 	plot_group.add_argument('plot_cmd', default='admins', choices= ['admins', 'src', 'dst', 'pp'])

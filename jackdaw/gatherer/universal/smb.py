@@ -10,9 +10,6 @@ from tqdm import tqdm
 from dns import resolver, reversename
 
 import aiosmb
-from aiosmb.commons.smbcredential import SMBCredential
-from aiosmb.commons.smbtarget import SMBTarget
-from aiosmb.commons.smbtargetproxy import SMBTargetProxy
 from aiosmb.smbconnection import SMBConnection
 from aiosmb.commons.authenticator_builder import AuthenticatorBuilder
 from aiosmb.dcerpc.v5.transport.smbtransport import SMBTransport
@@ -29,10 +26,10 @@ from jackdaw.dbmodel import get_session
 
 
 class SMBGathererManager:
-	def __init__(self, credential_string, proxy = None):
+	def __init__(self, smb_mgr):
 		self.in_q = AsyncProcessQueue()
 		self.out_q = AsyncProcessQueue()
-		self.credential_string = credential_string
+		self.smb_mgr = smb_mgr
 		self.gathering_type = ['all']
 		self.localgroups = ['Administrators', 'Distributed COM Users','Remote Desktop Users']
 		self.concurrent_connections = 10
@@ -53,7 +50,6 @@ class SMBGathererManager:
 		self.progress_bar = None
 
 		self.results_thread = None
-		self.proxy_connection = proxy
 
 	def __target_generator(self):
 		for target in self.targets:
@@ -104,24 +100,13 @@ class SMBGathererManager:
 		self.results_thread.daemon = True
 		self.results_thread.start()
 
-		self.credential = SMBCredential.from_credential_string(self.credential_string)
+		self.credential = self.smb_mgr.get_auth()
 		self.gatherer = AIOSMBGatherer(self.in_q, self.out_q, self.credential, gather = self.gathering_type, localgroups = self.localgroups, concurrent_connections = self.concurrent_connections)
 		self.gatherer.start()
 		
-		if self.proxy_connection:
-			proxy = SMBTargetProxy.from_connection_string(self.proxy_connection)
-		
 		for target in self.__target_generator():
 			self.total_targets += 1
-			smbt = SMBTarget()
-			smbt.ip = target
-			#target.hostname = None
-			smbt.timeout = self.timeout
-			smbt.dc_ip = self.dc_ip
-			smbt.domain = self.domain
-			if self.proxy_connection:
-				smbt.proxy = proxy
-
+			smbt = self.smb_mgr.get_connection_from_taget(target, timeout = self.timeout, dc_ip = self.dc_ip)
 			self.in_q.put(smbt)
 		
 		self.in_q.put(None)
