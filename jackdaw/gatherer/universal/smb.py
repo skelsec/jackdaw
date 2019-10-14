@@ -100,14 +100,12 @@ class SMBGathererManager:
 		self.results_thread.daemon = True
 		self.results_thread.start()
 
-		self.credential = self.smb_mgr.get_auth()
-		self.gatherer = AIOSMBGatherer(self.in_q, self.out_q, self.credential, gather = self.gathering_type, localgroups = self.localgroups, concurrent_connections = self.concurrent_connections)
+		self.gatherer = AIOSMBGatherer(self.in_q, self.out_q, self.smb_mgr, gather = self.gathering_type, localgroups = self.localgroups, concurrent_connections = self.concurrent_connections)
 		self.gatherer.start()
 		
 		for target in self.__target_generator():
 			self.total_targets += 1
-			smbt = self.smb_mgr.get_connection_from_taget(target, timeout = self.timeout, dc_ip = self.dc_ip)
-			self.in_q.put(smbt)
+			self.in_q.put(target)
 		
 		self.in_q.put(None)
 		self.progress_bar.total = self.total_targets
@@ -116,11 +114,11 @@ class SMBGathererManager:
 
 
 class AIOSMBGatherer(multiprocessing.Process):
-	def __init__(self, in_q, out_q, credential, gather = ['all'], localgroups = [], concurrent_connections = 10):
+	def __init__(self, in_q, out_q, smb_mgr, gather = ['all'], localgroups = [], concurrent_connections = 10):
 		multiprocessing.Process.__init__(self)
 		self.in_q = in_q
 		self.out_q = out_q
-		self.credential = credential
+		self.smb_mgr = smb_mgr
 		self.gather = gather
 		self.localgroups = localgroups
 		self.concurrent_connections = concurrent_connections
@@ -133,9 +131,10 @@ class AIOSMBGatherer(multiprocessing.Process):
 
 	async def scan_host(self, target):
 		try:
-			spneg = AuthenticatorBuilder.to_spnego_cred(self.credential, target)
-			
-			async with SMBConnection(spneg, target) as connection:
+			#spneg = AuthenticatorBuilder.to_spnego_cred(self.credential, target)
+			connection = self.smb_mgr.create_connection_newtarget(target)
+			print(connection.target)
+			async with connection:
 				results = await asyncio.gather(*[connection.login()], return_exceptions=True)
 				if isinstance(results[0], Exception):
 					raise results[0]
@@ -145,22 +144,22 @@ class AIOSMBGatherer(multiprocessing.Process):
 						try:
 							await srvs.connect()
 						except Exception as e:
-							await self.out_q.coro_put((target, None, 'Failed to connect to SMBSRVS. Reason: %s' % e))
+							await self.out_q.coro_put((connection.target, None, 'Failed to connect to SMBSRVS. Reason: %s' % e))
 						else:
 							for level in [10, 1]:
 								if 'all' in self.gather or 'sessions' in self.gather:
 									try:
 										async for username, ip_addr in srvs.list_sessions(level = level):
 											sess = NetSession()
-											sess.source = target.get_ip()
+											sess.source = connection.target.get_ip()
 											sess.ip = ip_addr.replace('\\','').strip()
 											sess.username = username
 
-											await self.out_q.coro_put((target, sess, None))
+											await self.out_q.coro_put((connection.target, sess, None))
 									except Exception as e:
 										if str(e).find('ERROR_INVALID_LEVEL') != -1 and level != 1: #always put there the last level!
 											continue
-										await self.out_q.coro_put((target, None, 'Failed to get sessions. Reason: %s' % e))
+										await self.out_q.coro_put((connection.target, None, 'Failed to get sessions. Reason: %s' % e))
 
 									else:
 										break
@@ -179,7 +178,7 @@ class AIOSMBGatherer(multiprocessing.Process):
 
 								except:
 									tb = traceback.format_exc()
-									await self.out_q.coro_put((target, None, 'Failed to list shares. Reason: %s' % tb))
+									await self.out_q.coro_put((connection.target, None, 'Failed to list shares. Reason: %s' % tb))
 
 				if 'all' in self.gather or 'localgroups' in self.gather:
 					async with LSAD(connection) as lsad:
@@ -187,7 +186,7 @@ class AIOSMBGatherer(multiprocessing.Process):
 						try:
 							await lsad.connect()
 						except Exception as e:
-							await self.out_q.coro_put((target, None, 'Failed to connect to LSAD. Reason: %s' % e))
+							await self.out_q.coro_put((connection.target, None, 'Failed to connect to LSAD. Reason: %s' % e))
 						
 						else:
 							async with SMBSAMR(connection) as samr:
@@ -195,7 +194,7 @@ class AIOSMBGatherer(multiprocessing.Process):
 								try:
 									await samr.connect()
 								except Exception as e:
-									await self.out_q.coro_put((target, None, 'Failed to connect to SAMR. Reason: %s' % e))
+									await self.out_q.coro_put((connection.target, None, 'Failed to connect to SAMR. Reason: %s' % e))
 								else:
 									try:
 										policy_handle = await lsad.open_policy2()
@@ -214,7 +213,7 @@ class AIOSMBGatherer(multiprocessing.Process):
 											domain_handle = await samr.open_domain(domain_sid)
 										except Exception as e:
 											tb = traceback.format_exc()
-											await self.out_q.coro_put((target, None, 'Failed to list domains. Reason: %s' % tb))
+											await self.out_q.coro_put((connection.target, None, 'Failed to list domains. Reason: %s' % tb))
 										
 										#list aliases
 										target_group_rids = {}
@@ -237,24 +236,24 @@ class AIOSMBGatherer(multiprocessing.Process):
 												async for sid in samr.list_alias_members(alias_handle):
 													async for domain_name, user_name in lsad.lookup_sids(policy_handle, [sid]):
 														lg = LocalGroup()
-														lg.ip = target.get_ip()
-														lg.hostname = target.get_hostname()
+														lg.ip = connection.target.get_ip()
+														lg.hostname = connection.target.get_hostname()
 														lg.sid = sid
 														lg.groupname = grp
 														lg.domain = domain_name
 														lg.username = user_name
-														await self.out_q.coro_put((target, lg, None))
+														await self.out_q.coro_put((connection.target, lg, None))
 						
 									except Exception as e:
 										tb = traceback.format_exc()
-										await self.out_q.coro_put((target, None, 'Failed to connect to poll group memeberships. Reason: %s' % tb))
+										await self.out_q.coro_put((connection.target, None, 'Failed to connect to poll group memeberships. Reason: %s' % tb))
 		
 		except Exception as e:
-			await self.out_q.coro_put((target, None, 'Failed to connect to host. Reason: %s' % e))
+			await self.out_q.coro_put((connection.target, None, 'Failed to connect to host. Reason: %s' % e))
 			return
 
 		finally:
-			await self.out_q.coro_put((target, None, None)) #target finished
+			await self.out_q.coro_put((connection.target, None, None)) #target finished
 
 	async def worker(self):
 		while True:

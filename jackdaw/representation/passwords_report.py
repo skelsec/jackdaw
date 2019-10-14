@@ -16,25 +16,6 @@ class PasswordReportTableEntry:
 		self.pw_special = None
 		
 		self.has_spn = None
-		
-		#self.milyen_regi_az_account = None
-		#self.mikor_kell_jelszo_valtoztatni = None
-		#self.
-	
-#mi a sinztje a leggyengebb hasznalt jelszavaknak
-#mennyi ido volt feltorni
-#mi a feltort jelszavak aranya a teljes DBre nezve
-#milyen csoportban vannak az emberek
-#mi a baseline -> a szakerto mit mond a jo jelszora (mitol jo a jelszo?) ezt a reportba
-#mit csinaljanak hogy jo legyen
-#mikor volt a krbtgt user jelszava lecserelve
-#
-
-#javitasi lehetoseg:
-#1. osszes szervice user gms account legyen
-#2. jelszotarolo alkalmazas, lehetoleg ne centralizalt!!!
-#3. milyen a korenyzet? raknak-e ki jelszavakat postitre
-#4. 
 	
 	
 class PasswordsReport:
