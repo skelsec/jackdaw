@@ -1,4 +1,4 @@
-from jackdaw.dbmodel import *
+from jackdaw.dbmodel import get_session, Credential, HashEntry, JackDawADUser
 from sqlalchemy import func
 import string
 import os
@@ -171,10 +171,6 @@ class PasswordsReport:
 				print(total_objects_cracked)
 				print(total_comps_cracked)
 				print(total_users_cracked)
-
-
-
-			
 
 		else:
 			qry = dbsession.query(Credential, HashEntry, JackDawADUser)\

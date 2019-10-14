@@ -10,9 +10,6 @@ from tqdm import tqdm
 from dns import resolver, reversename
 
 import aiosmb
-from aiosmb.smbconnection import SMBConnection
-from aiosmb.commons.authenticator_builder import AuthenticatorBuilder
-from aiosmb.dcerpc.v5.transport.smbtransport import SMBTransport
 from aiosmb.dcerpc.v5.interfaces.srvsmgr import SMBSRVS
 from aiosmb.dcerpc.v5.interfaces.samrmgr import SMBSAMR
 from aiosmb.dcerpc.v5.interfaces.lsatmgr import LSAD
@@ -47,7 +44,11 @@ class SMBGathererManager:
 		self.gatherer = None
 		
 		self.use_progress_bar = True
-		self.progress_bar = None
+		self.prg_hosts = None
+		self.prg_shares = None
+		self.prg_sessions = None
+		self.prg_groups = None
+		self.prg_errors = None
 
 		self.results_thread = None
 
@@ -78,7 +79,21 @@ class SMBGathererManager:
 				break
 
 			target, result, error = x
+			if result is None and error is not None:
+				#something went error
+				logger.debug('[AIOSMBScanner][TargetError][%s] %s' % (target.get_ip(), error))
+				if self.use_progress_bar is True:
+					self.prg_errors.update()
+
 			if result is not None:
+				if self.use_progress_bar is True:
+					if isinstance(result, NetSession):
+						self.prg_sessions.update()
+					elif isinstance(result, NetShare):
+						self.prg_shares.update()
+					elif isinstance(result, LocalGroup):
+						self.prg_groups.update()
+
 				if session is None:
 					logger.debug(target, str(result), error)
 				else:
@@ -88,13 +103,17 @@ class SMBGathererManager:
 			if result is None and error is None:
 				logger.debug('Finished: %s' % target.ip)
 				if self.use_progress_bar is True:
-					self.progress_bar.update()
+					self.prg_hosts.update()
 	
 	def run(self):
 		self.in_q = AsyncProcessQueue()
 		self.out_q = AsyncProcessQueue()
 		if self.use_progress_bar is True:
-			self.progress_bar = tqdm()
+			self.prg_hosts = tqdm(desc='HOSTS', ascii = True)
+			self.prg_shares = tqdm(desc='Shares', ascii = True)
+			self.prg_sessions = tqdm(desc='Sessions', ascii = True)
+			self.prg_groups = tqdm(desc='LocalGroup', ascii = True)
+			self.prg_errors = tqdm(desc='Errors', ascii = True)
 
 		self.results_thread = threading.Thread(target = self.get_results)
 		self.results_thread.daemon = True
@@ -105,10 +124,13 @@ class SMBGathererManager:
 		
 		for target in self.__target_generator():
 			self.total_targets += 1
+			if self.use_progress_bar is True:
+				self.prg_hosts.total = self.total_targets
 			self.in_q.put(target)
 		
 		self.in_q.put(None)
-		self.progress_bar.total = self.total_targets
+		#if self.use_progress_bar is True:
+		#	self.prg_hosts.total = self.total_targets
 
 		self.results_thread.join()
 
@@ -133,7 +155,6 @@ class AIOSMBGatherer(multiprocessing.Process):
 		try:
 			#spneg = AuthenticatorBuilder.to_spnego_cred(self.credential, target)
 			connection = self.smb_mgr.create_connection_newtarget(target)
-			print(connection.target)
 			async with connection:
 				results = await asyncio.gather(*[connection.login()], return_exceptions=True)
 				if isinstance(results[0], Exception):
@@ -169,12 +190,12 @@ class AIOSMBGatherer(multiprocessing.Process):
 								try:
 									async for name, share_type, remark in srvs.list_shares():
 										share = NetShare()
-										share.ip = target.get_ip()
+										share.ip = connection.target.get_ip()
 										share.netname = name
 										share.type = share_type
 										share.remark = remark
 
-										await self.out_q.coro_put((target, share, None))
+										await self.out_q.coro_put((connection.target, share, None))
 
 								except:
 									tb = traceback.format_exc()

@@ -1,5 +1,6 @@
 
 import sys
+import logging
 from urllib.parse import urlparse
 from sqlalchemy import exc
 
@@ -7,27 +8,18 @@ from aiosmb import logger as smblogger
 from msldap import logger as msldaplogger
 
 from aiosmb.commons.connection.url import SMBConnectionURL
-from msldap.core.common import MSLDAPTargetProxy, MSLDAPCredential
+from msldap.commons.url import MSLDAPURLDecoder
 
-from jackdaw.dbmodel import *
+from jackdaw.dbmodel import create_db, get_session, Credential, HashEntry
 from jackdaw.common.apq import AsyncProcessQueue
 from jackdaw.common.proxy import ProxyConnection
 from jackdaw.common.ldap import LDAPConnectionManager
-from jackdaw.common.smb import SMBConnectionManager
 from jackdaw.gatherer.universal.smb import SMBGathererManager
 #from jackdaw.representation.membership_graph import *
-from jackdaw.representation.passwords_report import *
+from jackdaw.representation.passwords_report import PasswordsReport
 from jackdaw import logger as jdlogger
 from jackdaw.gatherer.ldap import LDAPEnumerator
 
-
-#def ldap_from_string(ldap_connection_string, proxy_connection_string = None):
-#	ldap_creds = MSLDAPCredential.from_connection_string(ldap_connection_string)
-#	ldap_target = MSLDAPTarget.from_connection_string(ldap_connection_string)
-#	if proxy_connection_string is not None:
-#		ldap_proxy = MSLDAPTargetProxy.from_url(proxy_connection_string)
-#		ldap_target.proxy = ldap_proxy
-#	return MSLDAPConnection(ldap_creds, ldap_target)
 
 def run(args):
 	if args.verbose == 0:
@@ -63,8 +55,9 @@ def run(args):
 
 		if args.same_query is True and args.smb_url is not None:
 			ldap_url = '%s/?%s' % (ldap_url, urlparse(args.smb_url).query)
-		print(ldap_url)
-		ldap_mgr = LDAPConnectionManager(ldap_url)
+		#print(ldap_url)
+		#ldap_mgr = LDAPConnectionManager(ldap_url)
+		ldap_mgr = MSLDAPURLDecoder(ldap_url)
 
 	if hasattr(args, 'smb_url'):
 		smb_mgr =  SMBConnectionURL(args.smb_url) #SMBConnectionManager(args.smb_credential_string, proxy_connection_string = args.sproxy)
@@ -234,10 +227,10 @@ def main():
 	subparsers.required = True
 	subparsers.dest = 'command'
 	
-	ldap_group = subparsers.add_parser('ldap', formatter_class=argparse.RawDescriptionHelpFormatter, help='Enumerate potentially vulnerable users via LDAP', epilog = MSLDAPCredential.help_epilog)
+	ldap_group = subparsers.add_parser('ldap', formatter_class=argparse.RawDescriptionHelpFormatter, help='Enumerate potentially vulnerable users via LDAP', epilog = MSLDAPURLDecoder.help_epilog)
 	ldap_group.add_argument('ldap_url',  help='Connection specitication <domain>/<username>/<secret_type>:<secret>@<dc_ip_or_hostname_or_ldap_url>')
 	
-	enum_group = subparsers.add_parser('enum', formatter_class=argparse.RawDescriptionHelpFormatter, help='Enumerate all stuffs', epilog = MSLDAPCredential.help_epilog)
+	enum_group = subparsers.add_parser('enum', formatter_class=argparse.RawDescriptionHelpFormatter, help='Enumerate all stuffs', epilog = MSLDAPURLDecoder.help_epilog)
 	enum_group.add_argument('ldap_url',  help='Connection specitication <domain>/<username>/<secret_type>:<secret>@<dc_ip_or_hostname_or_ldap_url>')
 	enum_group.add_argument('smb_url',  help='Credential specitication <domain>/<username>/<secret_type>:<secret>')
 	
