@@ -13,7 +13,6 @@ from msldap.commons.url import MSLDAPURLDecoder
 from jackdaw.dbmodel import create_db, get_session, Credential, HashEntry
 from jackdaw.common.apq import AsyncProcessQueue
 from jackdaw.common.proxy import ProxyConnection
-from jackdaw.common.ldap import LDAPConnectionManager
 from jackdaw.gatherer.universal.smb import SMBGathererManager
 #from jackdaw.representation.membership_graph import *
 from jackdaw.representation.passwords_report import PasswordsReport
@@ -55,8 +54,6 @@ def run(args):
 
 		if args.same_query is True and args.smb_url is not None:
 			ldap_url = '%s/?%s' % (ldap_url, urlparse(args.smb_url).query)
-		#print(ldap_url)
-		#ldap_mgr = LDAPConnectionManager(ldap_url)
 		ldap_mgr = MSLDAPURLDecoder(ldap_url)
 
 	if hasattr(args, 'smb_url'):
