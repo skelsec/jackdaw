@@ -31,6 +31,7 @@ paths:
           description: Returns the graph ID if creation is sucsessfull
           schema:
             type: integer
+  
   /graph/{graphid}/query/path:
     get:
       operationId: api.graph.query_path
@@ -47,10 +48,61 @@ paths:
         - name: src
           in: query
           description: ID of the graph
-          type: integer
-          required: True
+          type: string
+          required: False
         - name: dst
           in: query
+          description: ID of the graph
+          type: string
+          required: False
+      responses:
+        200:
+          description: Returns a graph o the shortest paths
+          schema:
+            type: object
+            properties:
+              graph:
+                type: string
+                description: Last name of person to create
+
+  /graph/{graphid}/node/{nodeid}:
+    get:
+      operationId: api.graph.get_node
+      tags:
+        - Graph
+      summary: Performs a shortest path query, listing all shortest paths from src to dst
+      description: Performs a shortest path query, listing all shortest paths from src to dst
+      parameters:
+        - name: graphid
+          in: path
+          description: ID of the graph
+          type: integer
+          required: True
+        - name: nodeid
+          in: path
+          description: ID of the node
+          type: string
+          required: True
+      responses:
+        200:
+          description: Returns a graph o the shortest paths
+          schema:
+            type: object
+            properties:
+              graph:
+                type: string
+                description: Last name of person to create
+
+  /graph/{graphid}/nodes/:
+    get:
+      operationId: api.graph.list_nodes
+      tags:
+        - Graph
+      summary: Fetches a list of all nodes in the graph
+      description: Fetches a list of all nodes in the graph
+      parameters:
+        - name: graphid
+          in: path
           description: ID of the graph
           type: integer
           required: True

@@ -21,10 +21,30 @@ def delete(graphid):
     return {}
 
 def get(graphid):
-    return {}
+    if graphid not in graphs:
+        return {}
+    res = graphs[graphid].all_shortest_paths()
+    return res.to_dict()
 
-def query_path(graphid, src, dst):
-    return {}
+def query_path(graphid, src = None, dst = None):
+    if graphid not in graphs:
+        return {}
+    if src is None and dst is None:
+        return {}
+    res =  graphs[graphid].all_shortest_paths(src, dst)
+    return res.to_dict()
+
+def list_nodes(graphid, with_data = False):
+    if graphid not in graphs:
+        return {}
+    return graphs[graphid].graph.nodes
+
+def get_node(graphid, nodeid):
+    if graphid not in graphs:
+        return {}
+    if nodeid not in graphs[graphid].graph.nodes:
+        return {}
+    return graphs[graphid].graph.nodes[nodeid]
 
 def search_sid(graphid, sid):
     return {}
