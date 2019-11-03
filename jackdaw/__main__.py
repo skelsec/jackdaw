@@ -52,7 +52,7 @@ def run(args):
 		if args.ldap_url[-1] == '/':
 			ldap_url = args.ldap_url[:-1]
 
-		if args.same_query is True and args.smb_url is not None:
+		if hasattr(args, 'same_query') and args.same_query is True and args.smb_url is not None:
 			ldap_url = '%s/?%s' % (ldap_url, urlparse(args.smb_url).query)
 		ldap_mgr = MSLDAPURLDecoder(ldap_url)
 

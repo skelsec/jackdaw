@@ -47,6 +47,27 @@ class JackDawADInfo(Basemodel):
 	customrelations = relationship("JackDawCustomRelations", back_populates="ad", lazy = True)
 	ou = relationship("JackDawADOU", back_populates="ad", lazy = True)
 	
+	def to_dict(self):
+		return {
+			'id' : self.id ,
+			'fetched_at' : self.fetched_at ,
+			'creationTime' : self.creationTime ,
+			'distinguishedName' : self.distinguishedName ,
+			'forceLogoff' : self.forceLogoff ,
+			'lockoutDuration' : self.lockoutDuration ,
+			'lockOutObservationWindow' : self.lockOutObservationWindow ,
+			'lockoutThreshold' : self.lockoutThreshold ,
+			'masteredBy' : self.masteredBy ,
+			'maxPwdAge' : self.maxPwdAge ,
+			'minPwdAge' : self.minPwdAge ,
+			'minPwdLength' : self.minPwdLength ,
+			'name' : self.name ,
+			'pwdHistoryLength' : self.pwdHistoryLength ,
+			'pwdProperties' : self.pwdProperties ,
+			'whenChanged' : self.whenChanged ,
+			'whenCreated' : self.whenCreated ,
+		}
+
 	@staticmethod
 	def from_dict(d):
 		adinfo = JackDawADInfo()

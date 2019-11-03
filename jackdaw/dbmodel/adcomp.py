@@ -72,6 +72,59 @@ class JackDawADMachine(Basemodel):
 	UAC_DONT_REQUIRE_PREAUTH = Column(Boolean)
 	UAC_PASSWORD_EXPIRED = Column(Boolean)
 	UAC_TRUSTED_TO_AUTHENTICATE_FOR_DELEGATION = Column(Boolean)
+
+
+	def to_dict(self):
+		return {
+			'id' : self.id ,
+			'ad_id' : self.ad_id ,
+			'dn' : self.dn ,
+			'displayName' : self.displayName ,
+			'name' : self.name ,
+			'objectSid' : self.objectSid ,
+			'sAMAccountName' : self.sAMAccountName ,
+			'servicePrincipalName' : self.servicePrincipalName ,
+			'accountExpires' : self.accountExpires ,
+			'badPasswordTime' : self.badPasswordTime ,
+			'lastLogoff' : self.lastLogoff ,
+			'lastLogon' : self.lastLogon ,
+			'lastLogonTimestamp' : self.lastLogonTimestamp ,
+			'pwdLastSet' : self.pwdLastSet ,
+			'whenChanged' : self.whenChanged ,
+			'whenCreated' : self.whenCreated ,
+			'badPwdCount' : self.badPwdCount ,
+			'logonCount' : self.logonCount ,
+			'sAMAccountType' : self.sAMAccountType ,
+			'userAccountControl' : self.userAccountControl ,
+			'codePage' : self.codePage ,
+			'countryCode' : self.countryCode ,
+			'supported_enc_types' : self.supported_enc_types ,
+			'localPolicyFlags' : self.localPolicyFlags ,
+			'operatingSystem' : self.operatingSystem ,
+			'operatingSystemVersion' : self.operatingSystemVersion ,
+			'primaryGroupID' : self.primaryGroupID ,
+			'UAC_SCRIPT' : self.UAC_SCRIPT ,
+			'UAC_ACCOUNTDISABLE' : self.UAC_ACCOUNTDISABLE ,
+			'UAC_HOMEDIR_REQUIRED' : self.UAC_HOMEDIR_REQUIRED ,
+			'UAC_LOCKOUT' : self.UAC_LOCKOUT ,
+			'UAC_PASSWD_NOTREQD' : self.UAC_PASSWD_NOTREQD ,
+			'UAC_PASSWD_CANT_CHANGE' : self.UAC_PASSWD_CANT_CHANGE ,
+			'UAC_ENCRYPTED_TEXT_PASSWORD_ALLOWED' : self.UAC_ENCRYPTED_TEXT_PASSWORD_ALLOWED ,
+			'UAC_TEMP_DUPLICATE_ACCOUNT' : self.UAC_TEMP_DUPLICATE_ACCOUNT ,
+			'UAC_NORMAL_ACCOUNT' : self.UAC_NORMAL_ACCOUNT ,
+			'UAC_INTERDOMAIN_TRUST_ACCOUNT' : self.UAC_INTERDOMAIN_TRUST_ACCOUNT ,
+			'UAC_WORKSTATION_TRUST_ACCOUNT' : self.UAC_WORKSTATION_TRUST_ACCOUNT ,
+			'UAC_SERVER_TRUST_ACCOUNT' : self.UAC_SERVER_TRUST_ACCOUNT ,
+			'UAC_DONT_EXPIRE_PASSWD' : self.UAC_DONT_EXPIRE_PASSWD ,
+			'UAC_MNS_LOGON_ACCOUNT' : self.UAC_MNS_LOGON_ACCOUNT ,
+			'UAC_SMARTCARD_REQUIRED' : self.UAC_SMARTCARD_REQUIRED ,
+			'UAC_TRUSTED_FOR_DELEGATION' : self.UAC_TRUSTED_FOR_DELEGATION ,
+			'UAC_NOT_DELEGATED' : self.UAC_NOT_DELEGATED ,
+			'UAC_USE_DES_KEY_ONLY' : self.UAC_USE_DES_KEY_ONLY ,
+			'UAC_DONT_REQUIRE_PREAUTH' : self.UAC_DONT_REQUIRE_PREAUTH ,
+			'UAC_PASSWORD_EXPIRED' : self.UAC_PASSWORD_EXPIRED ,
+			'UAC_TRUSTED_TO_AUTHENTICATE_FOR_DELEGATION' : self.UAC_TRUSTED_TO_AUTHENTICATE_FOR_DELEGATION ,
+		}
 	
 	@staticmethod
 	def from_adcomp(u):

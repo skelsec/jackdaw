@@ -11,17 +11,26 @@ from sqlalchemy.orm import load_only
 import networkx as nx
 
 class GraphNode:
-	def __init__(self, gid, name, properties = {}):
+	def __init__(self, gid, name, gtype = None, properties = {}):
 		self.name = name
 		self.id = gid
+		self.type = gtype
 		self.properties = properties
 
-	def to_dict(self):
-		return {
-			'id' : self.id,
-			'name' : self.name,
-			'properties' : self.properties
-		}
+	def to_dict(self, format = None):
+		if format is None:
+			return {
+				'id' : self.id,
+				'name' : self.name,
+				'properties' : self.properties
+			}
+
+		elif format == 'd3':
+			return {
+				'id' : self.id,
+				'name' : self.name,
+				'type' : self.type,
+			}
 
 class GraphEdge:
 	def __init__(self, src, dst, label = '', weight = 1, properties = {}):
@@ -31,14 +40,22 @@ class GraphEdge:
 		self.weight = weight
 		self.properties = properties
 
-	def to_dict(self):
-		return {
-			'src' : self.src,
-			'dst' : self.dst,
-			'label' : self.label,
-			'weight' : self.weight,
-			'properties' : self.properties
-		}
+	def to_dict(self, format = None):
+		if format is None:
+			return {
+				'src' : self.src,
+				'dst' : self.dst,
+				'label' : self.label,
+				'weight' : self.weight,
+				'properties' : self.properties
+			}
+		elif format == 'd3':
+			return {
+				'source' : self.src,
+				'target' : self.dst,
+				'label'  : self.label,
+				'weight' : self.weight,
+			}
 
 
 class GraphData:
@@ -47,7 +64,7 @@ class GraphData:
 		self.edges = []
 
 	def add_node(self, gid, name, properties):
-		self.nodes[id] = GraphNode(gid, name, properties)
+		self.nodes[gid] = GraphNode(gid, name, properties)
 	
 	def add_edge(self, src, dst, label = '', weight = 1, properties = {}):
 		if src not in self.nodes:
@@ -57,11 +74,17 @@ class GraphData:
 
 		self.edges.append(GraphEdge(src, dst, label, weight, properties))
 
-	def to_dict(self):
-		return {
-			'nodes' : [self.nodes[x].to_dict() for x in self.nodes],
-			'edges' : [x.to_dict() for x in self.edges]
-		}
+	def to_dict(self, format = None):
+		if format is None:
+			return {
+				'nodes' : [self.nodes[x].to_dict() for x in self.nodes],
+				'edges' : [x.to_dict() for x in self.edges]
+			}
+		elif format == 'd3':
+			return {
+				'nodes' : [self.nodes[x].to_dict(format = format) for x in self.nodes],
+				'links' : [x.to_dict(format = format) for x in self.edges]
+			}
 
 def ace_applies(ace_guid, object_class):
 	'''
@@ -80,8 +103,9 @@ def ace_applies(ace_guid, object_class):
 
 
 class DomainGraph:
-	def __init__(self, db_conn):
+	def __init__(self, db_conn = None, dbsession = None):
 		self.db_conn = db_conn
+		self.dbsession = dbsession
 		self.graph = nx.DiGraph()
 		#self.network_visual = Network("3000px", "3000px")
 		self.show_group_memberships = True
@@ -98,6 +122,14 @@ class DomainGraph:
 		
 		self.blacklist_sids = {'S-1-5-32-545': ''}
 		self.ignoresids = {"S-1-3-0": '', "S-1-5-18": ''}
+
+	def get_session(self):
+		if self.db_conn is not None:
+			return get_session(self.db_conn)
+		elif self.dbsession is not None:
+			return self.dbsession
+		else:
+			raise Exception('Either db_conn or dbsession MUST be supplied!')
 		
 	def is_blacklisted_sid(self, sid):
 		if sid in self.blacklist_sids:
@@ -136,9 +168,9 @@ class DomainGraph:
 		#self.network_visual.add_edge(sid_src, sid_dst, label = label, weight = weight)
 			
 	def sid2cn(self, sid, throw = False):
-		session = get_session(self.db_conn)
+		session = self.get_session()
 		tsid = session.query(JackDawTokenGroup.cn).filter(JackDawTokenGroup.sid == sid).first()
-		print('sid2cn: %s' % tsid)
+		#print('sid2cn: %s' % tsid)
 		if not tsid:
 			t = str(get_name_or_sid(str(sid)))
 			if t == sid and throw == True:
@@ -149,16 +181,29 @@ class DomainGraph:
 	def cn2sid(self, cn, throw = False, domain_sid = None):
 		sid = get_sid_for_name(cn, domain_sid)
 		
-		session = get_session(self.db_conn)
+		session = self.get_session()
 		tsid = session.query(JackDawTokenGroup.sid).filter(JackDawTokenGroup.cn == cn).first()
-		print(tsid)
+		#print(tsid)
 		if not tsid:
 			if throw == True:
 				raise Exception('No SID found for CN = %s' % repr(cn))
 			return cn
 		return tsid[0]
 			
-			
+	def show_all(self):
+		"""
+		Returns all nodes and edges from the graph
+		You really don't want this on a larger graph, mostly used for testing purposes
+		"""
+		data = GraphData()
+		for sid in self.graph.nodes:
+			data.add_node(sid, name = self.graph.nodes[sid].get('name', self.sid2cn(sid)), properties = {'color' : self.graph.nodes[sid].get('color', '#222222')})
+
+		for edge in [e for e in self.graph.edges]:
+			data.add_edge(edge[0], edge[1])
+
+		return data
+
 	def show_domain_admins(self):
 		dst_sid = self.cn2sid('Domain Admins', True, self.domain_sid)
 		return self.all_shortest_paths( dst_sid = dst_sid)
@@ -167,8 +212,21 @@ class DomainGraph:
 		src_sid = self.cn2sid(src, True, self.domain_sid)
 		
 		return self.all_shortest_paths(src_sid = src_sid)
+	
+	def get_node(self, nodeid = None):
 		
-		
+		if nodeid is None:
+			nodes = []
+			for gid, props in list(self.graph.nodes(data=True)):
+				nodes.append(GraphNode(gid, gid, properties = {}))
+			return nodes
+
+		if nodeid not in self.graph.nodes:
+			return None
+		gid, *t = self.graph.nodes[nodeid]
+		return GraphNode(gid, gid, properties = {})
+
+
 	def show_all_destinations(self, dst):
 		dst_sid = self.cn2sid(dst, True, self.domain_sid)	
 		return self.all_shortest_paths( dst_sid = dst_sid)
@@ -185,6 +243,7 @@ class DomainGraph:
 		Path is a list of sids (nodes), so we need to find the edges matching
 		"""
 		for sid in path:
+			#print(sid)
 			network.add_node(sid, name = self.graph.nodes[sid].get('name', self.sid2cn(sid)), properties = {'color' : self.graph.nodes[sid].get('color', '#222222')})
 					
 		for i in range(len(path) - 1):
@@ -431,7 +490,7 @@ class DomainGraph:
 		"""
 		Fills the network graph from database to memory
 		"""
-		session = get_session(self.db_conn)
+		session = self.get_session()
 		adinfo = session.query(JackDawADInfo).get(ad_id)
 		
 		self.domain_sid = str(adinfo.objectSid)

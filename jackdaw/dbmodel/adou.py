@@ -22,6 +22,18 @@ class JackDawADOU(Basemodel):
 	whenChanged = Column(String, index=True)
 	whenCreated = Column(String, index=True)
 	
+	def to_dict(self):
+		return {
+			'id' : self.id ,
+			'ad_id' : self.ad_id ,
+			'description' : self.description ,
+			'guid' : self.objectGUID,
+			'dn' : self.dn ,
+			'name' : self.name ,
+			'ou' : self.ou ,
+			'whenChanged' : self.whenChanged ,
+			'whenCreated' : self.whenCreated ,	
+		}
 	
 	@staticmethod
 	def from_adou(u):

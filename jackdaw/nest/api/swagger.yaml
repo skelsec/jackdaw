@@ -8,10 +8,44 @@ consumes:
 produces:
   - application/json
 
-basePath: /api
+basePath: /
 
 # Paths supported by the server application
 paths:
+  /nest:
+    get:
+      tags:
+        - Server
+      operationId: api.server.serve_home
+      summary: Serves the html files
+      description: Serves the html files          
+      produces:
+        - text/html   
+      responses:
+        200:
+          description: Successfully loaded html page.
+
+  /nest/{filename}:
+    get:
+      tags:
+        - Server
+      operationId: api.server.serve_file
+      summary: Serves the html files
+      description: Serves the html files
+      parameters:
+        - name: filename
+          in: path
+          description: aaaa
+          required: True
+          type: string
+          
+      produces:
+        - text/html
+      
+      responses:
+        200:
+          description: Successfully loaded html page.
+
   /graph:
     put:
       operationId: api.graph.create
@@ -65,13 +99,36 @@ paths:
                 type: string
                 description: Last name of person to create
 
+  /graph/{graphid}/query/path/all:
+    get:
+      operationId: api.graph.query_path_all
+      tags:
+        - Graph
+      summary: Serves the whole graph with all nodes and edges
+      description: Serves the whole graph with all nodes and edges
+      parameters:
+        - name: graphid
+          in: path
+          description: ID of the graph
+          type: integer
+          required: True
+      responses:
+        200:
+          description: Returns a graph o the shortest paths
+          schema:
+            type: object
+            properties:
+              graph:
+                type: string
+                description: Last name of person to create
+
   /graph/{graphid}/node/{nodeid}:
     get:
       operationId: api.graph.get_node
       tags:
         - Graph
-      summary: Performs a shortest path query, listing all shortest paths from src to dst
-      description: Performs a shortest path query, listing all shortest paths from src to dst
+      summary: Gets information of a node
+      description: Gets information of a node
       parameters:
         - name: graphid
           in: path
@@ -85,7 +142,7 @@ paths:
           required: True
       responses:
         200:
-          description: Returns a graph o the shortest paths
+          description: Returns full node information
           schema:
             type: object
             properties:
@@ -156,3 +213,404 @@ paths:
       responses:
         200:
           description: Successfully deleted the graph
+
+
+  /domain/list:
+    get:
+      operationId: api.domain.list_domains
+      tags:
+        - Domain
+      summary: Returs the list of available domains
+      description: Returs the list of available domains
+      responses:
+        200:
+          description: List of available domains
+          schema:
+            type: object
+            properties:
+              graphid:
+                type: integer
+                description: ID of the graph
+              graph:
+                type: string
+                description: Last name of person to create
+
+  /domain/by_id/{domainid}:
+    get:
+      operationId: api.domain.get
+      tags:
+        - Domain
+      summary: Returs the full information of a given domain
+      description: Returs the full information of a given domain
+      parameters:
+        - name: domainid
+          in: path
+          description: ID of the graph
+          type: integer
+          required: True
+      responses:
+        200:
+          description: Domain information
+          schema:
+            type: object
+            properties:
+              graphid:
+                type: integer
+                description: ID of the graph
+              graph:
+                type: string
+                description: Last name of person to create
+
+  /user/{domainid}/list:
+    get:
+      operationId: api.user.list_users
+      tags:
+        - User
+      summary: Returs the list of available users
+      description: Returs the list of available users
+      parameters:
+        - name: domainid
+          in: path
+          description: ID of the graph
+          type: integer
+          required: True
+      responses:
+        200:
+          description: List of available users
+          schema:
+            type: object
+            properties:
+              graphid:
+                type: integer
+                description: ID of the graph
+              graph:
+                type: string
+                description: Last name of person to create
+
+  /user/{domainid}/by_sid/{usersid}:
+    get:
+      operationId: api.user.get_sid
+      tags:
+        - User
+      summary: Returs the full information of a given user identified by SID
+      description: Returs the full information of a given user identified by SID
+      parameters:
+        - name: domainid
+          in: path
+          description: ID of the graph
+          type: integer
+          required: True
+        - name: usersid
+          in: path
+          description: ID of the graph
+          type: string
+          required: True
+      responses:
+        200:
+          description: User information
+          schema:
+            type: object
+            properties:
+              graphid:
+                type: integer
+                description: ID of the graph
+              graph:
+                type: string
+                description: Last name of person to create
+
+  /user/{domainid}/by_id/{userid}:
+    get:
+      operationId: api.user.get
+      tags:
+        - User
+      summary: Returs the full information of a given user identified by userid
+      description: Returs the full information of a given user identified by userid
+      parameters:
+        - name: domainid
+          in: path
+          description: ID of the graph
+          type: integer
+          required: True
+        - name: userid
+          in: path
+          description: ID of the graph
+          type: integer
+          required: True
+      responses:
+        200:
+          description: User information
+          schema:
+            type: object
+            properties:
+              graphid:
+                type: integer
+                description: ID of the graph
+              graph:
+                type: string
+                description: Last name of person to create
+
+  /machine/{domainid}/list:
+    get:
+      operationId: api.machine.list_machines
+      tags:
+        - Machine
+      summary: Returs the list of available machines
+      description: Returs the list of available machines
+      parameters:
+        - name: domainid
+          in: path
+          description: ID of the graph
+          type: integer
+          required: True
+      responses:
+        200:
+          description: List of available machines
+          schema:
+            type: object
+            properties:
+              graphid:
+                type: integer
+                description: ID of the graph
+              graph:
+                type: string
+                description: Last name of person to create
+
+  /machine/{domainid}/by_sid/{sid}:
+    get:
+      operationId: api.machine.get_sid
+      tags:
+        - Machine
+      summary: Returs the full information of a given machine identified by SID
+      description: Returs the full information of a given machine identified by SID
+      parameters:
+        - name: domainid
+          in: path
+          description: ID of the graph
+          type: integer
+          required: True
+        - name: sid
+          in: path
+          description: ID of the graph
+          type: string
+          required: True
+      responses:
+        200:
+          description: User information
+          schema:
+            type: object
+            properties:
+              graphid:
+                type: integer
+                description: ID of the graph
+              graph:
+                type: string
+                description: Last name of person to create
+
+  /machine/{domainid}/by_id/{machineid}:
+    get:
+      operationId: api.machine.get
+      tags:
+        - Machine
+      summary: Returs the full information of a given machine identified by id
+      description: Returs the full information of a given machine identified by id
+      parameters:
+        - name: domainid
+          in: path
+          description: ID of the graph
+          type: integer
+          required: True
+        - name: machineid
+          in: path
+          description: ID of the graph
+          type: integer
+          required: True
+      responses:
+        200:
+          description: Machine information
+          schema:
+            type: object
+            properties:
+              graphid:
+                type: integer
+                description: ID of the graph
+              graph:
+                type: string
+                description: Last name of person to create
+
+
+  /group/{domainid}/list:
+    get:
+      operationId: api.group.list_groups
+      tags:
+        - Group
+      summary: Returs the list of available groups
+      description: Returs the list of available groups
+      parameters:
+        - name: domainid
+          in: path
+          description: ID of the domain
+          type: integer
+          required: True
+      responses:
+        200:
+          description: List of available groups
+          schema:
+            type: object
+            properties:
+              graphid:
+                type: integer
+                description: ID of the graph
+              graph:
+                type: string
+                description: Last name of person to create
+
+  /group/{domainid}/by_sid/{sid}:
+    get:
+      operationId: api.group.get_sid
+      tags:
+        - Group
+      summary: Returs the full information of a given group identified by SID
+      description: Returs the full information of a given group identified by SID
+      parameters:
+        - name: domainid
+          in: path
+          description: ID of the domain
+          type: integer
+          required: True
+        - name: sid
+          in: path
+          description: SID of the group
+          type: string
+          required: True
+      responses:
+        200:
+          description: Group information
+          schema:
+            type: object
+            properties:
+              graphid:
+                type: integer
+                description: ID of the graph
+              graph:
+                type: string
+                description: Last name of person to create
+
+  /group/{domainid}/by_id/{groupid}:
+    get:
+      operationId: api.group.get
+      tags:
+        - Group
+      summary: Returs the full information of a given group identified by id
+      description: Returs the full information of a given group identified by id
+      parameters:
+        - name: domainid
+          in: path
+          description: ID of the domain
+          type: integer
+          required: True
+        - name: groupid
+          in: path
+          description: ID of the group
+          type: integer
+          required: True
+      responses:
+        200:
+          description: Group information
+          schema:
+            type: object
+            properties:
+              graphid:
+                type: integer
+                description: ID of the graph
+              graph:
+                type: string
+                description: Last name of person to create
+
+
+  /ou/{domainid}/list:
+    get:
+      operationId: api.ou.list_ous
+      tags:
+        - OU
+      summary: Returs the list of available OUs
+      description: Returs the list of available OUs
+      parameters:
+        - name: domainid
+          in: path
+          description: ID of the domain
+          type: integer
+          required: True
+      responses:
+        200:
+          description: List of available OUs
+          schema:
+            type: object
+            properties:
+              graphid:
+                type: integer
+                description: ID of the graph
+              graph:
+                type: string
+                description: Last name of person to create
+
+  /ou/{domainid}/by_sid/{guid}:
+    get:
+      operationId: api.ou.get_guid
+      tags:
+        - OU
+      summary: Returs the full information of a given group identified by GUID
+      description: Returs the full information of a given group identified by GUID
+      parameters:
+        - name: domainid
+          in: path
+          description: ID of the domain
+          type: integer
+          required: True
+        - name: sid
+          in: path
+          description: GUID of the group
+          type: string
+          required: True
+      responses:
+        200:
+          description: Group information
+          schema:
+            type: object
+            properties:
+              graphid:
+                type: integer
+                description: ID of the graph
+              graph:
+                type: string
+                description: Last name of person to create
+
+  /ou/{domainid}/by_id/{ouid}:
+    get:
+      operationId: api.ou.get
+      tags:
+        - Group
+      summary: Returs the full information of a given OU identified by id
+      description: Returs the full information of a given OU identified by id
+      parameters:
+        - name: domainid
+          in: path
+          description: ID of the domain
+          type: integer
+          required: True
+        - name: OUid
+          in: path
+          description: ID of the OU
+          type: integer
+          required: True
+      responses:
+        200:
+          description: OU information
+          schema:
+            type: object
+            properties:
+              graphid:
+                type: integer
+                description: ID of the graph
+              graph:
+                type: string
+                description: Last name of person to create

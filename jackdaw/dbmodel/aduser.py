@@ -84,6 +84,60 @@ class JackDawADUser(Basemodel):
 	#credential = relationship("Credential", back_populates="user", lazy = True)
 	allowedtodelegateto = relationship("JackDawUserConstrainedDelegation", back_populates="user", lazy = True)
 	
+
+	def to_dict(self):
+		return {
+			'id' : self.id ,
+			'ad_id' : self.ad_id ,
+			'dn' : self.dn ,
+			'givenName' : self.givenName ,
+			'displayName' : self.displayName ,
+			'name' : self.name ,
+			'objectSid' : self.objectSid ,
+			'sAMAccountName' : self.sAMAccountName ,
+			'userPrincipalName' : self.userPrincipalName ,
+			'servicePrincipalName' : self.servicePrincipalName ,
+			'accountExpires' : self.accountExpires ,
+			'badPasswordTime' : self.badPasswordTime ,
+			'lastLogoff' : self.lastLogoff ,
+			'lastLogon' : self.lastLogon ,
+			'lastLogonTimestamp' : self.lastLogonTimestamp ,
+			'pwdLastSet' : self.pwdLastSet ,
+			'whenChanged' : self.whenChanged ,
+			'whenCreated' : self.whenCreated ,
+			'badPwdCount' : self.badPwdCount ,
+			'logonCount' : self.logonCount ,
+			'sAMAccountType' : self.sAMAccountType ,
+			'userAccountControl' : self.userAccountControl ,
+			'codePage' : self.codePage ,
+			'countryCode' : self.countryCode ,
+			'when_pw_change' : self.when_pw_change ,
+			'when_pw_expires' : self.when_pw_expires ,
+			'must_change_pw' : self.must_change_pw ,
+			'canLogon' : self.canLogon ,
+			'UAC_SCRIPT' : self.UAC_SCRIPT ,
+			'UAC_ACCOUNTDISABLE' : self.UAC_ACCOUNTDISABLE ,
+			'UAC_HOMEDIR_REQUIRED' : self.UAC_HOMEDIR_REQUIRED ,
+			'UAC_LOCKOUT' : self.UAC_LOCKOUT ,
+			'UAC_PASSWD_NOTREQD' : self.UAC_PASSWD_NOTREQD ,
+			'UAC_PASSWD_CANT_CHANGE' : self.UAC_PASSWD_CANT_CHANGE ,
+			'UAC_ENCRYPTED_TEXT_PASSWORD_ALLOWED' : self.UAC_ENCRYPTED_TEXT_PASSWORD_ALLOWED ,
+			'UAC_TEMP_DUPLICATE_ACCOUNT' : self.UAC_TEMP_DUPLICATE_ACCOUNT ,
+			'UAC_NORMAL_ACCOUNT' : self.UAC_NORMAL_ACCOUNT ,
+			'UAC_INTERDOMAIN_TRUST_ACCOUNT' : self.UAC_INTERDOMAIN_TRUST_ACCOUNT ,
+			'UAC_WORKSTATION_TRUST_ACCOUNT' : self.UAC_WORKSTATION_TRUST_ACCOUNT ,
+			'UAC_SERVER_TRUST_ACCOUNT' : self.UAC_SERVER_TRUST_ACCOUNT ,
+			'UAC_DONT_EXPIRE_PASSWD' : self.UAC_DONT_EXPIRE_PASSWD ,
+			'UAC_MNS_LOGON_ACCOUNT' : self.UAC_MNS_LOGON_ACCOUNT ,
+			'UAC_SMARTCARD_REQUIRED' : self.UAC_SMARTCARD_REQUIRED ,
+			'UAC_TRUSTED_FOR_DELEGATION' : self.UAC_TRUSTED_FOR_DELEGATION ,
+			'UAC_NOT_DELEGATED' : self.UAC_NOT_DELEGATED ,
+			'UAC_USE_DES_KEY_ONLY' : self.UAC_USE_DES_KEY_ONLY ,
+			'UAC_DONT_REQUIRE_PREAUTH' : self.UAC_DONT_REQUIRE_PREAUTH ,
+			'UAC_PASSWORD_EXPIRED' : self.UAC_PASSWORD_EXPIRED ,
+			'UAC_TRUSTED_TO_AUTHENTICATE_FOR_DELEGATION' : self.UAC_TRUSTED_TO_AUTHENTICATE_FOR_DELEGATION ,
+		}
+
 	@staticmethod
 	def from_aduser(u):
 		user = JackDawADUser()

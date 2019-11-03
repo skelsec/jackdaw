@@ -25,7 +25,22 @@ class JackDawADGroup(Basemodel):
 	sAMAccountType = Column(String, index=True)	
 	systemFlags = Column(String, index=True)	
 	whenChanged = Column(String, index=True)	
-	whenCreated = Column(String, index=True)	
+	whenCreated = Column(String, index=True)
+
+	def to_dict(self):
+		return {
+			'id' : self.id ,
+			'ad_id' : self.ad_id ,
+			'sid' : self.sid ,
+			'description' : self.description ,
+			'grouptype' : self.grouptype ,
+			'name' : self.name ,
+			'member' : self.member ,
+			'sAMAccountName' : self.sAMAccountName ,
+			'systemFlags' : self.systemFlags ,
+			'whenChanged' : self.whenChanged ,
+			'whenCreated' : self.whenCreated ,
+		}
 
 	@staticmethod
 	def from_dict(d):
