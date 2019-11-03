@@ -21,6 +21,20 @@ from jackdaw import logger
 from jackdaw.dbmodel import get_session
 
 
+
+class NetworkScanner:
+    def __init__(self, scan_id, db_conn, plugins):
+        self.db_conn = db_conn
+        self.scan_id = scan_id
+        self.plugins = plugins
+
+    def yield_targets(self):
+        pass
+
+    def run(self):
+        pass
+    
+
 class SMBGathererManager:
 	def __init__(self, smb_mgr):
 		self.in_q = AsyncProcessQueue()

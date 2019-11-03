@@ -1,0 +1,106 @@
+swagger: "2.0"
+info:
+  description: This is the swagger file that goes with our server code
+  version: "1.0.0"
+  title: Swagger Rest Article
+consumes:
+  - application/json
+produces:
+  - application/json
+
+basePath: /api
+
+# Paths supported by the server application
+paths:
+  /graph:
+    put:
+      operationId: api.graph.create
+      tags:
+        - Graph
+      summary: Crates a new graph based on active directory ID
+      description: Crates a new graph based on active directory ID
+      parameters:
+        - name: adid
+          in: query
+          description: The source node to start path search from
+          required: False
+          type: string
+            
+      responses:
+        200:
+          description: Returns the graph ID if creation is sucsessfull
+          schema:
+            type: integer
+  /graph/{graphid}/query/path:
+    get:
+      operationId: api.graph.query_path
+      tags:
+        - Graph
+      summary: Performs a shortest path query, listing all shortest paths from src to dst
+      description: Performs a shortest path query, listing all shortest paths from src to dst
+      parameters:
+        - name: graphid
+          in: path
+          description: ID of the graph
+          type: integer
+          required: True
+        - name: src
+          in: query
+          description: ID of the graph
+          type: integer
+          required: True
+        - name: dst
+          in: query
+          description: ID of the graph
+          type: integer
+          required: True
+      responses:
+        200:
+          description: Returns a graph o the shortest paths
+          schema:
+            type: object
+            properties:
+              graph:
+                type: string
+                description: Last name of person to create
+
+  /graph/{graphid}:
+    get:
+      operationId: api.graph.get
+      tags:
+        - Graph
+      summary: Returns the FULL graph by graphid
+      description: Returns FULL the graph by graphid
+      parameters:
+        - name: graphid
+          in: path
+          description: ID of the graph
+          type: integer
+          required: True
+      responses:
+        200:
+          description: Successfully read person from people list operation
+          schema:
+            type: object
+            properties:
+              graphid:
+                type: integer
+                description: ID of the graph
+              graph:
+                type: string
+                description: Last name of person to create
+
+    delete:
+      operationId: api.graph.delete
+      tags:
+        - Graph
+      summary: Remove graph from memory
+      description: Delete a graph
+      parameters:
+        - name: graphid
+          in: path
+          type: integer
+          required: True
+      responses:
+        200:
+          description: Successfully deleted the graph

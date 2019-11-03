@@ -6,11 +6,62 @@ from jackdaw.wintypes.well_known_sids import get_name_or_sid, get_sid_for_name
 from jackdaw.wintypes.lookup_tables import *
 from sqlalchemy import not_, and_, or_, case
 from sqlalchemy.orm import load_only
-from pyvis.network import Network
-from pyvis.options import Layout
+#from pyvis.network import Network
+#from pyvis.options import Layout
 import networkx as nx
 
+class GraphNode:
+	def __init__(self, gid, name, properties = {}):
+		self.name = name
+		self.id = gid
+		self.properties = properties
 
+	def to_dict(self):
+		return {
+			'id' : self.id,
+			'name' : self.name,
+			'properties' : self.properties
+		}
+
+class GraphEdge:
+	def __init__(self, src, dst, label = '', weight = 1, properties = {}):
+		self.src = src
+		self.dst = dst
+		self.label = label
+		self.weight = weight
+		self.properties = properties
+
+	def to_dict(self):
+		return {
+			'src' : self.src,
+			'dst' : self.dst,
+			'label' : self.label,
+			'weight' : self.weight,
+			'properties' : self.properties
+		}
+
+
+class GraphData:
+	def __init__(self):
+		self.nodes = {}
+		self.edges = []
+
+	def add_node(self, gid, name, properties):
+		self.nodes[id] = GraphNode(gid, name, properties)
+	
+	def add_edge(self, src, dst, label = '', weight = 1, properties = {}):
+		if src not in self.nodes:
+			raise Exception('Node with id %s is not present' % src)
+		if dst not in self.nodes:
+			raise Exception('Node with id %s is not present' % dst)
+
+		self.edges.append(GraphEdge(src, dst, label, weight, properties))
+
+	def to_dict(self):
+		return {
+			'nodes' : [self.nodes[x].to_dict() for x in self.nodes],
+			'edges' : [x.to_dict() for x in self.edges]
+		}
 
 def ace_applies(ace_guid, object_class):
 	'''
@@ -28,11 +79,11 @@ def ace_applies(ace_guid, object_class):
 	return False
 
 
-class MembershipPlotter:
+class DomainGraph:
 	def __init__(self, db_conn):
 		self.db_conn = db_conn
 		self.graph = nx.DiGraph()
-		self.network_visual = Network("3000px", "3000px")
+		#self.network_visual = Network("3000px", "3000px")
 		self.show_group_memberships = True
 		self.show_user_memberships = True
 		self.show_machine_memberships = True
@@ -91,7 +142,7 @@ class MembershipPlotter:
 		if not tsid:
 			t = str(get_name_or_sid(str(sid)))
 			if t == sid and throw == True:
-				raise Exception('No SID found for CN = %s' % repr(cn))
+				raise Exception('No CN found for SID = %s' % repr(sid))
 			return t
 		return tsid[0]
 	
@@ -113,8 +164,7 @@ class MembershipPlotter:
 		return self.all_shortest_paths( dst_sid = dst_sid)
 			
 	def show_all_sources(self, src):
-		src_sid = self.cn2sid(src, True, self.domain_sid)	
-		nv = Network("1000px", "1000px", layout=None)
+		src_sid = self.cn2sid(src, True, self.domain_sid)
 		
 		return self.all_shortest_paths(src_sid = src_sid)
 		
@@ -126,8 +176,7 @@ class MembershipPlotter:
 	def show_path(self, src, dst):
 		src_sid = self.cn2sid(src, True, self.domain_sid)	
 		dst_sid = self.cn2sid(dst, True, self.domain_sid)	
-		nv = Network("1000px", "1000px", layout=None)
-		
+
 		return self.all_shortest_paths(src_sid = src_sid, dst_sid = dst_sid)
 			
 	def __add_path(self, network, path):
@@ -136,7 +185,7 @@ class MembershipPlotter:
 		Path is a list of sids (nodes), so we need to find the edges matching
 		"""
 		for sid in path:
-			network.add_node(sid, label = self.graph.nodes[sid].get('name', self.sid2cn(sid)), color = self.graph.nodes[sid].get('color', '#222222'))
+			network.add_node(sid, name = self.graph.nodes[sid].get('name', self.sid2cn(sid)), properties = {'color' : self.graph.nodes[sid].get('color', '#222222')})
 					
 		for i in range(len(path) - 1):
 			for edge in self.graph.edges([path[i], ], data=True):
@@ -146,7 +195,7 @@ class MembershipPlotter:
 
 
 	def all_shortest_paths(self, src_sid = None, dst_sid = None):
-		nv = Network("1000px", "1000px", layout=None)
+		nv = GraphData()
 		
 		if not src_sid and not dst_sid:
 			raise Exception('Either source or destination MUST be specified')
@@ -183,24 +232,24 @@ class MembershipPlotter:
 		
 		return nv
 		
-	def plot(self, network):
-		"""
-		Creates and opens an HTML file representing the network
-		
-		network: pyvis network
-		"""
-		layout = Layout()
-		layout.hierarchical.sortMethod = 'directed'
-		layout.hierarchical.edgeMinimization = False
-		layout.hierarchical.blockShifting = False
-		layout.hierarchical.levelSeparation = 325
-		layout.hierarchical.enabled = True
-		layout.hierarchical.nodeSpacing = 325
-		layout.hierarchical.treeSpacing = 250
-		layout.hierarchical.direction = 'LR'
-		network.options.layout = layout
-		network.show_buttons(filter_=['layout'])
-		network.show("test.html")
+	#def plot(self, network):
+	#	"""
+	#	Creates and opens an HTML file representing the network
+	#	
+	#	network: pyvis network
+	#	"""
+	#	layout = Layout()
+	#	layout.hierarchical.sortMethod = 'directed'
+	#	layout.hierarchical.edgeMinimization = False
+	#	layout.hierarchical.blockShifting = False
+	#	layout.hierarchical.levelSeparation = 325
+	#	layout.hierarchical.enabled = True
+	#	layout.hierarchical.nodeSpacing = 325
+	#	layout.hierarchical.treeSpacing = 250
+	#	layout.hierarchical.direction = 'LR'
+	#	network.options.layout = layout
+	#	network.show_buttons(filter_=['layout'])
+	#	network.show("test.html")
 		
 	def calc_acl_edges_sql(self, session, ad_id):
 		#enumerating owners
@@ -378,7 +427,7 @@ class MembershipPlotter:
 								# 'Replicating Directory Changes'
 								self.add_edge(acl.ace_sid, acl.sid, label='User-Force-Change-Password')
 		
-	def get_network_data(self, ad_id):
+	def construct(self, ad_id):
 		"""
 		Fills the network graph from database to memory
 		"""
