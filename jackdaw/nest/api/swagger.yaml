@@ -526,7 +526,6 @@ paths:
                 type: string
                 description: Last name of person to create
 
-
   /ou/{domainid}/list:
     get:
       operationId: api.ou.list_ous
@@ -553,7 +552,7 @@ paths:
                 type: string
                 description: Last name of person to create
 
-  /ou/{domainid}/by_sid/{guid}:
+  /ou/{domainid}/by_guid/{guid}:
     get:
       operationId: api.ou.get_guid
       tags:
@@ -566,7 +565,7 @@ paths:
           description: ID of the domain
           type: integer
           required: True
-        - name: sid
+        - name: guid
           in: path
           description: GUID of the group
           type: string
@@ -588,7 +587,7 @@ paths:
     get:
       operationId: api.ou.get
       tags:
-        - Group
+        - OU
       summary: Returs the full information of a given OU identified by id
       description: Returs the full information of a given OU identified by id
       parameters:
@@ -597,7 +596,7 @@ paths:
           description: ID of the domain
           type: integer
           required: True
-        - name: OUid
+        - name: ouid
           in: path
           description: ID of the OU
           type: integer
