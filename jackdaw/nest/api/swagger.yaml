@@ -17,8 +17,8 @@ paths:
       tags:
         - Server
       operationId: api.server.serve_home
-      summary: Serves the html files
-      description: Serves the html files          
+      summary: Serves the index.html
+      description: Serves the index.html          
       produces:
         - text/html   
       responses:
@@ -35,13 +35,11 @@ paths:
       parameters:
         - name: filename
           in: path
-          description: aaaa
+          description: file path to download
           required: True
           type: string
-          
       produces:
         - text/html
-      
       responses:
         200:
           description: Successfully loaded html page.
@@ -51,12 +49,12 @@ paths:
       operationId: api.graph.create
       tags:
         - Graph
-      summary: Crates a new graph based on active directory ID
-      description: Crates a new graph based on active directory ID
+      summary: Crates a new graph view based on active directory ID
+      description: Crates a new graph view based on active directory ID
       parameters:
         - name: adid
           in: query
-          description: The source node to start path search from
+          description: Database ID of the Active Directory root
           required: False
           type: string
             
@@ -72,67 +70,67 @@ paths:
       tags:
         - Graph
       summary: Performs a shortest path query, listing all shortest paths from src to dst
-      description: Performs a shortest path query, listing all shortest paths from src to dst
+      description: Performs a shortest path query, listing all shortest paths from src to dst. You may omit either of the parameters, but not both.
       parameters:
         - name: graphid
           in: path
-          description: ID of the graph
+          description: ID of the graph view
           type: integer
           required: True
         - name: src
           in: query
-          description: ID of the graph
+          description: source object SID
           type: string
           required: False
         - name: dst
           in: query
-          description: ID of the graph
+          description: destination object SID
           type: string
           required: False
       responses:
         200:
-          description: Returns a graph o the shortest paths
+          description: Returns the graph data with all the shortest paths between the two SIDs
           schema:
             type: object
             properties:
               graph:
                 type: string
-                description: Last name of person to create
+                description: Placeholder TODO
 
   /graph/{graphid}/query/path/all:
     get:
       operationId: api.graph.query_path_all
       tags:
         - Graph
-      summary: Serves the whole graph with all nodes and edges
-      description: Serves the whole graph with all nodes and edges
+      summary: Serves the whole graph view data with all nodes and edges
+      description: Serves the whole graph view data  with all nodes and edges
       parameters:
         - name: graphid
           in: path
-          description: ID of the graph
+          description: ID of the graph view
           type: integer
           required: True
       responses:
         200:
-          description: Returns a graph o the shortest paths
+          description: Returns graph view data with all the nodes and edges
           schema:
             type: object
             properties:
               graph:
                 type: string
-                description: Last name of person to create
+                description: Placeholder TODO
 
   /graph/{graphid}/node/{nodeid}:
     get:
       operationId: api.graph.get_node
       tags:
         - Graph
-      summary: Gets information of a node
-      description: Gets information of a node
+      summary: Gets information of a node in the selected graph view
+      description: Gets information of a node in the selected graph view
       parameters:
         - name: graphid
           in: path
-          description: ID of the graph
+          description: ID of the graph view
           type: integer
           required: True
         - name: nodeid
@@ -148,15 +146,15 @@ paths:
             properties:
               graph:
                 type: string
-                description: Last name of person to create
+                description: Placeholder TODO
 
   /graph/{graphid}/nodes/:
     get:
       operationId: api.graph.list_nodes
       tags:
         - Graph
-      summary: Fetches a list of all nodes in the graph
-      description: Fetches a list of all nodes in the graph
+      summary: Fetches a list of all nodes in the graph view
+      description: Fetches a list of all nodes in the graph view
       parameters:
         - name: graphid
           in: path
@@ -165,46 +163,43 @@ paths:
           required: True
       responses:
         200:
-          description: Returns a graph o the shortest paths
+          description: Returns all nodes in the selected graph view
           schema:
             type: object
             properties:
               graph:
                 type: string
-                description: Last name of person to create
+                description: Placeholder TODO
 
   /graph/{graphid}:
     get:
       operationId: api.graph.get
       tags:
         - Graph
-      summary: Returns the FULL graph by graphid
-      description: Returns FULL the graph by graphid
+      summary: ONLY FOR TESTING! Returns the FULL graph view selected by graphid
+      description: Returns the FULL graph view selected by graphid
       parameters:
         - name: graphid
           in: path
-          description: ID of the graph
+          description: ID of the graph view
           type: integer
           required: True
       responses:
         200:
-          description: Successfully read person from people list operation
+          description: Returns all nodes and edges in the selected graph view
           schema:
             type: object
             properties:
-              graphid:
-                type: integer
-                description: ID of the graph
               graph:
                 type: string
-                description: Last name of person to create
+                description: Placeholder TODO
 
     delete:
       operationId: api.graph.delete
       tags:
         - Graph
-      summary: Remove graph from memory
-      description: Delete a graph
+      summary: Remove graph view from memory
+      description: Delete a graph view from memory
       parameters:
         - name: graphid
           in: path
@@ -220,20 +215,17 @@ paths:
       operationId: api.domain.list_domains
       tags:
         - Domain
-      summary: Returs the list of available domains
-      description: Returs the list of available domains
+      summary: Returs the list of available domains with basic info
+      description: Returs the list of available domains with basic info
       responses:
         200:
-          description: List of available domains
+          description: List of domain info metadata
           schema:
             type: object
             properties:
-              graphid:
-                type: integer
-                description: ID of the graph
               graph:
                 type: string
-                description: Last name of person to create
+                description: Placeholder TODO
 
   /domain/by_id/{domainid}:
     get:
@@ -245,47 +237,41 @@ paths:
       parameters:
         - name: domainid
           in: path
-          description: ID of the graph
+          description: ID of the domain
           type: integer
           required: True
       responses:
         200:
-          description: Domain information
+          description: Domain info
           schema:
             type: object
             properties:
-              graphid:
-                type: integer
-                description: ID of the graph
               graph:
                 type: string
-                description: Last name of person to create
+                description: Placeholder TODO
 
   /user/{domainid}/list:
     get:
       operationId: api.user.list_users
       tags:
         - User
-      summary: Returs the list of available users
-      description: Returs the list of available users
+      summary: Returs the list of available users for the given domain id
+      description: Returs the list of available users for the given domain id
       parameters:
         - name: domainid
           in: path
-          description: ID of the graph
+          description: ID of the domain
           type: integer
           required: True
       responses:
         200:
-          description: List of available users
+          description: List of user info metadata
           schema:
             type: object
             properties:
-              graphid:
-                type: integer
-                description: ID of the graph
               graph:
                 type: string
-                description: Last name of person to create
+                description: Placeholder TODO
 
   /user/{domainid}/by_sid/{usersid}:
     get:
@@ -297,26 +283,23 @@ paths:
       parameters:
         - name: domainid
           in: path
-          description: ID of the graph
+          description: ID of the domain
           type: integer
           required: True
         - name: usersid
           in: path
-          description: ID of the graph
+          description: SID of the user
           type: string
           required: True
       responses:
         200:
-          description: User information
+          description: User info
           schema:
             type: object
             properties:
-              graphid:
-                type: integer
-                description: ID of the graph
               graph:
                 type: string
-                description: Last name of person to create
+                description: Placeholder TODO
 
   /user/{domainid}/by_id/{userid}:
     get:
@@ -328,26 +311,23 @@ paths:
       parameters:
         - name: domainid
           in: path
-          description: ID of the graph
+          description: ID of the domain
           type: integer
           required: True
         - name: userid
           in: path
-          description: ID of the graph
+          description: ID of the user
           type: integer
           required: True
       responses:
         200:
-          description: User information
+          description: User info
           schema:
             type: object
             properties:
-              graphid:
-                type: integer
-                description: ID of the graph
               graph:
                 type: string
-                description: Last name of person to create
+                description: Placeholder TODO
 
   /machine/{domainid}/list:
     get:
@@ -359,21 +339,18 @@ paths:
       parameters:
         - name: domainid
           in: path
-          description: ID of the graph
+          description: ID of the domain
           type: integer
           required: True
       responses:
         200:
-          description: List of available machines
+          description: List of Machine info metadata
           schema:
             type: object
             properties:
-              graphid:
-                type: integer
-                description: ID of the graph
               graph:
                 type: string
-                description: Last name of person to create
+                description: Placeholder TODO
 
   /machine/{domainid}/by_sid/{sid}:
     get:
@@ -390,21 +367,18 @@ paths:
           required: True
         - name: sid
           in: path
-          description: ID of the graph
+          description: SID of the machine
           type: string
           required: True
       responses:
         200:
-          description: User information
+          description: Machine info
           schema:
             type: object
             properties:
-              graphid:
-                type: integer
-                description: ID of the graph
               graph:
                 type: string
-                description: Last name of person to create
+                description: Placeholder TODO
 
   /machine/{domainid}/by_id/{machineid}:
     get:
@@ -416,26 +390,23 @@ paths:
       parameters:
         - name: domainid
           in: path
-          description: ID of the graph
+          description: ID of the domain
           type: integer
           required: True
         - name: machineid
           in: path
-          description: ID of the graph
+          description: ID of the machine
           type: integer
           required: True
       responses:
         200:
-          description: Machine information
+          description: Machine info
           schema:
             type: object
             properties:
-              graphid:
-                type: integer
-                description: ID of the graph
               graph:
                 type: string
-                description: Last name of person to create
+                description: Placeholder TODO
 
 
   /group/{domainid}/list:
@@ -453,16 +424,13 @@ paths:
           required: True
       responses:
         200:
-          description: List of available groups
+          description: List of Group info metadata
           schema:
             type: object
             properties:
-              graphid:
-                type: integer
-                description: ID of the graph
               graph:
                 type: string
-                description: Last name of person to create
+                description: Placeholder TODO
 
   /group/{domainid}/by_sid/{sid}:
     get:
@@ -484,16 +452,13 @@ paths:
           required: True
       responses:
         200:
-          description: Group information
+          description: Group info
           schema:
             type: object
             properties:
-              graphid:
-                type: integer
-                description: ID of the graph
               graph:
                 type: string
-                description: Last name of person to create
+                description: Placeholder TODO
 
   /group/{domainid}/by_id/{groupid}:
     get:
@@ -515,16 +480,13 @@ paths:
           required: True
       responses:
         200:
-          description: Group information
+          description: Group info
           schema:
             type: object
             properties:
-              graphid:
-                type: integer
-                description: ID of the graph
               graph:
                 type: string
-                description: Last name of person to create
+                description: Placeholder TODO
 
   /ou/{domainid}/list:
     get:
@@ -541,16 +503,13 @@ paths:
           required: True
       responses:
         200:
-          description: List of available OUs
+          description: List of OU metadata
           schema:
             type: object
             properties:
-              graphid:
-                type: integer
-                description: ID of the graph
               graph:
                 type: string
-                description: Last name of person to create
+                description: Placeholder TODO
 
   /ou/{domainid}/by_guid/{guid}:
     get:
@@ -567,21 +526,18 @@ paths:
           required: True
         - name: guid
           in: path
-          description: GUID of the group
+          description: GUID of the OU
           type: string
           required: True
       responses:
         200:
-          description: Group information
+          description: OU info
           schema:
             type: object
             properties:
-              graphid:
-                type: integer
-                description: ID of the graph
               graph:
                 type: string
-                description: Last name of person to create
+                description: Placeholder TODO
 
   /ou/{domainid}/by_id/{ouid}:
     get:
@@ -603,13 +559,10 @@ paths:
           required: True
       responses:
         200:
-          description: OU information
+          description: OU info
           schema:
             type: object
             properties:
-              graphid:
-                type: integer
-                description: ID of the graph
               graph:
                 type: string
-                description: Last name of person to create
+                description: Placeholder TODO

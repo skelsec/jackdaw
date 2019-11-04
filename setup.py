@@ -38,7 +38,10 @@ setup(
 		'sqlalchemy',
 		'dnspython',
 		'tqdm',
-		'pyvis',
+		'networkx',
+		'connexion',
+		'flask-sqlalchemy',
+		'connexion[swagger-ui]'
 	],
 	entry_points={
 		'console_scripts': [

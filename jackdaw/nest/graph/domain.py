@@ -106,6 +106,7 @@ class DomainGraph:
 	def __init__(self, db_conn = None, dbsession = None):
 		self.db_conn = db_conn
 		self.dbsession = dbsession
+		self.ad_id = None
 		self.graph = nx.DiGraph()
 		#self.network_visual = Network("3000px", "3000px")
 		self.show_group_memberships = True
@@ -490,6 +491,7 @@ class DomainGraph:
 		"""
 		Fills the network graph from database to memory
 		"""
+		self.ad_id = ad_id
 		session = self.get_session()
 		adinfo = session.query(JackDawADInfo).get(ad_id)
 		
