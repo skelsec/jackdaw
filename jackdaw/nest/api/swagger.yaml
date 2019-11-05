@@ -16,7 +16,7 @@ paths:
     get:
       tags:
         - Server
-      operationId: api.server.serve_home
+      operationId: jackdaw.nest.api.server.serve_home
       summary: Serves the index.html
       description: Serves the index.html          
       produces:
@@ -29,7 +29,7 @@ paths:
     get:
       tags:
         - Server
-      operationId: api.server.serve_file
+      operationId: jackdaw.nest.api.server.serve_file
       summary: Serves the html files
       description: Serves the html files
       parameters:
@@ -46,7 +46,7 @@ paths:
 
   /graph:
     put:
-      operationId: api.graph.create
+      operationId: jackdaw.nest.api.graph.create
       tags:
         - Graph
       summary: Crates a new graph view based on active directory ID
@@ -66,7 +66,7 @@ paths:
   
   /graph/{graphid}/query/path:
     get:
-      operationId: api.graph.query_path
+      operationId: jackdaw.nest.api.graph.query_path
       tags:
         - Graph
       summary: Performs a shortest path query, listing all shortest paths from src to dst
@@ -99,7 +99,7 @@ paths:
 
   /graph/{graphid}/query/path/all:
     get:
-      operationId: api.graph.query_path_all
+      operationId: jackdaw.nest.api.graph.query_path_all
       tags:
         - Graph
       summary: Serves the whole graph view data with all nodes and edges
@@ -122,7 +122,7 @@ paths:
 
   /graph/{graphid}/node/{nodeid}:
     get:
-      operationId: api.graph.get_node
+      operationId: jackdaw.nest.api.graph.get_node
       tags:
         - Graph
       summary: Gets information of a node in the selected graph view
@@ -150,7 +150,7 @@ paths:
 
   /graph/{graphid}/nodes/:
     get:
-      operationId: api.graph.list_nodes
+      operationId: jackdaw.nest.api.graph.list_nodes
       tags:
         - Graph
       summary: Fetches a list of all nodes in the graph view
@@ -171,9 +171,38 @@ paths:
                 type: string
                 description: Placeholder TODO
 
+  /graph/diff/:
+    post:
+      operationId: jackdaw.nest.api.graph.diff
+      tags:
+        - Graph
+      summary: Calculates the differences between two graph views
+      description: Calculates the differences between two graph views
+      parameters:
+        - name: graphids
+          in: body
+          description: Graph view IDs to compare. !!MAX 2!!
+          schema:
+            type: object
+            properties:
+              src:
+                type: integer
+              dst:
+                type: integer
+            
+      responses:
+        200:
+          description: Returns all differences between the two graph views 
+          schema:
+            type: object
+            properties:
+              graph:
+                type: string
+                description: Placeholder TODO
+
   /graph/{graphid}:
     get:
-      operationId: api.graph.get
+      operationId: jackdaw.nest.api.graph.get
       tags:
         - Graph
       summary: ONLY FOR TESTING! Returns the FULL graph view selected by graphid
@@ -195,7 +224,7 @@ paths:
                 description: Placeholder TODO
 
     delete:
-      operationId: api.graph.delete
+      operationId: jackdaw.nest.api.graph.delete
       tags:
         - Graph
       summary: Remove graph view from memory
@@ -212,7 +241,7 @@ paths:
 
   /domain/list:
     get:
-      operationId: api.domain.list_domains
+      operationId: jackdaw.nest.api.domain.list_domains
       tags:
         - Domain
       summary: Returs the list of available domains with basic info
@@ -229,7 +258,7 @@ paths:
 
   /domain/by_id/{domainid}:
     get:
-      operationId: api.domain.get
+      operationId: jackdaw.nest.api.domain.get
       tags:
         - Domain
       summary: Returs the full information of a given domain
@@ -252,7 +281,7 @@ paths:
 
   /user/{domainid}/list:
     get:
-      operationId: api.user.list_users
+      operationId: jackdaw.nest.api.user.list_users
       tags:
         - User
       summary: Returs the list of available users for the given domain id
@@ -275,7 +304,7 @@ paths:
 
   /user/{domainid}/by_sid/{usersid}:
     get:
-      operationId: api.user.get_sid
+      operationId: jackdaw.nest.api.user.get_sid
       tags:
         - User
       summary: Returs the full information of a given user identified by SID
@@ -303,7 +332,7 @@ paths:
 
   /user/{domainid}/by_id/{userid}:
     get:
-      operationId: api.user.get
+      operationId: jackdaw.nest.api.user.get
       tags:
         - User
       summary: Returs the full information of a given user identified by userid
@@ -329,9 +358,45 @@ paths:
                 type: string
                 description: Placeholder TODO
 
+  /user/{domainid}/by_props/:
+    post:
+      operationId: jackdaw.nest.api.user.filter
+      tags:
+        - User
+      summary: Returs the full information of a given user identified by userid
+      description: Returs the full information of a given user identified by userid
+      parameters:
+        - name: domainid
+          in: path
+          description: ID of the domain
+          type: integer
+          required: True
+        - name: proplist
+          in: body
+          description: Array of filer props
+          schema:
+            type: array
+            items:
+              type: object
+              additionalProperties:
+                type: string
+              example:
+                sAMAccountName: test joe
+
+          required: True
+      responses:
+        200:
+          description: User info
+          schema:
+            type: object
+            properties:
+              graph:
+                type: string
+                description: Placeholder TODO
+
   /machine/{domainid}/list:
     get:
-      operationId: api.machine.list_machines
+      operationId: jackdaw.nest.api.machine.list_machines
       tags:
         - Machine
       summary: Returs the list of available machines
@@ -354,7 +419,7 @@ paths:
 
   /machine/{domainid}/by_sid/{sid}:
     get:
-      operationId: api.machine.get_sid
+      operationId: jackdaw.nest.api.machine.get_sid
       tags:
         - Machine
       summary: Returs the full information of a given machine identified by SID
@@ -382,7 +447,7 @@ paths:
 
   /machine/{domainid}/by_id/{machineid}:
     get:
-      operationId: api.machine.get
+      operationId: jackdaw.nest.api.machine.get
       tags:
         - Machine
       summary: Returs the full information of a given machine identified by id
@@ -408,10 +473,9 @@ paths:
                 type: string
                 description: Placeholder TODO
 
-
   /group/{domainid}/list:
     get:
-      operationId: api.group.list_groups
+      operationId: jackdaw.nest.api.group.list_groups
       tags:
         - Group
       summary: Returs the list of available groups
@@ -434,7 +498,7 @@ paths:
 
   /group/{domainid}/by_sid/{sid}:
     get:
-      operationId: api.group.get_sid
+      operationId: jackdaw.nest.api.group.get_sid
       tags:
         - Group
       summary: Returs the full information of a given group identified by SID
@@ -462,7 +526,7 @@ paths:
 
   /group/{domainid}/by_id/{groupid}:
     get:
-      operationId: api.group.get
+      operationId: jackdaw.nest.api.group.get
       tags:
         - Group
       summary: Returs the full information of a given group identified by id
@@ -490,7 +554,7 @@ paths:
 
   /ou/{domainid}/list:
     get:
-      operationId: api.ou.list_ous
+      operationId: jackdaw.nest.api.ou.list_ous
       tags:
         - OU
       summary: Returs the list of available OUs
@@ -513,7 +577,7 @@ paths:
 
   /ou/{domainid}/by_guid/{guid}:
     get:
-      operationId: api.ou.get_guid
+      operationId: jackdaw.nest.api.ou.get_guid
       tags:
         - OU
       summary: Returs the full information of a given group identified by GUID
@@ -541,7 +605,7 @@ paths:
 
   /ou/{domainid}/by_id/{ouid}:
     get:
-      operationId: api.ou.get
+      operationId: jackdaw.nest.api.ou.get
       tags:
         - OU
       summary: Returs the full information of a given OU identified by id

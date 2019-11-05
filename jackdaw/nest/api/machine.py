@@ -1,9 +1,9 @@
 
-from flask_sqlalchemy import SQLAlchemy
+from flask import current_app
 from jackdaw.dbmodel.adcomp import JackDawADMachine
 
 def list_machines(domainid):
-    db = SQLAlchemy()
+    db = current_app.db
     domains = []
     for uid, sid, name in db.session\
                             .query(JackDawADMachine)\
@@ -14,11 +14,11 @@ def list_machines(domainid):
     return domains
 
 def get(domainid, machineid):
-    db = SQLAlchemy()
+    db = current_app.db
     machine = db.session.query(JackDawADMachine).get(machineid)
     return machine.to_dict()
 
 def get_sid(domainid, sid):
-    db = SQLAlchemy()
+    db = current_app.db
     for machine in db.session.query(JackDawADMachine).filter_by(objectSid = sid).filter(JackDawADMachine.ad_id == domainid).all():
         return machine.to_dict()

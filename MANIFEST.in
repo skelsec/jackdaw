@@ -1,0 +1,4 @@
+include jackdaw/nest/api/swagger.yaml
+graft jackdaw/nest/static/
+graft jackdaw/nest/templates/
+global-exclude *.pyc

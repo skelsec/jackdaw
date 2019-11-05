@@ -5,7 +5,7 @@ setup(
 	name="jackdaw",
 
 	# Version number (initial):
-	version="0.0.5",
+	version="0.0.6",
 
 	# Application author details:
 	author="Tamas Jos",
@@ -20,7 +20,7 @@ setup(
 	# Details
 	url="https://github.com/skelsec/jackdaw",
 
-	zip_safe = True,
+	zip_safe = False,
 	#
 	# license="LICENSE.txt",
 	description="Gathering shiny things from your domain",
@@ -33,8 +33,8 @@ setup(
 		"Operating System :: OS Independent",
 	),
 	install_requires=[
-		'aiosmb>=0.0.3',
-		'msldap>=0.2.0',
+		'aiosmb>=0.1.1',
+		'msldap>=0.2.2',
 		'sqlalchemy',
 		'dnspython',
 		'tqdm',

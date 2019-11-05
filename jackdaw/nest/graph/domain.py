@@ -63,8 +63,8 @@ class GraphData:
 		self.nodes = {}
 		self.edges = []
 
-	def add_node(self, gid, name, properties):
-		self.nodes[gid] = GraphNode(gid, name, properties)
+	def add_node(self, gid, name, gtype, properties = {}):
+		self.nodes[gid] = GraphNode(gid, name, gtype, properties)
 	
 	def add_edge(self, src, dst, label = '', weight = 1, properties = {}):
 		if src not in self.nodes:
@@ -141,19 +141,17 @@ class DomainGraph:
 			
 		return False
 	
-	def add_sid_to_node(self, node, name = None, color = None):
+	def add_sid_to_node(self, node, node_type, name = None):
 		if self.is_blacklisted_sid(node):
 			return
 		if not name:
 			name = str(get_name_or_sid(str(node)))
-		if not color:
-			color = self.unknown_node_color
 		
+		#this presence-filter is important, as we will encounter nodes that are known and present in the graph already
+		#ald later will be added via tokengroups as unknown
 		if node not in self.graph.nodes:
-			self.graph.add_node(str(node), name=name, color=color)
+			self.graph.add_node(str(node), name=name, node_type=node_type)
 		
-		#if node not in self.network_visual.nodes:
-		#	self.network_visual.add_node(str(node), label=name, color=color)
 			
 	def add_edge(self, sid_src, sid_dst, label = None, weight = 1):
 		if not sid_src or not sid_dst:
@@ -161,8 +159,8 @@ class DomainGraph:
 		if self.is_blacklisted_sid(sid_src) or self.is_blacklisted_sid(sid_dst):
 			return
 			
-		self.add_sid_to_node(sid_src, color="#ffffff")
-		self.add_sid_to_node(sid_dst, color="#ffffff")
+		self.add_sid_to_node(sid_src, 'unknown')
+		self.add_sid_to_node(sid_dst, 'unknown')
 			
 		self.graph.add_edge(sid_src, sid_dst, label = label, weight = weight)
 		
@@ -198,7 +196,7 @@ class DomainGraph:
 		"""
 		data = GraphData()
 		for sid in self.graph.nodes:
-			data.add_node(sid, name = self.graph.nodes[sid].get('name', self.sid2cn(sid)), properties = {'color' : self.graph.nodes[sid].get('color', '#222222')})
+			data.add_node(sid, self.graph.nodes[sid].get('name', self.sid2cn(sid)), self.graph.nodes[sid].get('node_type'))
 
 		for edge in [e for e in self.graph.edges]:
 			data.add_edge(edge[0], edge[1])
@@ -245,7 +243,7 @@ class DomainGraph:
 		"""
 		for sid in path:
 			#print(sid)
-			network.add_node(sid, name = self.graph.nodes[sid].get('name', self.sid2cn(sid)), properties = {'color' : self.graph.nodes[sid].get('color', '#222222')})
+			network.add_node(sid, name = self.graph.nodes[sid].get('name', self.sid2cn(sid)), node_type = self.graph.nodes[sid].get('node_type'))
 					
 		for i in range(len(path) - 1):
 			for edge in self.graph.edges([path[i], ], data=True):
@@ -504,25 +502,25 @@ class DomainGraph:
 		if self.show_group_memberships == True:
 			#adding group nodes
 			for group in adinfo.groups:
-				if group.sid in distinct_filter:
-					continue
-				distinct_filter[group.sid] = 1
-				self.add_sid_to_node(group.sid, name=group.name, color="#00ff1e")
+				#if group.sid in distinct_filter:
+				#	continue
+				#distinct_filter[group.sid] = 1
+				self.add_sid_to_node(group.sid, 'group', name=group.name)
 		
 		#distinct_filter = {}
 		if self.show_user_memberships == True:
 			#adding user nodes
 			for user in adinfo.users:
-				self.add_sid_to_node(user.objectSid, name=user.sAMAccountName, color="#162347")
+				self.add_sid_to_node(user.objectSid, 'user', name=user.sAMAccountName)
 				
 		distinct_filter = {}
 		if self.show_machine_memberships == True:
 			#adding user nodes
 			for user in adinfo.computers:
-				if user.objectSid in distinct_filter:
-					continue
-				distinct_filter[user.objectSid] = 1
-				self.add_sid_to_node(user.objectSid, name=user.sAMAccountName, color="#dd4b39")
+				#if user.objectSid in distinct_filter:
+				#	continue
+				#distinct_filter[user.objectSid] = 1
+				self.add_sid_to_node(user.objectSid, 'machine', name=user.sAMAccountName)
 		
 		
 		if self.show_session_memberships == True:
@@ -562,8 +560,8 @@ class DomainGraph:
 		print('adding membership edges')
 		#adding membership edges
 		for tokengroup in adinfo.group_lookups:
-			self.add_sid_to_node(tokengroup.sid)
-			self.add_sid_to_node(tokengroup.member_sid)
+			self.add_sid_to_node(tokengroup.sid, 'unknown')
+			self.add_sid_to_node(tokengroup.member_sid, 'unknown')
 				
 			if tokengroup.is_user == True and self.show_user_memberships == True:
 				try:

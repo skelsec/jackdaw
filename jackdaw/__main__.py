@@ -212,6 +212,14 @@ def run(args):
 		
 	elif args.command == 'cracked':
 		pass
+
+	elif args.command == 'nest':
+		from jackdaw.nest.wrapper import NestServer
+
+		debug = bool(args.verbose)
+
+		server = NestServer(args.sql, bind_ip = args.ip, bind_port = args.port, debug = debug)
+		server.run()
 	
 def main():
 	import argparse
@@ -224,6 +232,12 @@ def main():
 	subparsers.required = True
 	subparsers.dest = 'command'
 	
+	nest_group = subparsers.add_parser('nest', formatter_class=argparse.RawDescriptionHelpFormatter, help='Start the Nest server')
+	nest_group.add_argument('--ip',  default = '127.0.0.1', help='IP address to listen on')
+	nest_group.add_argument('--port',  type=int, default = 5000, help='IP address to listen on')
+
+	
+
 	ldap_group = subparsers.add_parser('ldap', formatter_class=argparse.RawDescriptionHelpFormatter, help='Enumerate potentially vulnerable users via LDAP', epilog = MSLDAPURLDecoder.help_epilog)
 	ldap_group.add_argument('ldap_url',  help='Connection specitication <domain>/<username>/<secret_type>:<secret>@<dc_ip_or_hostname_or_ldap_url>')
 	

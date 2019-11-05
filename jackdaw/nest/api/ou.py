@@ -1,9 +1,8 @@
-
-from flask_sqlalchemy import SQLAlchemy
+from flask import current_app
 from jackdaw.dbmodel.adou import JackDawADOU
 
 def list_ous(domainid):
-    db = SQLAlchemy()
+    db = current_app.db
     domains = []
     for uid, guid, ou in db.session\
                             .query(JackDawADOU)\
@@ -14,11 +13,11 @@ def list_ous(domainid):
     return domains
 
 def get(domainid, ouid):
-    db = SQLAlchemy()
+    db = current_app.db
     user = db.session.query(JackDawADOU).get(ouid)
     return user.to_dict()
 
 def get_guid(domainid, guid):
-    db = SQLAlchemy()
+    db = current_app.db
     for user in db.session.query(JackDawADOU).filter_by(objectGUID = guid).filter(JackDawADOU.ad_id == domainid).all():
         return user.to_dict()
