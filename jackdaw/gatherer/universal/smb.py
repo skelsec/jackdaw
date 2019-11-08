@@ -187,7 +187,7 @@ class AIOSMBGatherer(multiprocessing.Process):
 
 				if 'all' in self.gather or 'localgroups' in self.gather:
 					for group_name in self.localgroups:
-						async for domain_name, user_name, sid, err in machine.list_group_members(domain_name, group_name):
+						async for domain_name, user_name, sid, err in machine.list_group_members('Builtin', group_name):
 							if err is not None:
 								await self.out_q.coro_put((connection.target, None, 'Failed to connect to poll group memeberships. Reason: %s' % format_exc(err)))
 								continue
