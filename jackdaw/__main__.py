@@ -244,6 +244,7 @@ def main():
 	enum_group = subparsers.add_parser('enum', formatter_class=argparse.RawDescriptionHelpFormatter, help='Enumerate all stuffs', epilog = MSLDAPURLDecoder.help_epilog)
 	enum_group.add_argument('ldap_url',  help='Connection specitication <domain>/<username>/<secret_type>:<secret>@<dc_ip_or_hostname_or_ldap_url>')
 	enum_group.add_argument('smb_url',  help='Credential specitication <domain>/<username>/<secret_type>:<secret>')
+	enum_group.add_argument('-q', '--same-query', action='store_true', help='Use the same query for LDAP as for SMB. LDAP url must still be present, but without a query')
 	
 	share_group = subparsers.add_parser('shares', help='Enumerate shares on target')
 	share_group.add_argument('smb_url',  help='Credential specitication <domain>/<username>/<secret_type>:<secret>')
