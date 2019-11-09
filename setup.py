@@ -5,7 +5,7 @@ setup(
 	name="jackdaw",
 
 	# Version number (initial):
-	version="0.0.6",
+	version="0.0.9",
 
 	# Application author details:
 	author="Tamas Jos",
@@ -29,11 +29,10 @@ setup(
 	python_requires='>=3.6',
 	classifiers=(
 		"Programming Language :: Python :: 3.6",
-		"License :: OSI Approved :: MIT License",
 		"Operating System :: OS Independent",
 	),
 	install_requires=[
-		'aiosmb>=0.1.1',
+		'aiosmb>=0.1.5',
 		'msldap>=0.2.2',
 		'sqlalchemy',
 		'dnspython',

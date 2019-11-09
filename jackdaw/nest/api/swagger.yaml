@@ -63,6 +63,35 @@ paths:
           description: Returns the graph ID if creation is sucsessfull
           schema:
             type: integer
+
+  /graph/{graphid}/stats/distance/{sid}:
+    get:
+      operationId: jackdaw.nest.api.graph.stat_distance
+      tags:
+        - Graph
+      summary: Terrible wording. Generates distance data of how many users are from how far to a given sid
+      description: Generates distance data of how many users are from how far to a given sid
+      parameters:
+        - name: graphid
+          in: path
+          description: ID of the graph view
+          type: integer
+          required: True
+        - name: sid
+          in: path
+          description: ID of the node
+          type: string
+          required: True
+      responses:
+        200:
+          description: Returns full node information
+          schema:
+            type: object
+            properties:
+              graph:
+                type: string
+                description: Placeholder TODO
+            
   
   /graph/{graphid}/query/path:
     get:
@@ -630,3 +659,56 @@ paths:
               graph:
                 type: string
                 description: Placeholder TODO
+
+  /anomalies/{domainid}/users/:
+    get:
+      operationId: jackdaw.nest.api.anomalies.get_user_uac_problems
+      tags:
+        - Anomalies
+      summary: Returns user account realted anomalies for a given domain ID
+      description: Returns user account realted anomalies for a given domain ID
+      parameters:
+        - name: domainid
+          in: path
+          description: ID of the domain
+          type: integer
+          required: True
+      responses:
+        200:
+          description: OU info
+          schema:
+            type: object
+            properties:
+              graph:
+                type: string
+                description: Placeholder TODO
+
+  /anomalies/{domainid}/computer/outdated:
+    get:
+      operationId: jackdaw.nest.api.anomalies.get_outdated_os
+      tags:
+        - Anomalies
+      summary: Returns outdated OS
+      description: Returns outdated OS
+      parameters:
+        - name: domainid
+          in: path
+          description: ID of the domain
+          type: integer
+          required: True
+      responses:
+        200:
+          description: OU info
+          schema:
+            type: object
+            properties:
+              graph:
+                type: string
+                description: Placeholder TODO
+
+
+                
+
+
+
+

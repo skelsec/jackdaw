@@ -57,6 +57,13 @@ def search_sid(graphid, sid):
 def search_cn(graphid, cn):
     return {}
 
+def stat_distance(graphid, sid):
+    if graphid not in graphs:
+        return {}
+    distances = graphs[graphid].distances_from_node(sid)
+    
+    return distances
+
 def diff(graphids):
     print(graphids)
     original = graphids['src']

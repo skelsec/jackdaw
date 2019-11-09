@@ -1,23 +1,22 @@
 
 import sys
 import logging
-from urllib.parse import urlparse
+
 from sqlalchemy import exc
 
 from aiosmb import logger as smblogger
 from msldap import logger as msldaplogger
 
-from aiosmb.commons.connection.url import SMBConnectionURL
-from msldap.commons.url import MSLDAPURLDecoder
-
-from jackdaw.dbmodel import create_db, get_session, Credential, HashEntry
+from jackdaw.dbmodel import create_db, get_session
 from jackdaw.common.apq import AsyncProcessQueue
 from jackdaw.common.proxy import ProxyConnection
 from jackdaw.gatherer.universal.smb import SMBGathererManager
 #from jackdaw.representation.membership_graph import *
-from jackdaw.representation.passwords_report import PasswordsReport
+
 from jackdaw import logger as jdlogger
 from jackdaw.gatherer.ldap import LDAPEnumerator
+from jackdaw.utils.argshelper import *
+from jackdaw.credentials.credentials import JackDawCredentials
 
 
 def run(args):
@@ -45,35 +44,38 @@ def run(args):
 	
 	db_conn = args.sql
 	create_db(db_conn)
-
-	
-	if hasattr(args, 'ldap_url'):
-		ldap_url = args.ldap_url
-		if args.ldap_url[-1] == '/':
-			ldap_url = args.ldap_url[:-1]
-
-		if hasattr(args, 'same_query') and args.same_query is True and args.smb_url is not None:
-			ldap_url = '%s/?%s' % (ldap_url, urlparse(args.smb_url).query)
-		ldap_mgr = MSLDAPURLDecoder(ldap_url)
-
-	if hasattr(args, 'smb_url'):
-		smb_mgr =  SMBConnectionURL(args.smb_url) #SMBConnectionManager(args.smb_credential_string, proxy_connection_string = args.sproxy)
 	
 	if args.command == 'enum':
+		smb_mgr = construct_smbdef(args)
+		ldap_mgr = construct_ldapdef(args)
+
 		ldap_conn = ldap_mgr.get_connection()
 		ldap_conn.connect()
 	
 		ldapenum = LDAPEnumerator(db_conn, ldap_conn)
-		ldapenum.run()
+		adifo_id = ldapenum.run()
+		print('ADInfo entry successfully created with ID %s' % adifo_id)
 		
 		mgr = SMBGathererManager(smb_mgr)
 		mgr.gathering_type = ['all']
-		mgr.ldap_conn = ldap_mgr.get_connection() #remember to create a new connection object every time it's needed!!!!!
-		mgr.ldap_conn.connect()
 		mgr.db_conn = db_conn
+		mgr.target_ad = adifo_id
 		mgr.run()
+	
+	elif args.command == 'adinfo':
+		session = get_session(db_conn)
+		from jackdaw.dbmodel.adinfo import JackDawADInfo
+		from jackdaw.utils.table import print_table
+		
+		rows = [['Ad ID', 'domain name', 'scantime']]
+		for did, distinguishedName, creation in session.query(JackDawADInfo).with_entities(JackDawADInfo.id, JackDawADInfo.distinguishedName, JackDawADInfo.fetched_at).all():
+			name = distinguishedName.replace('DC=','')
+			name = name.replace(',','.')
+			rows.append([str(did), name, creation.isoformat()])
+		print_table(rows)
 		
 	elif args.command == 'ldap':
+		ldap_mgr = construct_ldapdef(args)
 		ldap_conn = ldap_mgr.get_connection()
 		ldap_conn.connect()
 	
@@ -81,137 +83,46 @@ def run(args):
 		ldapenum.run()
 		
 	elif args.command in ['shares', 'sessions', 'localgroups']:
+		smb_mgr = construct_smbdef(args)
 		mgr = SMBGathererManager(smb_mgr)
 		mgr.gathering_type = [args.command]
 		mgr.db_conn = db_conn
+		mgr.lookup_ad = args.lookup_ad
 		
 		if args.ldap_url:
+			ldap_mgr = construct_ldapdef(args)
 			ldap_conn = ldap_mgr.get_connection()
 			ldap_conn.connect()
 			mgr.ldap_conn = ldap_conn
 		
-		elif args.target_file:
+		if args.ad_id:
+			mgr.target_ad = args.ad_id
+		
+		if args.target_file:
 			mgr.targets_file = args.target_file
 		
 		mgr.run()
 		
-	elif args.command == 'plot':
-		ad_id = 1
-		mp = MembershipPlotter(db_conn)
-		mp.get_network_data(ad_id)
-		
-		if args.plot_cmd == 'admins':
-			network = mp.show_domain_admins()
-			
-		elif args.plot_cmd == 'src':
-			network = mp.show_all_sources(args.source)
-			
-		elif args.plot_cmd == 'dst':
-			network = mp.show_all_destinations(args.destination)
-			
-		elif args.plot_cmd == 'pp':
-			network = mp.show_path(args.source, args.destination)
-			
-		else:
-			raise Exception('Unknown graph command: %s' % args.plot_cmd)
-		
-		mp.plot(network)
 	elif args.command == 'creds':
-		ctr = 0
-		ctr_fail = 0
-		dbsession = get_session(db_conn)
-		for cred in Credential.from_impacket_file(args.impacket_file):
-			try:
-				dbsession.add(cred)
-				if ctr % 10000 == 0:
-					print(ctr)
-					dbsession.commit()
-				
-			except exc.IntegrityError as e:
-				ctr_fail += 1
-				dbsession.rollback()
-				continue
-			else:
-				ctr += 1
+		creds = JackDawCredentials(args.db_conn, args.domain_id)
+		creds.add_credentials_impacket(args.impacket_file)
 
-		dbsession.commit()
-		
-		print('Added %d users. Failed inserts: %d' % (ctr, ctr_fail))
 		
 	elif args.command == 'passwords':
-		mem_filter = {}
-		dbsession = get_session(db_conn)
-		ctr = 0
-		for he in HashEntry.from_potfile(args.potfile):
-			if he.nt_hash in mem_filter:
-				continue
-			mem_filter[he.nt_hash] = 1
-
-			exists = False
-
-			if args.disable_passwordcheck is False:
-				#check if hash is already in HashEntry, if yes, skip
-				if he.nt_hash:
-					exists = dbsession.query(HashEntry.id).filter_by(nt_hash=he.nt_hash).scalar() is not None
-				elif he.lm_hash:
-					exists = dbsession.query(HashEntry.id).filter_by(lm_hash=he.lm_hash).scalar() is not None
-				else:
-					continue
-
-				#print(exists)
-				if exists is True:
-					continue
-			
-			
-			if args.disable_usercheck is False:
-				#check if hash actually belongs to a user, if not, skip, otherwise put it in DB
-				if he.nt_hash:
-					qry = dbsession.query(Credential.nt_hash).filter(Credential.nt_hash == he.nt_hash)
-				elif he.lm_hash:
-					qry = dbsession.query(Credential.lm_hash).filter(Credential.lm_hash == he.lm_hash)
-				else:
-					continue
-				
-				exists = True if qry.first() else False
-			
-			if exists is True:
-				try:
-					dbsession.add(he)
-					if ctr % 10000 == 0:
-						print(ctr)
-					#	dbsession.commit()
-					dbsession.commit()
-					
-
-				except exc.IntegrityError as e:
-					print(e)
-					dbsession.rollback()
-					continue
-				else:
-					ctr += 1
-
-		dbsession.commit()
-		print('Added %d plaintext passwords to the DB' % ctr)
+		creds = JackDawCredentials(args.db_conn)
+		creds.add_cracked_passwords(args.potfile, args.disable_usercheck, args.disable_passwordcheck)
 		
 	elif args.command == 'uncracked':
-		dbsession = get_session(db_conn)
-		if args.hash_type == 'NT':
-			qry = dbsession.query(Credential.nt_hash).outerjoin(HashEntry, Credential.nt_hash == HashEntry.nt_hash).filter(Credential.nt_hash != None).distinct(Credential.nt_hash)
-		else:
-			qry = dbsession.query(Credential.lm_hash).outerjoin(HashEntry, Credential.lm_hash == HashEntry.lm_hash).filter(Credential.lm_hash != None).distinct(Credential.lm_hash)
-		
-		if args.history == False:
-			qry = qry.filter(Credential.history_no == 0)
-			
-		for some_hash in qry.all():
-			print(some_hash[0])
+		creds = JackDawCredentials(args.db_conn, args.domain_id)
+		creds.get_uncracked_hashes(args.hash_type, args.history)
 			
 	elif args.command == 'pwreport':
-		report = PasswordsReport(db_conn, out_folder = 'test')
-		report.generate(args.domain_id)
+		creds = JackDawCredentials(args.db_conn, args.domain_id)
+		creds.generate_report(args.out_folder)
 		
 	elif args.command == 'cracked':
-		pass
+		creds = JackDawCredentials(args.db_conn, args.domain_id)
+		creds.get_cracked_info()
 
 	elif args.command == 'nest':
 		from jackdaw.nest.wrapper import NestServer
@@ -236,52 +147,55 @@ def main():
 	nest_group.add_argument('--ip',  default = '127.0.0.1', help='IP address to listen on')
 	nest_group.add_argument('--port',  type=int, default = 5000, help='IP address to listen on')
 
+	adinfo_group = subparsers.add_parser('adinfo', help='Get a list of AD info entries')
 	
 
 	ldap_group = subparsers.add_parser('ldap', formatter_class=argparse.RawDescriptionHelpFormatter, help='Enumerate potentially vulnerable users via LDAP', epilog = MSLDAPURLDecoder.help_epilog)
-	ldap_group.add_argument('ldap_url',  help='Connection specitication <domain>/<username>/<secret_type>:<secret>@<dc_ip_or_hostname_or_ldap_url>')
+	ldap_group.add_argument('ldap_url',  help='Connection specitication in URL format')
 	
 	enum_group = subparsers.add_parser('enum', formatter_class=argparse.RawDescriptionHelpFormatter, help='Enumerate all stuffs', epilog = MSLDAPURLDecoder.help_epilog)
-	enum_group.add_argument('ldap_url',  help='Connection specitication <domain>/<username>/<secret_type>:<secret>@<dc_ip_or_hostname_or_ldap_url>')
-	enum_group.add_argument('smb_url',  help='Credential specitication <domain>/<username>/<secret_type>:<secret>')
+	enum_group.add_argument('ldap_url',  help='Connection specitication in URL format')
+	enum_group.add_argument('smb_url',  help='Connection specitication in URL format')
 	enum_group.add_argument('-q', '--same-query', action='store_true', help='Use the same query for LDAP as for SMB. LDAP url must still be present, but without a query')
 	
 	share_group = subparsers.add_parser('shares', help='Enumerate shares on target')
-	share_group.add_argument('smb_url',  help='Credential specitication <domain>/<username>/<secret_type>:<secret>')
+	share_group.add_argument('smb_url',  help='Credential specitication in URL format')
 	share_group.add_argument('-t', '--target-file', help='taget file with hostnames. One per line.')
 	share_group.add_argument('-l', '--ldap-url', help='ldap_connection_string. Use this to get targets from the domain controller')
 	share_group.add_argument('-q', '--same-query', action='store_true', help='Use the same query for LDAP as for SMB. LDAP url must still be present, but without a query')
-	
+	share_group.add_argument('-d', '--ad-id', help='ID of the domainfo to poll targets rom the DB')
+	share_group.add_argument('-i', '--lookup-ad', help='ID of the domainfo to look up comupter names. Advisable to set for LDAP and file pbased targets')
 	
 	localgroup_group = subparsers.add_parser('localgroups', help='Enumerate local group memberships on target')
-	localgroup_group.add_argument('smb_url',  help='Credential specitication <domain>/<username>/<secret_type>:<secret>')
+	localgroup_group.add_argument('smb_url',  help='Credential specitication in URL format')
 	localgroup_group.add_argument('-t', '--target-file', help='taget file with hostnames. One per line.')
 	localgroup_group.add_argument('-l', '--ldap-url', help='ldap_connection_string. Use this to get targets from the domain controller')
+	localgroup_group.add_argument('-d', '--ad-id', help='ID of the domainfo to poll targets rom the DB')
+	localgroup_group.add_argument('-i', '--lookup-ad', help='ID of the domainfo to look up comupter names. Advisable to set for LDAP and file pbased targets')
 	
 	session_group = subparsers.add_parser('sessions', help='Enumerate connected sessions on target')
-	session_group.add_argument('smb_url',  help='Credential specitication <domain>/<username>/<secret_type>:<secret>')
+	session_group.add_argument('smb_url',  help='Credential specitication in URL format')
 	session_group.add_argument('-t', '--target-file', help='taget file with hostnames. One per line.')
 	session_group.add_argument('-l', '--ldap-url', help='ldap_connection_string. Use this to get targets from the domain controller')
-	
-	plot_group = subparsers.add_parser('plot', help='Plot AD object relationshipts')
-	plot_group.add_argument('plot_cmd', default='admins', choices= ['admins', 'src', 'dst', 'pp'])
-	plot_group.add_argument('-s', '--source', help='source node')
-	plot_group.add_argument('-d', '--destination', help='destination node')
+	session_group.add_argument('-d', '--ad-id', help='ID of the domainfo to poll targets rom the DB')
+	session_group.add_argument('-i', '--lookup-ad', help='ID of the domainfo to look up comupter names. Advisable to set for LDAP and file pbased targets')
 	
 	credential_group = subparsers.add_parser('creds', help='Add credential information from impacket')
 	credential_group.add_argument('impacket_file', help='file with LM and NT hashes, generated by impacket secretsdump.py')
+	credential_group.add_argument('-d','--domain-id', type=int, default = -1, help='Domain ID to identify the domain')
 	
 	passwords_group = subparsers.add_parser('passwords', help='Add password information from hashcat potfile')
 	passwords_group.add_argument('potfile', help='hashcat potfile with cracked hashes')
-	passwords_group.add_argument('-t','--hash-type', default='NT', choices= ['NT', 'LM'])
 	passwords_group.add_argument('--disable-usercheck', action='store_true', help = 'Disables the user pre-check when inserting to DB. All unique passwords will be uploaded.')
 	passwords_group.add_argument('--disable-passwordcheck', action='store_true', help = 'Disables the password uniqueness check. WILL FAIL IF PW IS ALREADY IN THE DB.')
 	
 	uncracked_group = subparsers.add_parser('uncracked', help='Polls the DB for uncracked passwords')
 	uncracked_group.add_argument('-t','--hash-type', default='NT', choices= ['NT', 'LM'])
-	uncracked_group.add_argument('--history', action='store_true', help = 'Show password history hashes as well')	
+	uncracked_group.add_argument('--history', action='store_true', help = 'Show password history hashes as well')
+	uncracked_group.add_argument('-d','--domain-id', type=int, default = -1, help='Domain ID to identify the domain')
 	
 	cracked_group = subparsers.add_parser('cracked', help='Polls the DB for cracked passwords')
+	cracked_group.add_argument('-d','--domain-id', type=int, default = -1, help='Domain ID to identify the domain')
 	
 	pwreport_group = subparsers.add_parser('pwreport', help='Generates credential statistics')
 	pwreport_group.add_argument('-d','--domain-id', type=int, default = -1, help='Domain ID to identify the domain')

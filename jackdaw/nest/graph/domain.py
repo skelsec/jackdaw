@@ -63,8 +63,8 @@ class GraphData:
 		self.nodes = {}
 		self.edges = []
 
-	def add_node(self, gid, name, gtype, properties = {}):
-		self.nodes[gid] = GraphNode(gid, name, gtype, properties)
+	def add_node(self, gid, name, node_type, properties = {}):
+		self.nodes[gid] = GraphNode(gid, name, node_type, properties)
 	
 	def add_edge(self, src, dst, label = '', weight = 1, properties = {}):
 		if src not in self.nodes:
@@ -251,6 +251,20 @@ class DomainGraph:
 					name = edge[2].get('label', None)
 					network.add_edge(path[i], path[i + 1], label=name)
 
+	def distances_from_node(self, dst_sid):
+		
+		distances = {} #distance -> occurrence of distance
+		for node in self.graph.nodes:
+			try:
+				for path in nx.all_shortest_paths(self.graph, source = node, target = dst_sid):
+					distance = len(path)
+					if distance not in distances:
+						distances[distance] = 0
+					distances[distance] += 1
+			except nx.exception.NetworkXNoPath:
+				continue
+
+		return distances
 
 	def all_shortest_paths(self, src_sid = None, dst_sid = None):
 		nv = GraphData()

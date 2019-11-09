@@ -263,6 +263,6 @@ class LDAPEnumerator:
 		"""
 		session.commit()
 		
-		
+		return info.id
 		
 		

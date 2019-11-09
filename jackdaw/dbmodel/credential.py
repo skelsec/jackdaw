@@ -5,26 +5,26 @@ from sqlalchemy import Column, Integer, String, ForeignKey, Index
 
 class Credential(Basemodel):
 	__tablename__ = 'credentials'
-	__table_args__ = (Index('Credential_uc', "domain", "username","nt_hash", "lm_hash", "history_no", unique = True), )
+	__table_args__ = (Index('Credential_uc', "ad_id", "domain", "username","nt_hash", "lm_hash", "history_no", unique = True), )
 
 	id = Column(Integer, primary_key=True)
-	#user_id = Column(Integer, ForeignKey('users.id'))
-	#user = relationship("JackDawADUser", back_populates="credential", lazy = True)
+	ad_id = Column(Integer)
 	domain = Column(String, index=True, nullable= False)
 	username = Column(String, index=True, nullable= False)
 	nt_hash = Column(String, index=True, nullable= False)
 	lm_hash = Column(String, index=True, nullable= False)
 	history_no = Column(Integer, index=True, nullable= False)
 	
-	def __init__(self, domain = None, username = None, nt_hash = None, lm_hash = None, history_no = None):
+	def __init__(self, domain = None, username = None, nt_hash = None, lm_hash = None, history_no = None, ad_id = -1):
 		self.domain = domain
 		self.username = username
 		self.nt_hash = nt_hash
 		self.lm_hash = lm_hash
 		self.history_no = history_no
+		self.ad_id = ad_id
 
 	@staticmethod
-	def from_impacket_file(filename):
+	def from_impacket_file(filename, ad_id = -1):
 		"""
 		Remember that this doesnt populate the foreign keys!!! You'll have to do it separately!
 		important: historyno will start at 0. This means all history numbers in the file will be incremented by one
@@ -45,6 +45,7 @@ class Credential(Basemodel):
 				if m != -1:
 					domain = userdomainhist.split('\\')[0]
 					username = userdomainhist.split('\\')[1]
+				cred.ad_id = ad_id
 				cred.nt_hash = nt_hash
 				cred.lm_hash = lm_hash
 				cred.history_no = history_no

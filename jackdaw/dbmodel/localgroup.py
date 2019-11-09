@@ -7,6 +7,7 @@ class LocalGroup(Basemodel):
 	
 	id = Column(Integer, primary_key=True)
 	fetched_at = Column(DateTime, default=datetime.datetime.utcnow)
+	machine_id = Column(Integer)
 	ip = Column(String, index=True)
 	rdns = Column(String, index=True)
 	hostname = Column(String, index=True)

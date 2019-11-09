@@ -20,6 +20,8 @@ from jackdaw.dbmodel.localgroup import LocalGroup
 from jackdaw import logger
 from jackdaw.dbmodel import get_session
 
+from jackdaw.dbmodel.adinfo import JackDawADInfo
+from jackdaw.dbmodel.adcomp import JackDawADMachine
 
 class SMBGathererManager:
 	def __init__(self, smb_mgr):
@@ -38,6 +40,8 @@ class SMBGathererManager:
 		self.targets = []
 		self.targets_file = None
 		self.ldap_conn = None
+		self.target_ad = None
+		self.lookup_ad = None #if specified, it will look up the targets in the DB.
 		self.out_file = None
 
 		self.gatherer = None
@@ -52,20 +56,42 @@ class SMBGathererManager:
 		self.results_thread = None
 
 	def __target_generator(self):
+		if self.db_conn is not None:
+			session = get_session(self.db_conn)
+		
 		for target in self.targets:
-			yield target
+			tid = -1
+			yield (tid, target)
 
 		if self.targets_file is not None:
+			tid = -1
 			with open(self.targets_file, 'r') as f:
 				for line in f:
 					line = line.strip()
-					yield line
+					yield (tid, line)
 
 		if self.ldap_conn is not None:
 			ldap_filter = r'(&(sAMAccountType=805306369))'
 			attributes = ['sAMAccountName']
 			for entry in self.ldap_conn.pagedsearch(ldap_filter, attributes):
-				yield entry['attributes']['sAMAccountName'][:-1]
+				tid = -1
+				if self.lookup_ad is not None:
+					res = session.query(JackDawADMachine)\
+							.filter_by(ad_id = self.lookup_ad)\
+							.with_entities(JackDawADMachine.id)\
+							.filter(JackDawADMachine.sAMAccountName == entry['attributes']['sAMAccountName'])\
+							.first()
+					if res is not None:
+						tid = res[0]
+				
+				yield (tid, entry['attributes']['sAMAccountName'][:-1])
+
+		if self.target_ad is not None:
+			for target_id, target_name in session.query(JackDawADMachine).filter_by(ad_id = self.target_ad).with_entities(JackDawADMachine.id, JackDawADMachine.sAMAccountName):
+				yield (target_id, target_name[:-1])
+
+		if self.db_conn is not None:
+			session.close()
 
 	def get_results(self):
 		session = None
@@ -77,7 +103,7 @@ class SMBGathererManager:
 			if x is None:
 				break
 
-			target, result, error = x
+			tid, target, result, error = x
 			if result is None and error is not None:
 				#something went error
 				logger.debug('[AIOSMBScanner][TargetError][%s] %s' % (target.get_ip(), error))
@@ -150,8 +176,9 @@ class AIOSMBGatherer(multiprocessing.Process):
 	def setup(self):
 		pass
 
-	async def scan_host(self, target):
+	async def scan_host(self, atarget):
 		try:
+			tid, target = atarget
 			#spneg = AuthenticatorBuilder.to_spnego_cred(self.credential, target)
 			connection = self.smb_mgr.create_connection_newtarget(target)
 			async with connection:
@@ -161,52 +188,55 @@ class AIOSMBGatherer(multiprocessing.Process):
 				if 'all' in self.gather or 'shares' in self.gather:
 					async for smbshare, err in machine.list_shares():
 						if err is not None:
-							await self.out_q.coro_put((connection.target, None, 'Failed to list shares. Reason: %s' % format_exc(err)))
+							await self.out_q.coro_put((tid, connection.target, None, 'Failed to list shares. Reason: %s' % format_exc(err)))
 							continue
 						share = NetShare()
+						share.machine_id = tid
 						share.ip = connection.target.get_ip()
 						share.netname = smbshare.name
 						share.type = smbshare.type
 						share.remark = smbshare.remark
 
-						await self.out_q.coro_put((connection.target, share, None))
+						await self.out_q.coro_put((tid, connection.target, share, None))
 					
 				
 				if 'all' in self.gather or 'sessions' in self.gather:
 					async for session, err in machine.list_sessions():
 						if err is not None:
-							await self.out_q.coro_put((connection.target, None, 'Failed to get sessions. Reason: %s' % format_exc(err)))
+							await self.out_q.coro_put((tid, connection.target, None, 'Failed to get sessions. Reason: %s' % format_exc(err)))
 							continue
 
 						sess = NetSession()
+						sess.machine_id = tid
 						sess.source = connection.target.get_ip()
 						sess.ip = session.ip_addr.replace('\\','').strip()
 						sess.username = session.username
 
-						await self.out_q.coro_put((connection.target, sess, None))
+						await self.out_q.coro_put((tid, connection.target, sess, None))
 
 				if 'all' in self.gather or 'localgroups' in self.gather:
 					for group_name in self.localgroups:
 						async for domain_name, user_name, sid, err in machine.list_group_members('Builtin', group_name):
 							if err is not None:
-								await self.out_q.coro_put((connection.target, None, 'Failed to connect to poll group memeberships. Reason: %s' % format_exc(err)))
+								await self.out_q.coro_put((tid, connection.target, None, 'Failed to connect to poll group memeberships. Reason: %s' % format_exc(err)))
 								continue
 
 							lg = LocalGroup()
+							lg.machine_id = tid
 							lg.ip = connection.target.get_ip()
 							lg.hostname = connection.target.get_hostname()
 							lg.sid = sid
 							lg.groupname = group_name
 							lg.domain = domain_name
 							lg.username = user_name
-							await self.out_q.coro_put((connection.target, lg, None))
+							await self.out_q.coro_put((tid, connection.target, lg, None))
 		
 		except Exception as e:
-			await self.out_q.coro_put((connection.target, None, 'Failed to connect to host. Reason: %s' % format_exc(e)))
+			await self.out_q.coro_put((tid, connection.target, None, 'Failed to connect to host. Reason: %s' % format_exc(e)))
 			return
 
 		finally:
-			await self.out_q.coro_put((connection.target, None, None)) #target finished
+			await self.out_q.coro_put((tid, connection.target, None, None)) #target finished
 
 	async def worker(self):
 		while True:
