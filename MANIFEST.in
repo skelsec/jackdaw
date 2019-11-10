@@ -1,4 +1,3 @@
 include jackdaw/nest/api/swagger.yaml
-graft jackdaw/nest/static/
-graft jackdaw/nest/templates/
+recursive-include jackdaw/nest/site/ *
 global-exclude *.pyc

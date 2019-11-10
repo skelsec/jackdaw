@@ -9,6 +9,7 @@ from sqlalchemy.orm import load_only
 #from pyvis.network import Network
 #from pyvis.options import Layout
 import networkx as nx
+import math
 
 class GraphNode:
 	def __init__(self, gid, name, gtype = None, properties = {}):
@@ -16,13 +17,22 @@ class GraphNode:
 		self.id = gid
 		self.type = gtype
 		self.properties = properties
+		self.mindistance = math.inf
+
+	def set_distance(self, d):
+		self.mindistance = min(self.mindistance, d)
+
+	def serialize_mindistance(self):
+		if self.mindistance == math.inf:
+			return 999999
 
 	def to_dict(self, format = None):
 		if format is None:
 			return {
 				'id' : self.id,
 				'name' : self.name,
-				'properties' : self.properties
+				'properties' : self.properties,
+				'md' : self.serialize_mindistance(),
 			}
 
 		elif format == 'd3':
@@ -30,6 +40,15 @@ class GraphNode:
 				'id' : self.id,
 				'name' : self.name,
 				'type' : self.type,
+				'md' : self.serialize_mindistance(),
+			}
+		
+		elif format == 'vis':
+			return {
+				'id' : self.id,
+				'label' : self.name,
+				'type' : self.type,
+				'md' : self.serialize_mindistance(),
 			}
 
 class GraphEdge:
@@ -56,6 +75,13 @@ class GraphEdge:
 				'label'  : self.label,
 				'weight' : self.weight,
 			}
+		elif format == 'vis':
+			return {
+				'from' : self.src,
+				'to' : self.dst,
+				'label'  : self.label,
+				'weight' : self.weight,
+			}
 
 
 class GraphData:
@@ -74,6 +100,14 @@ class GraphData:
 
 		self.edges.append(GraphEdge(src, dst, label, weight, properties))
 
+	def __add__(self, o):
+		if not isinstance(o, GraphData):
+			raise Exception('Cannot add GraphData and %s' % type(o))
+		
+		self.nodes.update(o.nodes)
+		self.edges += o.edges
+		return self
+
 	def to_dict(self, format = None):
 		if format is None:
 			return {
@@ -84,6 +118,11 @@ class GraphData:
 			return {
 				'nodes' : [self.nodes[x].to_dict(format = format) for x in self.nodes],
 				'links' : [x.to_dict(format = format) for x in self.edges]
+			}
+		elif format == 'vis':
+			return {
+				'nodes' : [self.nodes[x].to_dict(format = format) for x in self.nodes],
+				'edges' : [x.to_dict(format = format) for x in self.edges]
 			}
 
 def ace_applies(ace_guid, object_class):
@@ -238,13 +277,15 @@ class DomainGraph:
 			
 	def __add_path(self, network, path):
 		"""
-		Adds the path to the representational network (pyvis)
+		Adds the path to the representational network
 		Path is a list of sids (nodes), so we need to find the edges matching
 		"""
-		for sid in path:
+		#print('PATH: %s' % repr(path))
+		for d, sid in enumerate(path):
 			#print(sid)
 			network.add_node(sid, name = self.graph.nodes[sid].get('name', self.sid2cn(sid)), node_type = self.graph.nodes[sid].get('node_type'))
-					
+			network.nodes[sid].set_distance(d)
+		
 		for i in range(len(path) - 1):
 			for edge in self.graph.edges([path[i], ], data=True):
 				if edge[1] == path[i + 1]:

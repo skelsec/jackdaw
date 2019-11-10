@@ -137,7 +137,7 @@ def main():
 	
 	parser = argparse.ArgumentParser(description='Gather gather gather')
 	parser.add_argument('-v', '--verbose', action='count', default=0, help='Increase verbosity, can be stacked')
-	parser.add_argument('--sql', help='SQL connection string')
+	parser.add_argument('--sql', help='SQL connection string. When using SQLITE it works best with FULL FILE PATH!!!')
 	
 	subparsers = parser.add_subparsers(help = 'commands')
 	subparsers.required = True

@@ -42,8 +42,8 @@ class NestServer:
 		if self.basedir is None:
 			self.basedir = os.path.abspath(os.path.dirname(__file__))
 
-		print(self.basedir)
-		print(self.db_conn_string)
+		#print(self.basedir)
+		#print(self.db_conn_string)
 
 		# Create the connexion application instance
 		self.connex_app = ConfigurableFlaskApp(__name__, flask_instance_path =self.basedir, specification_dir='api')
