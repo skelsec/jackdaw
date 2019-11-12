@@ -10,6 +10,7 @@ from sqlalchemy.orm import load_only
 #from pyvis.options import Layout
 import networkx as nx
 import math
+from jackdaw import logger
 
 class GraphNode:
 	def __init__(self, gid, name, gtype = None, properties = {}):
@@ -375,7 +376,7 @@ class DomainGraph:
 						.filter(JackDawADDACL.ace_type == 'ACCESS_ALLOWED_ACE_TYPE')\
 						.filter(~JackDawADDACL.ace_sid.in_(["S-1-3-0", "S-1-5-18"]))\
 						.filter(JackDawADDACL.ad_id == ad_id)
-		print('ACCESS_ALLOWED_ACE_TYPE')
+		#print('ACCESS_ALLOWED_ACE_TYPE')
 		for acl in query.all():
 			if acl.ace_mask_generic_all == True:
 				self.add_edge(acl.ace_sid, acl.sid, label='GenericALL')
@@ -406,7 +407,7 @@ class DomainGraph:
 									and_(JackDawADDACL.ace_hdr_flag_inherited == True, JackDawADDACL.ace_hdr_flag_inherit_only == True, JackDawADDACL.ace_inheritedobjecttype == JackDawADDACL.object_type_guid)))
 								
 
-		print('ACCESS_ALLOWED_OBJECT_ACE_TYPE')
+		#print('ACCESS_ALLOWED_OBJECT_ACE_TYPE')
 		for acl in query.all():			
 			if any([acl.ace_mask_generic_all, acl.ace_mask_write_dacl, acl.ace_mask_write_owner, acl.ace_mask_generic_write]):
 				if acl.ace_objecttype is not None and not ace_applies(acl.ace_objecttype, acl.object_type):
@@ -612,7 +613,7 @@ class DomainGraph:
 			for res in adinfo.customrelations:
 				self.add_edge(res.sid, res.target_sid)
 			
-		print('adding membership edges')
+		#print('adding membership edges')
 		#adding membership edges
 		for tokengroup in adinfo.group_lookups:
 			self.add_sid_to_node(tokengroup.sid, 'unknown')
@@ -622,25 +623,25 @@ class DomainGraph:
 				try:
 					self.add_edge(tokengroup.sid, tokengroup.member_sid, label='member')
 				except AssertionError as e:
-					print(e)
+					logger.exception()
 			elif tokengroup.is_machine == True and self.show_machine_memberships == True:
 				try:
 					self.add_edge(tokengroup.sid, tokengroup.member_sid, label='member')
 				except AssertionError as e:
-					print(e)
+					logger.exception()
 			elif tokengroup.is_group == True and self.show_group_memberships == True:
 				try:
 					self.add_edge(tokengroup.sid, tokengroup.member_sid, label='member')
 				except AssertionError as e:
-					print(e)
+					logger.exception()
 		
 		if self.show_acl == True:
-			print('Adding ACL edges')
+			logger.info('Adding ACL edges')
 			#adding ACL edges
 			self.calc_acl_edges(adinfo)
 			#self.calc_acl_edges_sql(session, ad_id)
 		else:
-			print('Not adding ACL edges')
+			logger.info('Not adding ACL edges')
 		
 						
 				

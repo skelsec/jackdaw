@@ -2,7 +2,6 @@
 from flask import send_file, send_from_directory
 
 def serve_file(filename):
-    print(filename)
     response = send_from_directory('site', filename)
     response.direct_passthrough = False
     return response

@@ -2,7 +2,7 @@
 from jackdaw.dbmodel import create_db, get_session, Credential, HashEntry
 from jackdaw.representation.passwords_report import PasswordsReport
 from sqlalchemy import exc
-
+from jackdaw import logger
 
 class JackDawCredentials:
 	def __init__(self, db_conn, domain_id = -1):
@@ -18,7 +18,7 @@ class JackDawCredentials:
 				try:
 					dbsession.add(cred)
 					if ctr % 10000 == 0:
-						print(ctr)
+						logger.info(ctr)
 						dbsession.commit()
 					
 				except exc.IntegrityError as e:
@@ -30,9 +30,9 @@ class JackDawCredentials:
 
 			dbsession.commit()
 			
-			print('Added %d users. Failed inserts: %d' % (ctr, ctr_fail))
+			logger.info('Added %d users. Failed inserts: %d' % (ctr, ctr_fail))
 		except Exception as e:
-			print(e)
+			logger.exception()
 		finally:
 			dbsession.close()
 	
@@ -77,23 +77,23 @@ class JackDawCredentials:
 					try:
 						dbsession.add(he)
 						if ctr % 10000 == 0:
-							print(ctr)
+							logger.info(ctr)
 						#	dbsession.commit()
 						dbsession.commit()
 						
 
 					except exc.IntegrityError as e:
-						print(e)
+						logger.exception(e)
 						dbsession.rollback()
 						continue
 					else:
 						ctr += 1
 
 			dbsession.commit()
-			print('Added %d plaintext passwords to the DB' % ctr)
+			logger.info('Added %d plaintext passwords to the DB' % ctr)
 
 		except Exception as e:
-			print(e)
+			logger.exception(e)
 		finally:
 			dbsession.close()
 		

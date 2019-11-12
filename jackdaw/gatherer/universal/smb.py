@@ -250,7 +250,7 @@ class AIOSMBGatherer(multiprocessing.Process):
 					#exception should be handled in scan_host
 					continue
 			except Exception as e:
-				print('WORKER ERROR: %s' % str(e))
+				logger.exception('WORKER ERROR')
 				raise
 
 	async def scan_queue(self):

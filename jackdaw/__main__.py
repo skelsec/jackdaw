@@ -43,7 +43,6 @@ def run(args):
 		sys.exit()
 	
 	db_conn = args.sql
-	create_db(db_conn)
 	
 	if args.command == 'enum':
 		smb_mgr = construct_smbdef(args)
@@ -61,6 +60,9 @@ def run(args):
 		mgr.db_conn = db_conn
 		mgr.target_ad = adifo_id
 		mgr.run()
+	
+	elif args.command == 'dbinit':
+		create_db(db_conn)
 	
 	elif args.command == 'adinfo':
 		session = get_session(db_conn)
@@ -148,6 +150,7 @@ def main():
 	nest_group.add_argument('--port',  type=int, default = 5000, help='IP address to listen on')
 
 	adinfo_group = subparsers.add_parser('adinfo', help='Get a list of AD info entries')
+	dbinit_group = subparsers.add_parser('dbinit', help='Creates database')
 	
 
 	ldap_group = subparsers.add_parser('ldap', formatter_class=argparse.RawDescriptionHelpFormatter, help='Enumerate potentially vulnerable users via LDAP', epilog = MSLDAPURLDecoder.help_epilog)

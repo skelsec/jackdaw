@@ -12,6 +12,7 @@ from jackdaw.dbmodel.adinfo import JackDawADInfo
 from jackdaw.dbmodel.tokengroup import JackDawTokenGroup
 from jackdaw.dbmodel import *
 from jackdaw.wintypes.lookup_tables import *
+from jackdaw import logger
 
 #from msldap.core.common import *
 from msldap.ldap_objects import *
@@ -174,7 +175,7 @@ class LDAPEnumerator:
 		session.commit()
 		session.refresh(info)
 		
-		print('Enumerating users...')
+		logger.info('Enumerating users...')
 		for obj, user in self.get_all_users():
 			user.ad_id = info.id
 			session.add(user)
@@ -196,7 +197,7 @@ class LDAPEnumerator:
 			
 			session.commit()
 		
-		print('Enumerating machines...')
+		logger.info('Enumerating machines...')
 		for obj, machine in self.get_all_machines():
 			machine.ad_id = info.id
 			session.add(machine)
@@ -218,7 +219,7 @@ class LDAPEnumerator:
 				
 			session.commit()
 			
-		print('Enumerating groups...')
+		logger.info('Enumerating groups...')
 		ctr = 0		
 		for group in self.get_all_groups():
 			group.ad_id = info.id	
@@ -234,7 +235,7 @@ class LDAPEnumerator:
 			if ctr % 1000 == 0:
 				session.commit()
 				
-		print('Enumerating OUs...')
+		logger.info('Enumerating OUs...')
 		for obj, ou in self.get_all_ous():
 			ou.ad_id = info.id
 			session.add(ou)
@@ -247,7 +248,7 @@ class LDAPEnumerator:
 				
 			session.commit()
 			
-		print('Enumerating service users')
+		logger.info('Enumerating service users')
 		for spnservice in self.spnservice_enumerator():
 			spnservice.ad_id = info.id	
 			session.add(spnservice)

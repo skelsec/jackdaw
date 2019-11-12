@@ -3,7 +3,7 @@ import copy
 from msldap.core.common import MSLDAPTargetProxy, MSLDAPCredential, MSLDAPTarget, LDAPProxyType, MSLDAPURLDecoder
 from msldap.core.connection import MSLDAPConnection
 from jackdaw.common.proxy import ProxyConnection, ProxyType
-
+from jackdaw import logger
 
 
 class LDAPConnectionManager:
@@ -31,7 +31,7 @@ class LDAPConnectionManager:
 		if self.connection is None:
 			self.get_auth()
 			self.get_target()
-			print(self.get_target())
+			logger.debug(self.get_target())
 			self.connection = MSLDAPConnection(self.auth, self.target)
 			
 		return copy.deepcopy(self.connection)

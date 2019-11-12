@@ -65,7 +65,6 @@ def list_nodes(graphid, with_data = False):
     nodes = []
     for node in graphs[graphid].get_node():
         nodes.append(node.to_dict())
-    print(nodes)
     return nodes
 
 def get_node(graphid, nodeid):
