@@ -5,7 +5,7 @@ setup(
 	name="jackdaw",
 
 	# Version number (initial):
-	version="0.1.1",
+	version="0.1.2",
 
 	# Application author details:
 	author="Tamas Jos",
@@ -32,15 +32,16 @@ setup(
 		"Operating System :: OS Independent",
 	),
 	install_requires=[
-		'aiosmb>=0.1.5',
-		'msldap>=0.2.3',
+		'aiosmb>=0.1.7',
+		'msldap>=0.2.4',
 		'sqlalchemy',
 		'dnspython',
 		'tqdm',
 		'networkx',
 		'connexion',
 		'flask-sqlalchemy',
-		'connexion[swagger-ui]'
+		'connexion[swagger-ui]',
+		'mimikatz>=0.2.4'
 	],
 	entry_points={
 		'console_scripts': [

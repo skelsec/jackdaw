@@ -790,6 +790,29 @@ paths:
                 type: string
                 description: Placeholder TODO
 
+  /anomalies/{domainid}/users/description:
+    get:
+      operationId: jackdaw.nest.api.anomalies.get_user_description
+      tags:
+        - Anomalies
+      summary: Returns list of user accounts which have description 
+      description: Returns list of user accounts which have description 
+      parameters:
+        - name: domainid
+          in: path
+          description: ID of the domain
+          type: integer
+          required: True
+      responses:
+        200:
+          description: User stuff
+          schema:
+            type: object
+            properties:
+              graph:
+                type: string
+                description: Placeholder TODO
+
   /anomalies/{domainid}/computer/outdated:
     get:
       operationId: jackdaw.nest.api.anomalies.get_outdated_os
@@ -813,8 +836,226 @@ paths:
                 type: string
                 description: Placeholder TODO
 
+  /anomalies/{domainid}/computer/smbsig:
+    get:
+      operationId: jackdaw.nest.api.anomalies.get_smb_nosig
+      tags:
+        - Anomalies
+      summary: Returns all machines where SMB singing is not mandatory
+      description: Returns all machines where SMB singing is not mandatory
+      parameters:
+        - name: domainid
+          in: path
+          description: ID of the domain
+          type: integer
+          required: True
+      responses:
+        200:
+          description: list of machines
+          schema:
+            type: object
+            properties:
+              graph:
+                type: string
+                description: Placeholder TODO
 
+  /anomalies/{domainid}/computer/domainmismatch:
+    get:
+      operationId: jackdaw.nest.api.anomalies.get_smb_domain_mismatch
+      tags:
+        - Anomalies
+      summary: Returns all machines where SMB doesn't match the domain name the machine is supposed to be in
+      description: Returns all machines where SMB doesn't match the domain name the machine is supposed to be in
+      parameters:
+        - name: domainid
+          in: path
+          description: ID of the domain
+          type: integer
+          required: True
+      responses:
+        200:
+          description: list of machines
+          schema:
+            type: object
+            properties:
+              graph:
+                type: string
+                description: Placeholder TODO
                 
+  /anomalies/{domainid}/computer/description:
+    get:
+      operationId: jackdaw.nest.api.anomalies.get_machine_description
+      tags:
+        - Anomalies
+      summary: Returns all machines where machine description is not empty. Might contain secrets
+      description: Returns all machines where machine description is not empty. Might contain secrets
+      parameters:
+        - name: domainid
+          in: path
+          description: ID of the domain
+          type: integer
+          required: True
+      responses:
+        200:
+          description: list of machines
+          schema:
+            type: object
+            properties:
+              graph:
+                type: string
+                description: Placeholder TODO
+                
+
+  /credentials/{domainid}/upload/impacket:
+    put:
+      operationId: jackdaw.nest.api.credential.impacket_upload
+      tags:
+        - Credentials
+      summary: Uploads an impacket dcsync output file (.ntlm)
+      description: Uploads an impacket dcsync output file (.ntlm)
+      consumes:
+         - multipart/form-data
+      parameters:
+        - name: domainid
+          in: path
+          description: ID of the domain
+          type: integer
+          required: True
+        - name: file_to_upload
+          in: formData
+          description: File to upload
+          type: file
+          required: True
+      responses:
+        200:
+          description: OU info
+          schema:
+            type: object
+            properties:
+              graph:
+                type: string
+                description: Placeholder TODO
+
+  /credentials/{domainid}/upload/lsass:
+    put:
+      operationId: jackdaw.nest.api.credential.lsass_upload
+      tags:
+        - Credentials
+      summary: Uploads an LSASS minidump file
+      description: Uploads an LSASS minidump file
+      consumes:
+         - multipart/form-data
+      parameters:
+        - name: domainid
+          in: path
+          description: ID of the domain
+          type: integer
+          required: True
+        - name: computername
+          in: formData
+          description: name of the machine this dump is taken from
+          type: string
+          required: False
+        - name: file_to_upload
+          in: formData
+          description: File to upload
+          type: file
+          required: True
+      responses:
+        200:
+          description: OU info
+          schema:
+            type: object
+            properties:
+              graph:
+                type: string
+                description: Placeholder TODO
+  
+  /credentials/{domainid}/upload/aiosmb:
+    put:
+      operationId: jackdaw.nest.api.credential.aiosmb_upload
+      tags:
+        - Credentials
+      summary: Uploads an aiosmb DCSYNC file
+      description: Uploads an aiosmb DCSYNC file
+      consumes:
+         - multipart/form-data
+      parameters:
+        - name: domainid
+          in: path
+          description: ID of the domain
+          type: integer
+          required: True
+        - name: file_to_upload
+          in: formData
+          description: File to upload
+          type: file
+          required: True
+      responses:
+        200:
+          description: Nah
+          schema:
+            type: object
+            properties:
+              graph:
+                type: string
+                description: Placeholder TODO
+
+  /sessions/{domainid}/list:
+    get:
+      operationId: jackdaw.nest.api.session.session_list
+      tags:
+        - Sessions
+      summary: Lists all sessions
+      description: Lists all sessions
+      parameters:
+        - name: domainid
+          in: path
+          description: ID of the domain
+          type: integer
+          required: True
+      responses:
+        200:
+          description: Nah
+          schema:
+            type: object
+            properties:
+              graph:
+                type: string
+                description: Placeholder TODO 
+  
+  /sessions/{domainid}/create:
+    post:
+      operationId: jackdaw.nest.api.session.session_add
+      tags:
+        - Sessions
+      summary: Adds a new session manually
+      description: Adds a new session manually. will only create the session if the computer name is already available in the DB for the correct domainid!
+      parameters:
+        - name: domainid
+          in: path
+          description: ID of the domain
+          type: integer
+          required: True
+        - name: session
+          in: body
+          description: hostname and username to create the fake session
+          schema:
+            type: object
+            properties:
+              hostname:
+                type: string
+              username:
+                type: string
+      responses:
+        200:
+          description: Nah
+          schema:
+            type: object
+            properties:
+              graph:
+                type: string
+                description: Placeholder TODO 
 
 
 

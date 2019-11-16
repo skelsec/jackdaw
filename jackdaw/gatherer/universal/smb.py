@@ -17,6 +17,7 @@ from jackdaw.common.apq import AsyncProcessQueue
 from jackdaw.dbmodel.netshare import NetShare
 from jackdaw.dbmodel.netsession import NetSession
 from jackdaw.dbmodel.localgroup import LocalGroup
+from jackdaw.dbmodel.smbfinger import SMBFinger
 from jackdaw import logger
 from jackdaw.dbmodel import get_session
 
@@ -119,6 +120,10 @@ class SMBGathererManager:
 					elif isinstance(result, LocalGroup):
 						self.prg_groups.update()
 
+					if isinstance(result, SMBFinger):
+						print(result)
+						print('finger!')
+
 				if session is None:
 					logger.debug(target, str(result), error)
 				else:
@@ -183,7 +188,17 @@ class AIOSMBGatherer(multiprocessing.Process):
 			connection = self.smb_mgr.create_connection_newtarget(target)
 			async with connection:
 				await connection.login()
+				
+				extra_info = connection.get_extra_info()
+				if extra_info is not None:
+					try:
+						f = SMBFinger.from_extra_info(tid, extra_info)
+						await self.out_q.coro_put((tid, connection.target, f, None))
+					except:
+						traceback.print_exc()
+
 				machine = SMBMachine(connection)
+
 
 				if 'all' in self.gather or 'shares' in self.gather:
 					async for smbshare, err in machine.list_shares():

@@ -88,7 +88,7 @@ class GraphEdge:
 class GraphData:
 	def __init__(self):
 		self.nodes = {}
-		self.edges = []
+		self.edges = {}
 
 	def add_node(self, gid, name, node_type, properties = {}):
 		self.nodes[gid] = GraphNode(gid, name, node_type, properties)
@@ -98,32 +98,34 @@ class GraphData:
 			raise Exception('Node with id %s is not present' % src)
 		if dst not in self.nodes:
 			raise Exception('Node with id %s is not present' % dst)
+		
+		key = str(src) + str(dst) + str(label)
 
-		self.edges.append(GraphEdge(src, dst, label, weight, properties))
+		self.edges[key] = GraphEdge(src, dst, label, weight, properties)
 
 	def __add__(self, o):
 		if not isinstance(o, GraphData):
 			raise Exception('Cannot add GraphData and %s' % type(o))
 		
 		self.nodes.update(o.nodes)
-		self.edges += o.edges
+		self.edges.update(o.edges)
 		return self
 
 	def to_dict(self, format = None):
 		if format is None:
 			return {
 				'nodes' : [self.nodes[x].to_dict() for x in self.nodes],
-				'edges' : [x.to_dict() for x in self.edges]
+				'edges' : [self.edges[x].to_dict() for x in self.edges]
 			}
 		elif format == 'd3':
 			return {
 				'nodes' : [self.nodes[x].to_dict(format = format) for x in self.nodes],
-				'links' : [x.to_dict(format = format) for x in self.edges]
+				'links' : [self.edges[x].to_dict(format = format) for x in self.edges]
 			}
 		elif format == 'vis':
 			return {
 				'nodes' : [self.nodes[x].to_dict(format = format) for x in self.nodes],
-				'edges' : [x.to_dict(format = format) for x in self.edges]
+				'edges' : [self.edges[x].to_dict(format = format) for x in self.edges]
 			}
 
 def ace_applies(ace_guid, object_class):
@@ -153,11 +155,12 @@ class DomainGraph:
 		self.show_user_memberships = True
 		self.show_machine_memberships = True
 		self.show_session_memberships = True
-		self.show_localgroup_memberships = False
+		self.show_localgroup_memberships = True
 		self.show_constrained_delegations = True
 		self.show_unconstrained_delegations = True
 		self.show_custom_relations = True
 		self.show_acl = True
+		self.show_pwsharing = True
 		self.unknown_node_color = "#ffffff"
 		self.domain_sid = None
 		
@@ -585,18 +588,22 @@ class DomainGraph:
 				self.add_edge(res[1], res[0], label='hasSession')
 		
 		if self.show_localgroup_memberships == True:
-			#TODO: maybe create edges based on local username similarities??
-			for res in session.query(JackDawADUser.objectSid, JackDawADMachine.objectSid, LocalGroup.groupname).filter(LocalGroup.username == JackDawADUser.sAMAccountName).filter(LocalGroup.hostname == JackDawADMachine.sAMAccountName):
+			for res in session.query(JackDawADUser.objectSid, JackDawADMachine.objectSid, LocalGroup.groupname
+						).filter(JackDawADMachine.id == LocalGroup.machine_id
+						).filter(JackDawADMachine.ad_id == self.ad_id
+						).filter(JackDawADUser.ad_id == self.ad_id
+						).filter(JackDawADUser.objectSid == LocalGroup.sid
+						).all():
 				label = None
-				if res[3] == 'Remote Desktop Users':
+				if res[2] == 'Remote Desktop Users':
 					label = 'canRDP'
 					weight = 1
 					
-				elif res[3] == 'Distributed COM Users':
+				elif res[2] == 'Distributed COM Users':
 					label = 'executeDCOM'
 					weight = 1
 					
-				elif res[3] == 'Administrators':
+				elif res[2] == 'Administrators':
 					label = 'adminTo'
 					weight = 1
 					
@@ -642,6 +649,39 @@ class DomainGraph:
 			#self.calc_acl_edges_sql(session, ad_id)
 		else:
 			logger.info('Not adding ACL edges')
+
+		if self.show_pwsharing == True:
+			def get_sid_by_nthash(ad_id, nt_hash):
+				return session.query(JackDawADUser.objectSid, Credential.username
+					).filter_by(ad_id = ad_id
+					).filter(Credential.username == JackDawADUser.sAMAccountName
+					).filter(Credential.nt_hash == nt_hash
+					)
+
+			dup_nthashes_qry = session.query(Credential.nt_hash
+						).filter(Credential.history_no == 0
+						).filter(Credential.ad_id == ad_id
+                        ).filter(Credential.username != 'NA'
+                        ).filter(Credential.domain != '<LOCAL>'
+						).group_by(
+							Credential.nt_hash
+						).having(
+							func.count(Credential.nt_hash) > 1
+						)
+
+			for res in dup_nthashes_qry.all():
+				sidd = {}
+				for sid, _ in get_sid_by_nthash(self.ad_id, res[0]).all():
+					sidd[sid] = 1
+
+				for sid1 in sidd:
+					for sid2 in sidd:
+						if sid1 == sid2:
+							continue
+						self.add_edge(sid1, sid2, label = 'pwsharing')
+
+		else:
+			logger.info('Not adding password sharing info')
 		
 						
 				

@@ -55,7 +55,7 @@ class NestServer:
 		#set custom JSON encoder
 		app.json_encoder = UniversalFlaskEncoder
 
-		app.config['SQLALCHEMY_ECHO'] = True
+		app.config['SQLALCHEMY_ECHO'] = False 
 		app.config['SQLALCHEMY_DATABASE_URI'] = self.db_conn_string
 		app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 		#

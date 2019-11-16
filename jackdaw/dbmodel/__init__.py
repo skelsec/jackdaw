@@ -80,6 +80,7 @@ from .usergroup import *
 from .localgroup import *
 from .constrained import *
 from .customrelations import *
+from .smbfinger import *
 
 
 def create_db(connection, verbosity = 0):

@@ -16,6 +16,7 @@ class JackDawADUser(Basemodel):
 	sn = Column(String)
 	cn = Column(String)
 	dn = Column(String)
+	description = Column(String)
 	initials = Column(String)
 	givenName = Column(String)
 	displayName = Column(String)
@@ -92,6 +93,7 @@ class JackDawADUser(Basemodel):
 			'dn' : self.dn ,
 			'givenName' : self.givenName ,
 			'displayName' : self.displayName ,
+			'description' : self.description,
 			'name' : self.name ,
 			'objectSid' : self.objectSid ,
 			'sAMAccountName' : self.sAMAccountName ,
@@ -144,6 +146,7 @@ class JackDawADUser(Basemodel):
 		user.sn = lf(getattr(u,'sn'))
 		user.cn = lf(getattr(u,'cn'))
 		user.dn = lf(getattr(u,'distinguishedName'))
+		user.description = lf(getattr(u,'description'))
 		user.initials = lf(getattr(u,'initials'))
 		user.givenName = lf(getattr(u,'givenName'))
 		user.displayName = lf(getattr(u,'displayName'))

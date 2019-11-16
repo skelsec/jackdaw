@@ -20,6 +20,7 @@ class JackDawADMachine(Basemodel):
 	badPwdCount = Column(String)
 	codePage = Column(String)
 	countryCode = Column(String)
+	description = Column(String)
 	displayName = Column(String)
 	dNSHostName = Column(String)
 	instanceType = Column(String)
@@ -80,6 +81,7 @@ class JackDawADMachine(Basemodel):
 			'ad_id' : self.ad_id ,
 			'dn' : self.dn ,
 			'displayName' : self.displayName ,
+			'description' : self.description,
 			'name' : self.name ,
 			'objectSid' : self.objectSid ,
 			'sAMAccountName' : self.sAMAccountName ,
@@ -132,6 +134,7 @@ class JackDawADMachine(Basemodel):
 		machine.sn = lf(getattr(u,'sn'))
 		machine.cn = lf(getattr(u,'cn'))
 		machine.dn = lf(getattr(u,'distinguishedName'))
+		machine.description = lf(getattr(u,'description'))
 		machine.accountExpires = dt(lf(getattr(u,'accountExpires')))
 		machine.badPasswordTime = dt(lf(getattr(u,'badPasswordTime')))
 		machine.badPwdCount = lf(getattr(u,'badPwdCount'))
