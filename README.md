@@ -11,13 +11,16 @@ It also comes with a handy feature to help you in a password-cracking project by
 # Example commands
 ### Enumeration
 #### Full enumeration with integrated sspi
-`jackdaw --sql sqlite:///test.db enum TEST/victim/sspi:@10.10.10.2`
+`jackdaw --sql sqlite:///test.db enum 'ldap://TEST\victim:Passw0rd!@10.10.10.2' 'smb+ntlm-password://TEST\victim:Passw0rd!@10.10.10.2'`
 #### LDAP-only enumeration with username and password
 The passowrd is `Passw0rd!`  
-`jackdaw --sql sqlite:///test.db ldap TEST/victim/pass:Passw0rd!@10.10.10.2`
+`jackdaw --sql sqlite:///test.db ldap 'ldap://TEST\victim:Passw0rd!@10.10.10.2'`
 
-### Plotting all paths to Domain Admins group
-`jackdaw --sql sqlite:///test.db plot admins`
+### Start interactive web interface to plog graph and access additional features
+`jackdaw --sql sqlite:///test.db nest`  
+Open `http://127.0.0.1:5000/ui` for the API  
+Open `http://127.0.0.1:5000/nest` for the graph interface 
+
 
 
 # Important
