@@ -17,11 +17,38 @@ The passowrd is `Passw0rd!`
 `jackdaw --sql sqlite:///test.db ldap 'ldap://TEST\victim:Passw0rd!@10.10.10.2'`
 
 ### Start interactive web interface to plog graph and access additional features
-`jackdaw --sql sqlite:///test.db nest`  
+`jackdaw --sql sqlite:///<FULL PATH TO DB> nest`  
 Open `http://127.0.0.1:5000/ui` for the API  
 Open `http://127.0.0.1:5000/nest` for the graph interface 
 
+# Features
+## Data acquisition 
+#### via LDAP
+LDAP enumeration phase acquires data on AD info, User, Machine, OU, Group objects which will be reprezented as a node in the graph, and as a separate table in the DB. Additionally all afforementioned objects' Security Descriptior will be parsed and the ACLs for the DACL added to the DB. This, together with the memebership information will be represented as edges in the garph. Additionally custom SQL queries can be performed on any of the afforementioned data types when needed.  
 
+#### via SMB
+SMB enumeration phase acquires data on shares, localgroups, sessions, NTLM data via connecting to each machine in the domain (which is acquired via LDAP)  
+
+#### via LSASS dumps (optional)  
+The framework allows users to upload LSASS memory dumps to store credentials and extend the session information table. Both will be used as additional edges in the graph (shared password and session respectively). The framework also uses this information to create a password report on weak/shared/cracked credentials.  
+
+#### via DCSYNC results (optional)
+The framework allows users to upload impacket's DCSYNC files to store credentials. This be used as additional edges in the graph (shared password). The framework also uses this information to create a password report on weak/shared/cracked credentials.  
+
+#### via manual upload (optional)
+The framework allows manually extending the available DB in every aspect. Example: when user session information on a given computer is discovered (outside of the automatic enumeration) there is a possibility to manually upload these sessions, which will populate the DB and also the result graph
+
+## Graph
+The framework can generate a graph using the available information in the database and plot it via the web UI (nest). Furthermore the graph generation and path canculations can be invoked programmatically, either by using the web API (/ui endpoint) or the grph object's functions.  
+
+## Anomlaies detection  
+The framework can identify common AD misconfigurations without graph generation. Currently only via the web API.  
+
+#### User
+User anomalies detection involve detection of insecure UAC permissions and extensive user description values. This feature set is expected to grow in the future as new features will be implemented.
+
+#### Machine
+Machine anomalies detection involve detection of insecure UAC permissions, non-mandatory SMB singing, outdated OS version, out-of-domain machines. This feature set is expected to grow in the future as new features will be implemented.
 
 # Important
 This project is in experimental phase! This means multiple things:
