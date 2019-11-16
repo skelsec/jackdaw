@@ -1261,6 +1261,38 @@ paths:
                 type: string
                 description: Placeholder TODO 
 
+  /scans/enum/create:
+    put:
+      operationId: jackdaw.nest.api.scan.scan_enum
+      tags:
+        - Scan
+      summary: Schedules a new enumeration scan
+      description: Schedules a new enumeration scan
+      parameters:
+        - name: params
+          in: body
+          description: scan parameters
+          schema:
+            type: object
+            properties:
+              ldap_url:
+                type: string
+              smb_url:
+                type: string
+              ldap_workers:
+                type: integer
+              smb_workers:
+                type: integer
+      responses:
+        200:
+          description: Nah
+          schema:
+            type: object
+            properties:
+              graph:
+                type: string
+                description: Placeholder TODO 
+
 
 
 

@@ -11,7 +11,6 @@ from jackdaw.dbmodel import create_db, get_session
 from jackdaw.common.apq import AsyncProcessQueue
 from jackdaw.common.proxy import ProxyConnection
 from jackdaw.gatherer.universal.smb import SMBGathererManager
-#from jackdaw.representation.membership_graph import *
 
 from jackdaw import logger as jdlogger
 from jackdaw.gatherer.ldap_mp import LDAPEnumeratorManager
@@ -115,10 +114,6 @@ def run(args):
 	elif args.command == 'uncracked':
 		creds = JackDawCredentials(args.db_conn, args.domain_id)
 		creds.get_uncracked_hashes(args.hash_type, args.history)
-			
-	elif args.command == 'pwreport':
-		creds = JackDawCredentials(args.db_conn, args.domain_id)
-		creds.generate_report(args.out_folder)
 		
 	elif args.command == 'cracked':
 		creds = JackDawCredentials(args.db_conn, args.domain_id)
@@ -199,10 +194,6 @@ def main():
 	
 	cracked_group = subparsers.add_parser('cracked', help='Polls the DB for cracked passwords')
 	cracked_group.add_argument('-d','--domain-id', type=int, default = -1, help='Domain ID to identify the domain')
-	
-	#pwreport_group = subparsers.add_parser('pwreport', help='Generates credential statistics')
-	#pwreport_group.add_argument('-d','--domain-id', type=int, default = -1, help='Domain ID to identify the domain')
-	#pwreport_group.add_argument('-o','--out-file', help='Base file name to creates report files in')
 	
 	args = parser.parse_args()
 

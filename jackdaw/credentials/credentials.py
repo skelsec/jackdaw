@@ -1,6 +1,5 @@
 
 from jackdaw.dbmodel import create_db, get_session, Credential, HashEntry, JackDawADUser
-from jackdaw.representation.passwords_report import PasswordsReport
 from sqlalchemy import exc, func
 from jackdaw import logger
 import string
