@@ -39,7 +39,7 @@ def dt(x):
 	"""
 	datetime corrections
 	"""
-	if x == '':
+	if x in ['', None, 'None']:
 		return None
 	if isinstance(x, str):
 		return datetime.datetime.fromisoformat(x)

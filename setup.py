@@ -5,7 +5,7 @@ setup(
 	name="jackdaw",
 
 	# Version number (initial):
-	version="0.1.2",
+	version="0.1.3",
 
 	# Application author details:
 	author="Tamas Jos",
@@ -41,7 +41,7 @@ setup(
 		'connexion',
 		'flask-sqlalchemy',
 		'connexion[swagger-ui]',
-		'mimikatz>=0.2.4'
+		'pypykatz>=0.2.4'
 	],
 	entry_points={
 		'console_scripts': [

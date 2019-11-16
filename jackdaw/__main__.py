@@ -14,7 +14,7 @@ from jackdaw.gatherer.universal.smb import SMBGathererManager
 #from jackdaw.representation.membership_graph import *
 
 from jackdaw import logger as jdlogger
-from jackdaw.gatherer.ldap import LDAPEnumerator
+from jackdaw.gatherer.ldap_mp import LDAPEnumeratorManager
 from jackdaw.utils.argshelper import *
 from jackdaw.credentials.credentials import JackDawCredentials
 
@@ -47,15 +47,12 @@ def run(args):
 	if args.command == 'enum':
 		smb_mgr = construct_smbdef(args)
 		ldap_mgr = construct_ldapdef(args)
-
-		ldap_conn = ldap_mgr.get_connection()
-		ldap_conn.connect()
-	
-		ldapenum = LDAPEnumerator(db_conn, ldap_conn)
-		adifo_id = ldapenum.run()
+		
+		mgr = LDAPEnumeratorManager(db_conn, ldap_mgr, agent_cnt=args.ldap_workers)
+		adifo_id = mgr.run()
 		print('ADInfo entry successfully created with ID %s' % adifo_id)
 		
-		mgr = SMBGathererManager(smb_mgr)
+		mgr = SMBGathererManager(smb_mgr, worker_cnt=args.smb_workers)
 		mgr.gathering_type = ['all']
 		mgr.db_conn = db_conn
 		mgr.target_ad = adifo_id
@@ -81,8 +78,9 @@ def run(args):
 		ldap_conn = ldap_mgr.get_connection()
 		ldap_conn.connect()
 	
-		ldapenum = LDAPEnumerator(db_conn, ldap_conn)
-		ldapenum.run()
+		mgr = LDAPEnumeratorManager(db_conn, ldap_mgr, agent_cnt=args.ldap_workers)
+		adifo_id = mgr.run()
+		print('ADInfo entry successfully created with ID %s' % adifo_id)
 		
 	elif args.command in ['shares', 'sessions', 'localgroups']:
 		smb_mgr = construct_smbdef(args)
@@ -160,6 +158,8 @@ def main():
 	enum_group.add_argument('ldap_url',  help='Connection specitication in URL format')
 	enum_group.add_argument('smb_url',  help='Connection specitication in URL format')
 	enum_group.add_argument('-q', '--same-query', action='store_true', help='Use the same query for LDAP as for SMB. LDAP url must still be present, but without a query')
+	enum_group.add_argument('--ldap-workers', type=int, default = 4, help='LDAP worker count for parallelization')
+	enum_group.add_argument('--smb-workers', type=int, default = 50, help='SMB worker count for parallelization')
 	
 	share_group = subparsers.add_parser('shares', help='Enumerate shares on target')
 	share_group.add_argument('smb_url',  help='Credential specitication in URL format')
