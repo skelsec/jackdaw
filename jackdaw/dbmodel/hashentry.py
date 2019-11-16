@@ -64,13 +64,38 @@ class HashEntry(Basemodel):
 	def from_potfile(potfile):
 		with open(potfile, 'r') as f:
 			for line in f:
-				line = line.strip()
-				
-				some_hash, plaintext = line.split(':', 1)				
-				if len(some_hash) == 32:
-					yield HashEntry(plaintext, nt_hash = some_hash)
-				elif len(some_hash) == 16:
-					yield HashEntry(plaintext, lm_hash = some_hash)
-				else:
+				he = HashEntry.from_potfile_line(line)
+				if he is None:
 					continue
+				yield he
+
+	@staticmethod
+	def from_potfile_stream(stream):
+		for line in stream:
+			line = line.decode()
+			if line is None or len(line) == 0:
+				continue
+			he = HashEntry.from_potfile_line(line)
+			if he is None:
+				continue
+			yield he
+
+	@staticmethod
+	def from_potfile_line(line):
+		line = line.replace('\r','').replace('\n','')
+		if line == '':
+			return None
+		
+		try:
+			some_hash, plaintext = line.split(':', 1)
+		except Exception as e:
+			print(repr(line))
+			print(str(e))
+			return None
+		if len(some_hash) == 32:
+			return HashEntry(plaintext, nt_hash = some_hash)
+		elif len(some_hash) == 16:
+			return HashEntry(plaintext, lm_hash = some_hash)
+		else:
+			return None
 			

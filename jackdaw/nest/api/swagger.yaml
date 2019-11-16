@@ -1001,6 +1001,210 @@ paths:
                 type: string
                 description: Placeholder TODO
 
+  /credentials/{domainid}/uncracked/current/{hashtype}/:
+    get:
+      operationId: jackdaw.nest.api.credential.get_uncracked_current
+      tags:
+        - Credentials
+      summary: Fetches a list of all current uncracked hashes for a given domainid
+      description: Fetches a list of current uncracked hashes for a given domainid
+      parameters:
+        - name: domainid
+          in: path
+          description: ID of the domain
+          type: integer
+          required: True
+        - name: hashtype
+          in: path
+          description: type of hash to be retrieved. Can be "nt" or "lm"
+          type: string
+          required: True
+      responses:
+        200:
+          description: Nah
+          schema:
+            type: object
+            properties:
+              graph:
+                type: string
+                description: Placeholder TODO
+
+  /credentials/{domainid}/uncracked/all/{hashtype}:
+    get:
+      operationId: jackdaw.nest.api.credential.get_uncracked_all
+      tags:
+        - Credentials
+      summary: Fetches a list of all uncracked hashes for a given domainid
+      description: Fetches a list of all uncracked hashes for a given domainid
+      parameters:
+        - name: domainid
+          in: path
+          description: ID of the domain
+          type: integer
+          required: True
+        - name: hashtype
+          in: path
+          description: type of hash to be retrieved. Can be "nt" or "lm"
+          type: string
+          required: True
+      responses:
+        200:
+          description: Nah
+          schema:
+            type: object
+            properties:
+              graph:
+                type: string
+                description: Placeholder TODO
+
+  /credentials/{domainid}/cracked:
+    get:
+      operationId: jackdaw.nest.api.credential.get_cracked_users
+      tags:
+        - Credentials
+      summary: Generates a table with cracked users and pw info.
+      description: Generates a table with cracked users and pw info.
+      parameters:
+        - name: domainid
+          in: path
+          description: ID of the domain
+          type: integer
+          required: True
+      responses:
+        200:
+          description: Nah
+          schema:
+            type: object
+            properties:
+              graph:
+                type: string
+                description: Placeholder TODO
+
+  /credentials/{domainid}/pwsharing:
+    get:
+      operationId: jackdaw.nest.api.credential.get_pwsharing
+      tags:
+        - Credentials
+      summary: Pwsharing info
+      description: Pwsharing info
+      parameters:
+        - name: domainid
+          in: path
+          description: ID of the domain
+          type: integer
+          required: True
+      responses:
+        200:
+          description: Nah
+          schema:
+            type: object
+            properties:
+              graph:
+                type: string
+                description: Placeholder TODO
+
+  /credentials/{domainid}/stats:
+    get:
+      operationId: jackdaw.nest.api.credential.get_stats
+      tags:
+        - Credentials
+      summary: Statistics of cracked users
+      description: Statistics of cracked users
+      parameters:
+        - name: domainid
+          in: path
+          description: ID of the domain
+          type: integer
+          required: True
+      responses:
+        200:
+          description: Nah
+          schema:
+            type: object
+            properties:
+              graph:
+                type: string
+                description: Placeholder TODO
+                
+
+  
+  /hases/upload/potfile:
+    put:
+      operationId: jackdaw.nest.api.credential.potfile_upload
+      tags:
+        - Credentials
+      summary: Uploads a hashcat potfile 
+      description: Uploads a hashcat potfile. Important! Will only upload hashes that exist in the credentials table!!!
+      consumes:
+         - multipart/form-data
+      parameters:
+        - name: file_to_upload
+          in: formData
+          description: File to upload
+          type: file
+          required: True
+      responses:
+        200:
+          description: Nah
+          schema:
+            type: object
+            properties:
+              graph:
+                type: string
+                description: Placeholder TODO
+
+  /hases/upload/passwords/list:
+    put:
+      operationId: jackdaw.nest.api.credential.passwords_upload
+      tags:
+        - Credentials
+      summary: Uploads a list of plaintext passwords to the DB
+      description: Uploads a list of plaintext passwords to the DB. Important! Will only upload passwords whose hashes exist in the credentials table!!!
+      parameters:
+        - name: passwords
+          in: body
+          description: Array of filer props
+          schema:
+            type: array
+            items:
+              type: string
+              example:
+                TestPassw0rd!1
+      responses:
+        200:
+          description: Nah
+          schema:
+            type: object
+            properties:
+              graph:
+                type: string
+                description: Placeholder TODO
+
+  /hases/upload/passwords/file:
+    put:
+      operationId: jackdaw.nest.api.credential.passwords_upload_file
+      tags:
+        - Credentials
+      summary: Uploads a file with a list of plaintext passwords to the DB
+      description: Uploads a file with a list of plaintext passwords to the DB. Important! Will only upload passwords whose hashes exist in the credentials table!!!
+      consumes:
+         - multipart/form-data
+      parameters:
+        - name: file_to_upload
+          in: formData
+          description: File to upload
+          type: file
+          required: True
+      responses:
+        200:
+          description: Nah
+          schema:
+            type: object
+            properties:
+              graph:
+                type: string
+                description: Placeholder TODO
+
   /sessions/{domainid}/list:
     get:
       operationId: jackdaw.nest.api.session.session_list

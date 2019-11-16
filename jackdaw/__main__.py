@@ -47,7 +47,7 @@ def run(args):
 	if args.command == 'enum':
 		smb_mgr = construct_smbdef(args)
 		ldap_mgr = construct_ldapdef(args)
-		
+
 		mgr = LDAPEnumeratorManager(db_conn, ldap_mgr, agent_cnt=args.ldap_workers)
 		adifo_id = mgr.run()
 		print('ADInfo entry successfully created with ID %s' % adifo_id)
@@ -200,9 +200,9 @@ def main():
 	cracked_group = subparsers.add_parser('cracked', help='Polls the DB for cracked passwords')
 	cracked_group.add_argument('-d','--domain-id', type=int, default = -1, help='Domain ID to identify the domain')
 	
-	pwreport_group = subparsers.add_parser('pwreport', help='Generates credential statistics')
-	pwreport_group.add_argument('-d','--domain-id', type=int, default = -1, help='Domain ID to identify the domain')
-	pwreport_group.add_argument('-o','--out-file', help='Base file name to creates report files in')
+	#pwreport_group = subparsers.add_parser('pwreport', help='Generates credential statistics')
+	#pwreport_group.add_argument('-d','--domain-id', type=int, default = -1, help='Domain ID to identify the domain')
+	#pwreport_group.add_argument('-o','--out-file', help='Base file name to creates report files in')
 	
 	args = parser.parse_args()
 
