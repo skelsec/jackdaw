@@ -1,7 +1,5 @@
 # jackdaw
 gather gather gather
-
-![jackdaw_small](https://user-images.githubusercontent.com/19204702/57587578-6159b280-7507-11e9-8762-c5e9022e37bc.png)
 ![jackdaw_card](https://user-images.githubusercontent.com/19204702/69013611-6306a600-0982-11ea-8c21-d9f1e6efb9bf.jpg)
 
 # What is this?
