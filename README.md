@@ -14,9 +14,12 @@ Most of these commands are available already from the webapi, except for the dat
 `jackdaw --sql sqlite:///<full path here>/test.db dbinit`  
 
 ### Enumeration
-#### Full enumeration with integrated sspi
-`jackdaw --sql sqlite:///test.db enum 'ldap://TEST\victim:Passw0rd!@10.10.10.2' 'smb+ntlm-password://TEST\victim:Passw0rd!@10.10.10.2'`
-#### LDAP-only enumeration with username and password
+#### Full enumeration with integrated sspi - windows only
+`jackdaw --sql sqlite:///test.db enum 'ldap+sspi://10.10.10.2' 'smb+sspi-ntlm://10.10.10.2'`
+#### Full enumeration with username and password - platform independent
+The passowrd is `Passw0rd!`  
+`jackdaw --sql sqlite:///test.db ldap 'ldap://TEST\victim:Passw0rd!@10.10.10.2' 'smb+ntlm-password://TEST\victim:Passw0rd!@10.10.10.2'`
+#### LDAP-only enumeration with username and password - platform independent
 The passowrd is `Passw0rd!`  
 `jackdaw --sql sqlite:///test.db ldap 'ldap://TEST\victim:Passw0rd!@10.10.10.2'`
 
