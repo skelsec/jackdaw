@@ -15,6 +15,7 @@ import {
 
 import ApiClient from '../../Components/ApiClient';
 import ExpansionPane from '../../Components/ExpansionPane';
+import ItemDetails from '../../Components/ItemDetails';
 
 const styles = theme => ({
     graphBox: {
@@ -143,8 +144,7 @@ class GraphPageComponent extends ApiClient {
         graphOptions: JSON.parse(JSON.stringify(graphOptions)),
         url: null,
         altmode: false,
-        gcOpen: true,
-        udOpen: false,
+        udOpen: true,
         nodeSelected: null
     }
 
@@ -319,10 +319,7 @@ class GraphPageComponent extends ApiClient {
         const node = this.state.graphData.nodes.filter(item => item.id == nodes[0]);
         if (node.length == 0) return;
         const targetNode = node[0];
-        // TODO: load details from API based on:
-        // targetNode.type
-        // targetNode.id
-        this.setState({ nodeSelected: node[0] });
+        this.setState({ nodeSelected: targetNode });
     }
 
     events = {
@@ -331,69 +328,77 @@ class GraphPageComponent extends ApiClient {
 
     renderGraph = () => {
         if ([undefined, null].includes(this.state.graphData)) return null;
+
+        const { classes } = this.props;
+
         return (
-            <Graph
-                graph={this.state.graphData}
-                options={this.state.graphOptions}
-                events={this.events}
-                style={{
-                    width: '100%',
-                    height: '100%'
-                }}
-            />
+            <Box className={classes.graphBox} fit>
+                <Graph
+                    graph={this.state.graphData}
+                    options={this.state.graphOptions}
+                    events={this.events}
+                    style={{
+                        width: '100%',
+                        height: '100%'
+                    }}
+                />
+            </Box>
         );
     }
     
     renderNodeDetails = () => {
+        if ([undefined, null].includes(this.state.nodeSelected)) return null;
         return (
             <ExpansionPane
+                className="margin-top"
                 label="Details"
                 expanded={this.state.udOpen}
                 onClick={(e) => this.setState({ udOpen: !this.state.udOpen })}
             >
+                <ItemDetails
+                    domain={this.state.nodeSelected.domainid}
+                    type={this.state.nodeSelected.type}
+                    selection={this.state.nodeSelected}
+                    id={this.state.nodeSelected.id}
+                    by="sid"
+                />
             </ExpansionPane>
         );
     }
 
     renderGraphControls = () => {
         return (
-            <ExpansionPane
-                label="Graph Controls"
-                expanded={this.state.gcOpen}
-                onClick={(e) => this.setState({ gcOpen: !this.state.gcOpen })}
-            >
-                <VBox>
-                    <Box>
-                        {this.renderGraphSelector()}
+            <VBox className="mbox pbox">
+                <Box>
+                    {this.renderGraphSelector()}
+                </Box>
+                <Box className="margin-top">
+                    {this.renderTextField('srcsid', 'SRC SID', 'Source SID')}
+                </Box>
+                <Box className="margin-top">
+                {this.renderTextField('dstsid', 'DST SID', 'Destination SID')}
+                </Box>
+                <VBox className="margin-top">
+                    <Box className="margin-top margin-bottom">
+                        <Button
+                            color="primary"
+                            variant="contained"
+                            onClick={(e) => this.fetchGraph('domainadmins')}
+                        >
+                            Draw Domain Admins
+                        </Button>
                     </Box>
                     <Box className="margin-top">
-                        {this.renderTextField('srcsid', 'SRC SID', 'Source SID')}
+                        <Button
+                            color="primary"
+                            variant="contained"
+                            onClick={(e) => this.fetchGraph('path')}
+                        >
+                            Draw Path
+                        </Button>
                     </Box>
-                    <Box className="margin-top">
-                    {this.renderTextField('dstsid', 'DST SID', 'Destination SID')}
-                    </Box>
-                    <VBox className="margin-top">
-                        <Box className="margin-top margin-bottom">
-                            <Button
-                                color="primary"
-                                variant="contained"
-                                onClick={(e) => this.fetchGraph('domainadmins')}
-                            >
-                                Draw Domain Admins
-                            </Button>
-                        </Box>
-                        <Box className="margin-top">
-                            <Button
-                                color="primary"
-                                variant="contained"
-                                onClick={(e) => this.fetchGraph('path')}
-                            >
-                                Draw Path
-                            </Button>
-                        </Box>
-                    </VBox>
                 </VBox>
-            </ExpansionPane>
+            </VBox>
         );
     }
 
@@ -407,9 +412,10 @@ class GraphPageComponent extends ApiClient {
                         {this.renderModeSelector()}
                     </Box>
                     <Box fit>
-                        <Box flex={3} className={classes.graphBox}>
+                        <VBox flex={3}>
                             {this.renderGraph()}
-                        </Box>
+                            {this.renderNodeDetails()}
+                        </VBox>
                         <VBox flex={1}>
                             {this.renderGraphControls()}
                         </VBox>
