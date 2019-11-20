@@ -38,7 +38,7 @@ class DomainListComponent extends ApiClient {
     }
 
     generateGraph = async(id) => {
-        const result = await this.apiUpdate(`/graph?adids=${id}`);
+        const result = await this.apiCreate(`/graph?adids=${id}`);
         if ([undefined, null, false].includes(result)) return null;
         if (result.status != 200) {
             this.props.notifyUser({
