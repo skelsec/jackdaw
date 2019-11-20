@@ -5,7 +5,7 @@ import { Box, VBox } from 'react-layout-components';
 const moment = require('moment');
 import { 
     Button, Table, TableRow, TableBody, TableCell,
-    TableHead
+    TableHead, Typography
 } from '@material-ui/core';
 
 import ApiClient from '../ApiClient';
@@ -102,10 +102,14 @@ class DomainListComponent extends ApiClient {
         });
     }
 
-    render() {
+    renderDomainList = () => {
+        if (this.state.domains.length == 0) {
+            return (
+                <Typography>There are no domains available.</Typography>
+            );
+        }
         return (
-            <VBox>
-                <Table className="margin-top">
+            <Table className="margin-top">
                 <TableHead>
                     <TableRow>
                         <TableCell>ID</TableCell>     
@@ -117,7 +121,14 @@ class DomainListComponent extends ApiClient {
                 <TableBody>
                     {this.renderDomains()}
                 </TableBody>
-                </Table>
+            </Table>
+        );
+    }
+
+    render() {
+        return (
+            <VBox>
+                {this.renderDomainList()}
             </VBox>
         );
     }

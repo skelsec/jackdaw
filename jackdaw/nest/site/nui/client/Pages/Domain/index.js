@@ -87,6 +87,7 @@ class DomainComponent extends ApiClient {
     };
 
     renderTabs = () => {
+        if ([undefined, null].includes(this.state.domain)) return null;
         return (
             <VBox className="margin-top">
                 <Tabs
