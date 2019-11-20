@@ -10,7 +10,10 @@ __pycache__/
 .Python
 build/
 develop-eggs/
-dist/
+# Removed as UI has a dist build that must be in the repo
+#dist/
+# Added as UI works with node modules but we do not need them in repo
+node_modules
 downloads/
 eggs/
 .eggs/
