@@ -27,8 +27,22 @@ class ItemDetailsComponent extends ApiClient {
         await this.fetchData();
     }
 
+    getItemId = () => {
+        if ([undefined, null].includes(this.props.selection.id)) {
+            return this.props.selection[0];
+        }
+        return this.props.selection.id;
+    }
+
+    getBy = () => {
+        if ([undefined, null].includes(this.props.by)) {
+            return 'by_id';
+        }
+        return `by_${this.props.by}`;
+    }
+
     fetchData = async() => {
-        const uri = `/${this.props.type}/${this.props.domain}/by_id/${this.props.selection[0]}`;
+        const uri = `/${this.props.type}/${this.props.domain}/${this.getBy()}/${this.getItemId()}`;
         let result = await this.apiFetch(uri);
         if ([undefined, null, false].includes(result)) return null;
         if (result.status != 200) {
