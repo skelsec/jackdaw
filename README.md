@@ -1,25 +1,30 @@
 # jackdaw
 gather gather gather
-
-![jackdaw_small](https://user-images.githubusercontent.com/19204702/57587578-6159b280-7507-11e9-8762-c5e9022e37bc.png)
-
+![jackdaw_card](https://user-images.githubusercontent.com/19204702/69013611-6306a600-0982-11ea-8c21-d9f1e6efb9bf.jpg)
 
 # What is this?
 Jackdaw is here to collect all information in your domain, store it in a SQL database and show you nice graphs on how your domain objects interact with each-other an how a potential attacker may exploit these interactions.
 It also comes with a handy feature to help you in a password-cracking project by storing/looking up/reporting hashes/passowrds/users.
 
 # Example commands
+Most of these commands are available already from the webapi, except for the database init.
+### DB init
+`jackdaw --sql sqlite:///<full path here>/test.db dbinit`  
+
 ### Enumeration
-#### Full enumeration with integrated sspi
-`jackdaw --sql sqlite:///test.db enum 'ldap://TEST\victim:Passw0rd!@10.10.10.2' 'smb+ntlm-password://TEST\victim:Passw0rd!@10.10.10.2'`
-#### LDAP-only enumeration with username and password
+#### Full enumeration with integrated sspi - windows only
+`jackdaw --sql sqlite:///test.db enum 'ldap+sspi://10.10.10.2' 'smb+sspi-ntlm://10.10.10.2'`
+#### Full enumeration with username and password - platform independent
+The passowrd is `Passw0rd!`  
+`jackdaw --sql sqlite:///test.db ldap 'ldap://TEST\victim:Passw0rd!@10.10.10.2' 'smb+ntlm-password://TEST\victim:Passw0rd!@10.10.10.2'`
+#### LDAP-only enumeration with username and password - platform independent
 The passowrd is `Passw0rd!`  
 `jackdaw --sql sqlite:///test.db ldap 'ldap://TEST\victim:Passw0rd!@10.10.10.2'`
 
-### Start interactive web interface to plog graph and access additional features
+### Start interactive web interface to plot graph and access additional features
 `jackdaw --sql sqlite:///<FULL PATH TO DB> nest`  
 Open `http://127.0.0.1:5000/ui` for the API  
-Open `http://127.0.0.1:5000/nest` for the graph interface 
+Open `http://127.0.0.1:5000/nest` for the graph interface (shows the graph, but far from working)  
 
 # Features
 ## Data acquisition 
