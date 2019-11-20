@@ -8,21 +8,49 @@ import {
     TableHead, TextField
 } from '@material-ui/core';
 
-import FirstPageIcon from '@material-ui/icons/FirstPage';
-import KeyboardArrowLeft from '@material-ui/icons/KeyboardArrowLeft';
-import KeyboardArrowRight from '@material-ui/icons/KeyboardArrowRight';
-import LastPageIcon from '@material-ui/icons/LastPage';
-
 import ApiClient from '../ApiClient';
+import ItemDetails from '../ItemDetails';
 
 const styles = theme => ({
+    not_selected: {
+        cursor: 'pointer'
+    },
+    selected: {
+        backgroundColor: '#212121',
+        cursor: 'pointer'
+    }
 });
 
 class MachineListComponent extends ApiClient {
 
     state = {
         filter: '',
-        machines: []
+        machines: [],
+        selected: null
+    }
+
+    isSelected = (item) => {
+        const { classes } = this.props;
+        if ([undefined, null].includes(this.state.selected)) {
+            return classes.not_selected;
+        }
+        if (item[0] == this.state.selected[0]) {
+            return classes.selected;
+        } else {
+            return classes.not_selected;
+        }
+    }
+
+    selectMachine = (item) => {
+        if ([undefined, null].includes(this.state.selected)) {
+            this.setState({ selected: item })
+            return;
+        }
+        if (this.state.selected[0] == item[0]) {
+            this.setState({ selected: null });
+        } else {
+            this.setState({ selected: item })
+        }
     }
 
     componentDidMount = async() => {
@@ -40,6 +68,8 @@ class MachineListComponent extends ApiClient {
             }
             return (
                 <TableRow
+                    className={this.isSelected(row)}
+                    onClick={ (e) => this.selectMachine(row) }
                     key={row[0]}
                 >
                     <TableCell>
@@ -68,18 +98,30 @@ class MachineListComponent extends ApiClient {
                         onChange={ (e) => this.setState({ filter: e.target.value }) }
                     />
                 </Box>
-                <Table className="margin-top">
-                <TableHead>
-                    <TableRow>
-                        <TableCell>ID</TableCell>     
-                        <TableCell>Name</TableCell>
-                        <TableCell>SID</TableCell>
-                    </TableRow>
-                </TableHead>
-                <TableBody>
-                    {this.renderMachines()}
-                </TableBody>
-                </Table>
+                <Box wrap>
+                    <Box flex={3}>
+                        <Table className="margin-top">
+                        <TableHead>
+                            <TableRow>
+                                <TableCell>ID</TableCell>     
+                                <TableCell>Name</TableCell>
+                                <TableCell>SID</TableCell>
+                            </TableRow>
+                        </TableHead>
+                        <TableBody>
+                            {this.renderMachines()}
+                        </TableBody>
+                        </Table>
+                    </Box>
+                    {this.state.selected && <Box flex={3} className="mbox pbox">
+                        <ItemDetails
+                            domain={this.props.domain}
+                            type="machine"
+                            selection={this.state.selected}
+                        />
+                    </Box>}
+                </Box>
+
             </VBox>
         );
     }
