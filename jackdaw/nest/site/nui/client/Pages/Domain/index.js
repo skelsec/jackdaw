@@ -84,7 +84,6 @@ class DomainComponent extends ApiClient {
 
     handleTabChange = (event, newValue) => {
         this.setState({ tab: newValue });
-        setValue(newValue);
     };
 
     renderTabs = () => {
