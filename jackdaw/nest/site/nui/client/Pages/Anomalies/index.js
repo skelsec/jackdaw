@@ -16,6 +16,7 @@ import AnomalyDomainMismatch from '../../Components/AnomalyDomainMismatch';
 import AnomalyUserDescriptions from '../../Components/AnomalyUserDescriptions';
 import AnomalyOutdatedOS from '../../Components/AnomalyOutdatedOS';
 import AnomalySMBSigning from '../../Components/AnomalySMBSigning';
+import AnomalyUserAccounts from '../../Components/AnomalyUserAccounts';
 
 import * as actions from '../../Store/actions';
 
@@ -109,11 +110,9 @@ class AnomaliesComponent extends ApiClient {
                     <AnomalySMBSigning domain={this.state.domainSelected} />
                 );
             case 'machines_users':
-                // /anomalies/${domainID}/users/
-                // TODO: Recommended to do later as:
-                //   1. API needs quite some updates and return data better documented
-                //   2. Consider making user anomaly types such as `asrep` a resource, eg: /anomalies/${domainID}/users/asrep
-                return null;
+                return (
+                    <AnomalyUserAccounts domain={this.state.domainSelected} />
+                );
             default:
                 return null;
         }
