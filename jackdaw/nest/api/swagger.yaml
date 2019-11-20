@@ -339,6 +339,17 @@ paths:
         - Domain
       summary: Returs the list of available domains with basic info
       description: Returs the list of available domains with basic info
+      parameters:
+        - name: page
+          in: query
+          description: ID of the domain
+          type: integer
+          required: True
+        - name: maxcnt
+          in: query
+          description: ID of the domain
+          type: integer
+          required: True
       responses:
         200:
           description: List of domain info metadata
@@ -382,6 +393,16 @@ paths:
       parameters:
         - name: domainid
           in: path
+          description: ID of the domain
+          type: integer
+          required: True
+        - name: page
+          in: query
+          description: ID of the domain
+          type: integer
+          required: True
+        - name: maxcnt
+          in: query
           description: ID of the domain
           type: integer
           required: True
@@ -500,6 +521,16 @@ paths:
           description: ID of the domain
           type: integer
           required: True
+        - name: page
+          in: query
+          description: ID of the domain
+          type: integer
+          required: True
+        - name: maxcnt
+          in: query
+          description: ID of the domain
+          type: integer
+          required: True
       responses:
         200:
           description: List of Machine info metadata
@@ -527,6 +558,52 @@ paths:
           in: path
           description: SID of the machine
           type: string
+          required: True
+      responses:
+        200:
+          description: Machine info
+          schema:
+            type: object
+            properties:
+              graph:
+                type: string
+                description: Placeholder TODO
+  
+  /machine/{domainid}/versions:
+    get:
+      operationId: jackdaw.nest.api.machine.get_os_versions
+      tags:
+        - Machine
+      summary: TODO
+      description: TODO
+      parameters:
+        - name: domainid
+          in: path
+          description: ID of the graph
+          type: integer
+          required: True
+      responses:
+        200:
+          description: Machine info
+          schema:
+            type: object
+            properties:
+              graph:
+                type: string
+                description: Placeholder TODO
+
+  /machine/{domainid}/domains:
+    get:
+      operationId: jackdaw.nest.api.machine.get_domains
+      tags:
+        - Machine
+      summary: TODO
+      description: TODO
+      parameters:
+        - name: domainid
+          in: path
+          description: ID of the graph
+          type: integer
           required: True
       responses:
         200:
@@ -576,6 +653,16 @@ paths:
       parameters:
         - name: domainid
           in: path
+          description: ID of the domain
+          type: integer
+          required: True
+        - name: page
+          in: query
+          description: ID of the domain
+          type: integer
+          required: True
+        - name: maxcnt
+          in: query
           description: ID of the domain
           type: integer
           required: True
@@ -658,6 +745,16 @@ paths:
           description: ID of the domain
           type: integer
           required: True
+        - name: page
+          in: query
+          description: ID of the domain
+          type: integer
+          required: True
+        - name: maxcnt
+          in: query
+          description: ID of the domain
+          type: integer
+          required: True
       responses:
         200:
           description: List of OU metadata
@@ -724,16 +821,158 @@ paths:
                 type: string
                 description: Placeholder TODO
 
-  /anomalies/{domainid}/users/:
+  /anomalies/{domainid}/users/passnotreq:
     get:
-      operationId: jackdaw.nest.api.anomalies.get_user_uac_problems
+      operationId: jackdaw.nest.api.anomalies.get_user_pwnotreq
       tags:
         - Anomalies
-      summary: Returns user account realted anomalies for a given domain ID
-      description: Returns user account realted anomalies for a given domain ID
+      summary: TODO
+      description: TODO
       parameters:
         - name: domainid
           in: path
+          description: ID of the domain
+          type: integer
+          required: True
+        - name: page
+          in: query
+          description: ID of the domain
+          type: integer
+          required: True
+        - name: maxcnt
+          in: query
+          description: ID of the domain
+          type: integer
+          required: True
+      responses:
+        200:
+          description: OU info
+          schema:
+            type: object
+            properties:
+              graph:
+                type: string
+                description: Placeholder TODO
+
+  /anomalies/{domainid}/users/plaintext:
+    get:
+      operationId: jackdaw.nest.api.anomalies.get_user_plaintext
+      tags:
+        - Anomalies
+      summary: TODO
+      description: TODO
+      parameters:
+        - name: domainid
+          in: path
+          description: ID of the domain
+          type: integer
+          required: True
+        - name: page
+          in: query
+          description: ID of the domain
+          type: integer
+          required: True
+        - name: maxcnt
+          in: query
+          description: ID of the domain
+          type: integer
+          required: True
+      responses:
+        200:
+          description: OU info
+          schema:
+            type: object
+            properties:
+              graph:
+                type: string
+                description: Placeholder TODO
+
+  /anomalies/{domainid}/users/pwnotexp:
+    get:
+      operationId: jackdaw.nest.api.anomalies.get_user_pw_notexp
+      tags:
+        - Anomalies
+      summary: TODO
+      description: TODO
+      parameters:
+        - name: domainid
+          in: path
+          description: ID of the domain
+          type: integer
+          required: True
+        - name: page
+          in: query
+          description: ID of the domain
+          type: integer
+          required: True
+        - name: maxcnt
+          in: query
+          description: ID of the domain
+          type: integer
+          required: True
+      responses:
+        200:
+          description: OU info
+          schema:
+            type: object
+            properties:
+              graph:
+                type: string
+                description: Placeholder TODO
+
+  /anomalies/{domainid}/users/desonly:
+    get:
+      operationId: jackdaw.nest.api.anomalies.get_user_des_only
+      tags:
+        - Anomalies
+      summary: TODO
+      description: TODO
+      parameters:
+        - name: domainid
+          in: path
+          description: ID of the domain
+          type: integer
+          required: True
+        - name: page
+          in: query
+          description: ID of the domain
+          type: integer
+          required: True
+        - name: maxcnt
+          in: query
+          description: ID of the domain
+          type: integer
+          required: True
+      responses:
+        200:
+          description: OU info
+          schema:
+            type: object
+            properties:
+              graph:
+                type: string
+                description: Placeholder TODO
+
+  /anomalies/{domainid}/users/asrep:
+    get:
+      operationId: jackdaw.nest.api.anomalies.get_user_asrep
+      tags:
+        - Anomalies
+      summary: TODO
+      description: TODO
+      parameters:
+        - name: domainid
+          in: path
+          description: ID of the domain
+          type: integer
+          required: True
+        - name: page
+          in: query
+          description: ID of the domain
+          type: integer
+          required: True
+        - name: maxcnt
+          in: query
           description: ID of the domain
           type: integer
           required: True
@@ -752,17 +991,60 @@ paths:
       operationId: jackdaw.nest.api.anomalies.get_user_description
       tags:
         - Anomalies
-      summary: Returns list of user accounts which have description 
-      description: Returns list of user accounts which have description 
+      summary: TODO
+      description: TODO
       parameters:
         - name: domainid
           in: path
           description: ID of the domain
           type: integer
           required: True
+        - name: page
+          in: query
+          description: ID of the domain
+          type: integer
+          required: True
+        - name: maxcnt
+          in: query
+          description: ID of the domain
+          type: integer
+          required: True
       responses:
         200:
-          description: User stuff
+          description: OU info
+          schema:
+            type: object
+            properties:
+              graph:
+                type: string
+                description: Placeholder TODO
+
+  /anomalies/{domainid}/computer/description:
+    get:
+      operationId: jackdaw.nest.api.anomalies.get_machine_description
+      tags:
+        - Anomalies
+      summary: TODO
+      description: TODO
+      parameters:
+        - name: domainid
+          in: path
+          description: ID of the domain
+          type: integer
+          required: True
+        - name: page
+          in: query
+          description: ID of the domain
+          type: integer
+          required: True
+        - name: maxcnt
+          in: query
+          description: ID of the domain
+          type: integer
+          required: True
+      responses:
+        200:
+          description: OU info
           schema:
             type: object
             properties:
@@ -772,16 +1054,31 @@ paths:
 
   /anomalies/{domainid}/computer/outdated:
     get:
-      operationId: jackdaw.nest.api.anomalies.get_outdated_os
+      operationId: jackdaw.nest.api.anomalies.get_machine_outdated
       tags:
         - Anomalies
-      summary: Returns outdated OS
-      description: Returns outdated OS
+      summary: TODO
+      description: TODO
       parameters:
         - name: domainid
           in: path
           description: ID of the domain
           type: integer
+          required: True
+        - name: page
+          in: query
+          description: ID of the domain
+          type: integer
+          required: True
+        - name: maxcnt
+          in: query
+          description: ID of the domain
+          type: integer
+          required: True
+        - name: version
+          in: query
+          description: OS version
+          type: string
           required: True
       responses:
         200:
@@ -798,17 +1095,27 @@ paths:
       operationId: jackdaw.nest.api.anomalies.get_smb_nosig
       tags:
         - Anomalies
-      summary: Returns all machines where SMB singing is not mandatory
-      description: Returns all machines where SMB singing is not mandatory
+      summary: TODO
+      description: TODO
       parameters:
         - name: domainid
           in: path
           description: ID of the domain
           type: integer
           required: True
+        - name: page
+          in: query
+          description: ID of the domain
+          type: integer
+          required: True
+        - name: maxcnt
+          in: query
+          description: ID of the domain
+          type: integer
+          required: True
       responses:
         200:
-          description: list of machines
+          description: OU info
           schema:
             type: object
             properties:
@@ -829,26 +1136,13 @@ paths:
           description: ID of the domain
           type: integer
           required: True
-      responses:
-        200:
-          description: list of machines
-          schema:
-            type: object
-            properties:
-              graph:
-                type: string
-                description: Placeholder TODO
-                
-  /anomalies/{domainid}/computer/description:
-    get:
-      operationId: jackdaw.nest.api.anomalies.get_machine_description
-      tags:
-        - Anomalies
-      summary: Returns all machines where machine description is not empty. Might contain secrets
-      description: Returns all machines where machine description is not empty. Might contain secrets
-      parameters:
-        - name: domainid
-          in: path
+        - name: page
+          in: query
+          description: ID of the domain
+          type: integer
+          required: True
+        - name: maxcnt
+          in: query
           description: ID of the domain
           type: integer
           required: True
@@ -861,6 +1155,8 @@ paths:
               graph:
                 type: string
                 description: Placeholder TODO
+                
+
                 
 
   /credentials/{domainid}/upload/impacket:

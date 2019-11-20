@@ -2,16 +2,44 @@
 from flask import current_app
 from jackdaw.dbmodel.adgroup import JackDawADGroup
 
-def list_groups(domainid):
-    db = current_app.db
-    domains = []
-    for uid, sid, name in db.session\
-                            .query(JackDawADGroup)\
-                                .filter_by(ad_id = domainid)\
-                                .with_entities(JackDawADGroup.id, JackDawADGroup.sid, JackDawADGroup.sAMAccountName)\
-                                .all():
-        domains.append((uid, sid, name))
-    return domains
+def list_groups(domainid, page, maxcnt):
+	db = current_app.db
+	res = {
+		'res' : [],
+		'page': {},
+	}
+	qry = db.session.query(
+        JackDawADGroup
+        ).filter_by(ad_id = domainid
+        ).with_entities(
+            JackDawADGroup.id, 
+            JackDawADGroup.sid, 
+            JackDawADGroup.sAMAccountName
+            )
+        
+	
+	qry = qry.paginate(page = page, max_per_page = maxcnt)
+
+	domains = []
+	for uid, sid, name in qry.items:
+		domains.append(
+			{
+				'id' : uid,
+				'sid' : sid, 
+				'name': name
+			}
+		)
+
+	page = dict(
+		total=qry.total, 
+		current_page=qry.page,
+		per_page=qry.per_page
+	)
+
+	res['res'] = domains
+	res['page'] = page
+
+	return res
 
 def get(domainid, groupid):
     db = current_app.db

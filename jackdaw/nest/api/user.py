@@ -2,16 +2,44 @@
 from flask import current_app
 from jackdaw.dbmodel.aduser import JackDawADUser
 
-def list_users(domainid):
-    db = current_app.db
-    domains = []
-    for uid, sid, name in db.session\
-                            .query(JackDawADUser)\
-                                .filter_by(ad_id = domainid)\
-                                .with_entities(JackDawADUser.id, JackDawADUser.objectSid, JackDawADUser.sAMAccountName)\
-                                .all():
-        domains.append((uid, sid, name))
-    return domains
+def list_users(domainid, page, maxcnt):
+	db = current_app.db
+	res = {
+		'res' : [],
+		'page': {},
+	}
+	qry = db.session.query(
+        JackDawADUser
+        ).filter_by(ad_id = domainid
+        ).with_entities(
+            JackDawADUser.id, 
+            JackDawADUser.objectSid, 
+            JackDawADUser.sAMAccountName
+            )
+        
+	
+	qry = qry.paginate(page = page, max_per_page = maxcnt)
+
+	domains = []
+	for uid, sid, name in qry.items:
+		domains.append(
+			{
+				'id' : uid, 
+				'sid' : sid, 
+				'name': name
+			}
+		)
+
+	page = dict(
+		total=qry.total, 
+		current_page=qry.page,
+		per_page=qry.per_page
+	)
+
+	res['res'] = domains
+	res['page'] = page
+
+	return res
 
 def get(domainid, userid):
     db = current_app.db
