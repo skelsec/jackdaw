@@ -13,8 +13,8 @@ const styles = theme => ({
 
 const options = [
     { key: null, display: 'Select...' },
-    { key: 'machines_description', display: 'Machine Descripitons' },
-    { key: 'users_description', display: 'User Account Descripitons' },
+    { key: 'machines_description', display: 'Machine Descriptions' },
+    { key: 'users_description', display: 'User Account Descriptions' },
     { key: 'machines_domainmismatch', display: 'SMB Domain Mismatches' },
     { key: 'machines_outdatedos', display: 'Outdated Operating Systems' },
     { key: 'machines_smbsign', display: 'SMB Signing Issues' },

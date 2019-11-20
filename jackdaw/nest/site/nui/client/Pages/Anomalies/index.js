@@ -14,6 +14,10 @@ import {
 import ApiClient from '../../Components/ApiClient';
 import SplitButton from '../../Components/SplitButton';
 import OutlinedDomainSelector from '../../Components/OutlinedDomainSelector';
+import AnomalyDomainMismatch from '../../Components/AnomalyDomainMismatch';
+import AnomalyUserDescriptions from '../../Components/AnomalyUserDescriptions';
+import AnomalyOutdatedOS from '../../Components/AnomalyOutdatedOS';
+import AnomalySMBSigning from '../../Components/AnomalySMBSigning';
 
 import * as actions from '../../Store/actions';
 
@@ -67,6 +71,42 @@ class AnomaliesComponent extends ApiClient {
         );
     }
 
+    renderComponent = () => {
+        if ([undefined, null].includes(this.state.domainSelected) ||
+            [undefined, null].includes(this.state.show)) {
+                return null;
+        }
+        switch (this.state.show) {
+            case 'machines_description':
+                // TODO: Was no data available...
+                return null;
+            case 'users_description':
+                return (
+                    <AnomalyUserDescriptions domain={this.state.domainSelected} />
+                );
+            case 'machines_domainmismatch':
+                return (
+                    <AnomalyDomainMismatch domain={this.state.domainSelected} />
+                );
+            case 'machines_outdatedos':
+                return (
+                    <AnomalyOutdatedOS domain={this.state.domainSelected} />
+                );
+            case 'machines_smbsign':
+                return (
+                    <AnomalySMBSigning domain={this.state.domainSelected} />
+                );
+            case 'machines_users':
+                // /anomalies/${domainID}/users/
+                // TODO: Recommended to do later as:
+                //   1. API needs quite some updates and return data better documented
+                //   2. Consider making user anomaly types such as `asrep` a resource, eg: /anomalies/${domainID}/users/asrep
+                return null;
+            default:
+                return null;
+        }
+    }
+
     render() {
         const { classes, theme } = this.props;
 
@@ -80,7 +120,7 @@ class AnomaliesComponent extends ApiClient {
                         {this.renderDomainSelector()}
                     </Box>
                     <VBox>
-                        
+                        {this.renderComponent()}
                     </VBox>
                 </VBox>
             </Paper>
