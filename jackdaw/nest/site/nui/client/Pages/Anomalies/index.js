@@ -6,14 +6,12 @@ import { withStyles } from '@material-ui/core/styles';
 import { Box, VBox } from 'react-layout-components';
 
 import {
-    Paper, FormControl, FormHelperText, Input, InputLabel, 
+    Paper, FormControl, Input, InputLabel, 
     Select, MenuItem
 } from '@material-ui/core';
 
 
 import ApiClient from '../../Components/ApiClient';
-import SplitButton from '../../Components/SplitButton';
-import OutlinedDomainSelector from '../../Components/OutlinedDomainSelector';
 import AnomalyDomainMismatch from '../../Components/AnomalyDomainMismatch';
 import AnomalyUserDescriptions from '../../Components/AnomalyUserDescriptions';
 import AnomalyOutdatedOS from '../../Components/AnomalyOutdatedOS';
@@ -23,6 +21,16 @@ import * as actions from '../../Store/actions';
 
 const styles = theme => ({
 });
+
+const anomalies = [
+    { key: null, name: 'Select...' },
+    { key: 'machines_description', name: 'Machine Descriptions' },
+    { key: 'users_description', name: 'User Account Descriptions' },
+    { key: 'machines_domainmismatch', name: 'SMB Domain Mismatches' },
+    { key: 'machines_outdatedos', name: 'Outdated Operating Systems' },
+    { key: 'machines_smbsign', name: 'SMB Signing Issues' },
+    { key: 'machines_users', name: 'User Account Issues' }
+];
 
 class AnomaliesComponent extends ApiClient {
 
@@ -56,18 +64,27 @@ class AnomaliesComponent extends ApiClient {
         this.setState({ show: type });
     }
 
+    renderDomainItems = () => {
+        return this.state.domains.map((item, index) => {
+            return (
+                <MenuItem key={index} value={item.id}>{item.name}</MenuItem>
+            );
+        });
+    }
 
     renderDomainSelector = () => {
-        if ([undefined, null].includes(this.state.show)) return null;
         return (
-            <Box style={{ minWidth: 300 }} className="margin-left">
-                <OutlinedDomainSelector
-                    label="Domain"
-                    options={this.state.domains}
-                    selection={this.state.domainSelected}
+            <FormControl fullWidth={true}>
+                <InputLabel>Domain</InputLabel>
+                <Select
+                    fullWidth={true}
+                    value={this.state.domainSelected || ''}
                     onChange={(e) => this.setState({ domainSelected: e.target.value })}
-                />
-            </Box>
+                    input={<Input value={this.state.domainSelected} fullWidth={true} />}
+                >
+                    {this.renderDomainItems()}
+                </Select>
+            </FormControl>
         );
     }
 
@@ -107,17 +124,39 @@ class AnomaliesComponent extends ApiClient {
         }
     }
 
+    renderAnomalyItems = () => {
+        return anomalies.map((item, index) => {
+            return (
+                <MenuItem key={index} value={item.key}>{item.name}</MenuItem>
+            );
+        });
+    }
+
+    renderAnomalySelector = () => {
+        return (
+            <FormControl fullWidth={true}>
+                <InputLabel>Anomaly</InputLabel>
+                <Select
+                    fullWidth={true}
+                    value={this.state.show || ''}
+                    onChange={ (e) => this.selectAnomaly(e.target.value) }
+                    input={<Input value={this.state.show} fullWidth={true} />}
+                >
+                    {this.renderAnomalyItems()}
+                </Select>
+            </FormControl>
+        );
+    }
+
     render() {
         const { classes, theme } = this.props;
 
         return (
             <Paper className="mbox pbox">
                 <VBox>
-                    <Box className="margin-bottom" justifyContent="flex-start" alignContents="center" alignItems="center">
-                        <SplitButton
-                            update={this.selectAnomaly}
-                        />
-                        {this.renderDomainSelector()}
+                    <Box className="margin-bottom" justifyContent="flex-start" alignContent="center" alignItems="center">
+                        <Box flex={1} className="mbox">{this.renderAnomalySelector()}</Box>
+                        <Box flex={1} className="mbox">{this.renderDomainSelector()}</Box>
                     </Box>
                     <VBox>
                         {this.renderComponent()}
