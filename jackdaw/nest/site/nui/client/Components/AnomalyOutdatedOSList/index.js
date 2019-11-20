@@ -5,7 +5,9 @@ import { Box, VBox } from 'react-layout-components';
 const moment = require('moment');
 import { 
     Table, TableRow, TableBody, TableCell,
-    TableHead, IconButton, TableFooter, TablePagination
+    TableHead, FormControl, InputLabel,
+    Select, MenuItem, Input, IconButton, 
+    TableFooter, TablePagination
 } from '@material-ui/core';
 
 import { makeStyles, useTheme } from '@material-ui/core/styles';
@@ -77,21 +79,26 @@ function TablePaginationActions(props) {
     );
 }
 
-class AnomalyUserDescriptionsComponent extends ApiClient {
+class AnomalyOutdatedOSListComponent extends ApiClient {
 
     state = {
         data: [],
+        versions: [],
+        versionFilter: null,
         currentPage: 0,
         perPage: 50,
         total: 0
     }
 
     componentDidMount = async() => {
+        if ([undefined, null].includes(this.props.domain)) return null;
+        if ([undefined, null].includes(this.props.version)) return null;
         await this.fetch(this.state.currentPage);
     }
 
     fetch = async(page) => {
-        let result = await this.apiFetch(`/anomalies/${this.props.domain}/users/description?page=${page + 1}&maxcnt=${this.state.perPage}`);
+        const version = encodeURI(btoa(this.props.version));
+        let result = await this.apiFetch(`/anomalies/${this.props.domain}/computer/outdated?version=${version}&page=${page + 1}&maxcnt=${this.state.perPage}`);
         if ([undefined, null, false].includes(result)) return null;
         this.setState({
             data: result.data.res,
@@ -109,19 +116,20 @@ class AnomalyUserDescriptionsComponent extends ApiClient {
     }
 
     renderItems = () => {
-        return this.state.data.map((row, index) => {
+        if ([undefined, null].includes(this.state.data)) return null;
+        return this.state.data.map((machine, index) => {
             return (
                 <TableRow
                     key={index}
                 >
                     <TableCell>
-                        {row.userid}
+                        {machine.machineid}
                     </TableCell>
                     <TableCell>
-                        {row.username}
+                        {machine.machinename}
                     </TableCell>
                     <TableCell>
-                        {row.description}
+                        {machine.machinesid}
                     </TableCell>
                 </TableRow>
             );
@@ -129,39 +137,39 @@ class AnomalyUserDescriptionsComponent extends ApiClient {
     }
 
     render() {
+        if ([undefined, null].includes(this.props.domain)) return null;
+        if ([undefined, null].includes(this.props.version)) return null;
         return (
-            <VBox>
-                <Table className="margin-top">
-                    <TableHead>
-                        <TableRow>
-                            <TableCell>User ID</TableCell>     
-                            <TableCell>User Name</TableCell>
-                            <TableCell>Description</TableCell>
-                        </TableRow>
-                    </TableHead>
-                    <TableBody>
-                        {this.renderItems()}
-                    </TableBody>
-                    <TableFooter>
-                        <TableRow>
-                            <TablePagination
-                                rowsPerPageOptions={[10, 20, 50, 100]}
-                                colSpan={4}
-                                count={this.state.total}
-                                rowsPerPage={this.state.perPage}
-                                page={this.state.currentPage}
-                                SelectProps={{
-                                    inputProps: { 'aria-label': 'rows per page' },
-                                    native: true,
-                                }}
-                                onChangePage={this.setCurrentPage}
-                                onChangeRowsPerPage={this.handlePerPageSelectChange}
-                                ActionsComponent={TablePaginationActions}
-                            />
-                        </TableRow>
-                    </TableFooter>
-                </Table>
-            </VBox>
+            <Table className="margin-top">
+                <TableHead>
+                    <TableRow>
+                        <TableCell>OS</TableCell>     
+                        <TableCell>Machine ID</TableCell>
+                        <TableCell>Machine Name</TableCell>
+                    </TableRow>
+                </TableHead>
+                <TableBody>
+                    {this.renderItems()}
+                </TableBody>
+                <TableFooter>
+                    <TableRow>
+                        <TablePagination
+                            rowsPerPageOptions={[10, 20, 50, 100]}
+                            colSpan={4}
+                            count={this.state.total}
+                            rowsPerPage={this.state.perPage}
+                            page={this.state.currentPage}
+                            SelectProps={{
+                                inputProps: { 'aria-label': 'rows per page' },
+                                native: true,
+                            }}
+                            onChangePage={this.setCurrentPage}
+                            onChangeRowsPerPage={this.handlePerPageSelectChange}
+                            ActionsComponent={TablePaginationActions}
+                        />
+                    </TableRow>
+                </TableFooter>
+            </Table>
         );
     }
 }
@@ -174,5 +182,5 @@ const mapDispatchToProps = (dispatch) => {
     return {}
 }
 
-const AnomalyUserDescriptions = connect(mapStateToProps, mapDispatchToProps)(withStyles(styles, { withTheme: true })(AnomalyUserDescriptionsComponent));
-export default AnomalyUserDescriptions;
+const AnomalyOutdatedOSList = connect(mapStateToProps, mapDispatchToProps)(withStyles(styles, { withTheme: true })(AnomalyOutdatedOSListComponent));
+export default AnomalyOutdatedOSList;

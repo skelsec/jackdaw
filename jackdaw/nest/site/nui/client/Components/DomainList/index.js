@@ -5,8 +5,15 @@ import { Box, VBox } from 'react-layout-components';
 const moment = require('moment');
 import { 
     Button, Table, TableRow, TableBody, TableCell,
-    TableHead, Typography
+    TableHead, Typography, TableFooter, TablePagination,
+    IconButton
 } from '@material-ui/core';
+
+import { makeStyles, useTheme } from '@material-ui/core/styles';
+import FirstPageIcon from '@material-ui/icons/FirstPage';
+import KeyboardArrowLeft from '@material-ui/icons/KeyboardArrowLeft';
+import KeyboardArrowRight from '@material-ui/icons/KeyboardArrowRight';
+import LastPageIcon from '@material-ui/icons/LastPage';
 
 import ApiClient from '../ApiClient';
 
@@ -22,18 +29,84 @@ const styles = theme => ({
     }
 });
 
+const useStyles1 = makeStyles(theme => ({
+    root: {
+      flexShrink: 0,
+      marginLeft: theme.spacing(2.5),
+    },
+}));
+
+function TablePaginationActions(props) {
+    const classes = useStyles1();
+    const theme = useTheme();
+    const { count, page, rowsPerPage, onChangePage } = props;
+  
+    const handleFirstPageButtonClick = event => {
+      onChangePage(event, 0);
+    };
+  
+    const handleBackButtonClick = event => {
+      onChangePage(event, page - 1);
+    };
+  
+    const handleNextButtonClick = event => {
+      onChangePage(event, page + 1);
+    };
+  
+    const handleLastPageButtonClick = event => {
+      onChangePage(event, Math.max(0, Math.ceil(count / rowsPerPage) - 1));
+    };
+  
+    return (
+        <div className={classes.root}>
+            <IconButton
+                onClick={handleFirstPageButtonClick}
+                disabled={page === 0}
+                aria-label="first page"
+            >
+                {theme.direction === 'rtl' ? <LastPageIcon /> : <FirstPageIcon />}
+            </IconButton>
+            <IconButton onClick={handleBackButtonClick} disabled={page === 0} aria-label="previous page">
+                {theme.direction === 'rtl' ? <KeyboardArrowRight /> : <KeyboardArrowLeft />}
+            </IconButton>
+            <IconButton
+                onClick={handleNextButtonClick}
+                disabled={page >= Math.ceil(count / rowsPerPage) - 1}
+                aria-label="next page"
+            >
+                {theme.direction === 'rtl' ? <KeyboardArrowLeft /> : <KeyboardArrowRight />}
+            </IconButton>
+            <IconButton
+                onClick={handleLastPageButtonClick}
+                disabled={page >= Math.ceil(count / rowsPerPage) - 1}
+                aria-label="last page"
+            >
+                {theme.direction === 'rtl' ? <FirstPageIcon /> : <LastPageIcon />}
+            </IconButton>
+        </div>
+    );
+}
+
 class DomainListComponent extends ApiClient {
 
     state = {
         domains: [],
-        selectedDomain: null
+        selectedDomain: null,
+        currentPage: 0,
+        perPage: 10,
+        total: 0
     }
 
     componentDidMount = async() => {
-        let domainList = await this.apiFetch('/domain/list');
+        await this.getDomains(this.state.currentPage);
+    }
+
+    getDomains = async(page) => {
+        let domainList = await this.apiFetch(`/domain/list?page=${page + 1}&maxcnt=${this.state.perPage}`);
         if ([undefined, null, false].includes(domainList)) return null;
         this.setState({
-            domains: domainList.data
+            domains: domainList.data.res,
+            total: domainList.data.page.total
         });
     }
 
@@ -76,23 +149,23 @@ class DomainListComponent extends ApiClient {
         return this.state.domains.map(row => {
             return (
                 <TableRow
-                    className={this.isSelectedDomain(row[0])}
-                    key={row[0]}
+                    className={this.isSelectedDomain(row.id)}
+                    key={row.id}
                 >
-                    <TableCell onClick={ (e) => this.selectDomain(row[0]) }>
-                        {row[0]}
+                    <TableCell onClick={ (e) => this.selectDomain(row.id) }>
+                        {row.id}
                     </TableCell>
-                    <TableCell onClick={ (e) => this.selectDomain(row[0]) }>
-                        {row[1]}
+                    <TableCell onClick={ (e) => this.selectDomain(row.id) }>
+                        {row.name}
                     </TableCell>
-                    <TableCell onClick={ (e) => this.selectDomain(row[0]) }>
-                        {moment(row[2]).format('YYYY/MM/DD HH:mm:ss')}
+                    <TableCell onClick={ (e) => this.selectDomain(row.id) }>
+                        {moment(row.creation).format('YYYY/MM/DD HH:mm:ss')}
                     </TableCell>
                     <TableCell align="right">
                         <Button
                             color="primary"
                             variant="contained"
-                            onClick={(e) => this.generateGraph(row[0])}
+                            onClick={(e) => this.generateGraph(row.id)}
                         >
                             Generate Graph
                         </Button>
@@ -100,6 +173,15 @@ class DomainListComponent extends ApiClient {
                 </TableRow>
             );
         });
+    }
+
+    setCurrentPage = (event, pageNumber) => {
+        this.setState({ currentPage: pageNumber });
+        this.getDomains(pageNumber);
+    }
+
+    handleDomainsPerPageSelectChange = (e) => {
+        this.setState({ perPage: e.target.value }, () => this.getDomains(this.state.currentPage));
     }
 
     renderDomainList = () => {
@@ -121,6 +203,24 @@ class DomainListComponent extends ApiClient {
                 <TableBody>
                     {this.renderDomains()}
                 </TableBody>
+                <TableFooter>
+                    <TableRow>
+                        <TablePagination
+                            rowsPerPageOptions={[10, 20, 50, 100]}
+                            colSpan={4}
+                            count={this.state.total}
+                            rowsPerPage={this.state.perPage}
+                            page={this.state.currentPage}
+                            SelectProps={{
+                                inputProps: { 'aria-label': 'rows per page' },
+                                native: true,
+                            }}
+                            onChangePage={this.setCurrentPage}
+                            onChangeRowsPerPage={this.handleDomainsPerPageSelectChange}
+                            ActionsComponent={TablePaginationActions}
+                        />
+                    </TableRow>
+                </TableFooter>
             </Table>
         );
     }
