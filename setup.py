@@ -41,7 +41,8 @@ setup(
 		'connexion',
 		'flask-sqlalchemy',
 		'connexion[swagger-ui]',
-		'pypykatz>=0.2.4'
+		'pypykatz>=0.2.4',
+        'swagger-ui-bundle>=0.0.2'
 	],
 	entry_points={
 		'console_scripts': [
