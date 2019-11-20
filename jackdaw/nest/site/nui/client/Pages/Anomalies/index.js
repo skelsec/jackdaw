@@ -41,7 +41,9 @@ class AnomaliesComponent extends ApiClient {
     }
     
     componentDidMount = async() => {
-        const result = await this.apiFetch('/domain/list');
+        // We have to ignore pagination here so we get a million entries.
+        // Maybe someday we figure out a better way.
+        const result = await this.apiFetch('/domain/list?page=1&maxcnt=1000000');
         if ([undefined, null, false].includes(result)) return;
         if (result.status != 200) {
             this.props.notifyUser({
@@ -50,14 +52,7 @@ class AnomaliesComponent extends ApiClient {
             });
             return;
         }
-        const objectDomains = result.data.map(item => {
-            return {
-                id: item[0],
-                name: item[1],
-                date: item[2]
-            }
-        });
-        this.setState({ domains: objectDomains });
+        this.setState({ domains: result.data.res });
     }
 
     selectAnomaly = (type) => {
