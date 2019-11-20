@@ -22,8 +22,13 @@ The passowrd is `Passw0rd!`
 `jackdaw --sql sqlite:///test.db ldap 'ldap://TEST\victim:Passw0rd!@10.10.10.2'`
 
 ### Start interactive web interface to plot graph and access additional features
+
 `jackdaw --sql sqlite:///<FULL PATH TO DB> nest`  
+
 Open `http://127.0.0.1:5000/ui` for the API  
+
+Please see the `Building the UI` section further down to learn how to build the UI. Once built:
+
 Open `http://127.0.0.1:5000/nest` for the graph interface (shows the graph, but far from working)  
 
 # Features
@@ -77,5 +82,16 @@ This project is in experimental phase! This means multiple things:
 
 
 # Technical part
+
 ## Database backend
 Jackdaw uses SQLAlchemy ORM module, which gives you the option to use any SQL DB backend you like. The tests are mainly done on SQLite for ovbious reasons. There will be no backend-specific commands used in this project that would limit you.
+
+## Building the UI
+
+The UI was written in React. Before first use/installation you have to build it. For this, you will need `nodejs` and `npm` installed. Then:
+
+ 1. Go to `jackdaw/nest/site/nui`
+ 2. Run `npm install`
+ 3. Run `npm run build`
+
+Once done with the above, the UI is ready to play with.
