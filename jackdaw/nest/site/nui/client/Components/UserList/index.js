@@ -134,8 +134,8 @@ class UserListComponent extends ApiClient {
                         onChange={ (e) => this.setState({ filter: e.target.value }) }
                     />
                 </Box>
-                <Box wrap>
-                    <Box flex={3}>
+                <Box>
+                    <Box flex={1}>
                         <Table className="margin-top">
                             <TableHead>
                                 <TableRow>
