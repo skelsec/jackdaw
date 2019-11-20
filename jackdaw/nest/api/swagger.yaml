@@ -293,6 +293,90 @@ paths:
                 type: string
                 description: Placeholder TODO
 
+  /graph/diff/{diffid}/nodes:
+    get:
+      operationId: jackdaw.nest.api.graph.diff_nodes
+      tags:
+        - Graph
+      summary: TODO
+      description: TODO
+      parameters:
+        - name: diffid
+          in: path
+          description: TODO
+          type: integer
+          required: True
+      responses:
+        200:
+          description: TODO
+          schema:
+            type: object
+            properties:
+              graph:
+                type: string
+                description: TODO
+
+  /graph/diff/{diffid}/distance/{sid}:
+    get:
+      operationId: jackdaw.nest.api.graph.diff_path_distance
+      tags:
+        - Graph
+      summary: TODO
+      description: TODO
+      parameters:
+        - name: diffid
+          in: path
+          description: TODO
+          type: integer
+          required: True
+        - name: sid
+          in: path
+          description: TODO
+          type: string
+          required: True
+      responses:
+        200:
+          description: TODO
+          schema:
+            type: object
+            properties:
+              graph:
+                type: string
+                description: TODO
+
+  /graph/diff/{diffid}/path:
+    get:
+      operationId: jackdaw.nest.api.graph.diff_path
+      tags:
+        - Graph
+      summary: TODO
+      description: TODO
+      parameters:
+        - name: diffid
+          in: path
+          description: TODO
+          type: integer
+          required: True
+        - name: srcsid
+          in: query
+          description: TODO
+          type: string
+          required: False
+        - name: dstsid
+          in: query
+          description: TODO
+          type: string
+          required: False
+      responses:
+        200:
+          description: TODO
+          schema:
+            type: object
+            properties:
+              graph:
+                type: string
+                description: TODO
+
   /graph/{graphid}:
     get:
       operationId: jackdaw.nest.api.graph.get

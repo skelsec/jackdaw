@@ -3,6 +3,7 @@ from datetime import datetime
 from jackdaw.nest.graph.domain import DomainGraph
 from jackdaw.nest.graph.graphdata import GraphData
 from jackdaw.nest.graph.construct import GraphConstruct
+from jackdaw.nest.graph.domaindiff import DomainDiff
 
 # 3rd party modules
 from flask import make_response, abort, current_app
@@ -11,6 +12,9 @@ from flask import current_app
 
 graph_id_ctr = 1
 graphs = {}
+
+diff_id_ctr = 1
+diffs = {}
 
 def list_all():
     return list(graphs.keys())
@@ -98,45 +102,30 @@ def stat_distance(graphid, sid):
 	return distances
 
 def diff(graphids):
-	print(graphids)
-	original = graphids['src']
-	new = graphids['dst']
+	global diff_id_ctr
 	
-	users_added = {}
-	users_removed = {}
+	db = current_app.db
+	dd = DomainDiff(dbsession=db.session)
+	construct_old = GraphConstruct(graphids['src'])
+	construct_new = GraphConstruct(graphids['dst'])
 
-	machines_added = {}
-	machines_removed = {}
+	diffs[diff_id_ctr] = dd
+	diff_id_ctr += 1
 
-	groups_added = {}
-	groups_removed = {}
+	dd.construct(construct_old, construct_new)
 
-	for sid, attrs in graphs[new].graph.nodes(data=True):
-		print(sid)
-		if not graphs[original].graph.has_node(sid):
-			print(attrs)
-			if attrs.get('node_type') == 'user':
-				users_added[sid] = 1
-			elif attrs.get('node_type') == 'machine':
-				machines_added[sid] = 1
-			elif attrs.get('node_type') == 'group':
-				groups_added[sid] = 1
-	
-	for sid, attrs in graphs[original].graph.nodes(data=True):
-		if not graphs[new].graph.has_node(sid):
-			print(attrs)
-			if attrs.get('node_type') == 'user':
-				users_removed[sid] = 1
-			elif attrs.get('node_type') == 'machine':
-				machines_removed[sid] = 1
-			elif attrs.get('node_type') == 'group':
-				groups_removed[sid] = 1
+	return {
+		'diffid' : diff_id_ctr - 1
+	}
 
-	print(users_added)
-	print(users_removed)
-	print(machines_added)
-	print(machines_removed)
-	print(groups_added)
-	print(groups_removed)
+def diff_nodes(diffid):
+	diffres = diffs[diffid].diff_nodes()
+	return diffres
 
-	return {}
+def diff_path_distance(diffid, sid):
+	diffres = diffs[diffid].diff_path_distance(sid)
+	return diffres
+
+def diff_path(diffid, srcsid, dstsid):
+	diffres = diffs[diffid].diff_path(srcsid, dstsid)
+	return diffres
