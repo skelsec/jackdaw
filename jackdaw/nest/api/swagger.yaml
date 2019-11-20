@@ -28,7 +28,7 @@ paths:
     get:
       tags:
         - Server
-      operationId: jackdaw.nest.api.server.serve_home
+      operationId: jackdaw.nest.api.server.serve_index
       summary: Serves the index.html
       description: Serves the index.html          
       produces:
@@ -42,63 +42,6 @@ paths:
       tags:
         - Server
       operationId: jackdaw.nest.api.server.serve_file
-      summary: Serves the html files
-      description: Serves the html files
-      parameters:
-        - name: filename
-          in: path
-          description: file path to download
-          required: True
-          type: string
-      produces:
-        - text/html
-      responses:
-        200:
-          description: Successfully loaded html page.
-
-  /nest/static/js/{filename}:
-    get:
-      tags:
-        - Server
-      operationId: jackdaw.nest.api.server.serve_js
-      summary: Serves the html files
-      description: Serves the html files
-      parameters:
-        - name: filename
-          in: path
-          description: file path to download
-          required: True
-          type: string
-      produces:
-        - text/html
-      responses:
-        200:
-          description: Successfully loaded html page.
-
-  /nest/static/css/{filename}:
-    get:
-      tags:
-        - Server
-      operationId: jackdaw.nest.api.server.serve_css
-      summary: Serves the html files
-      description: Serves the html files
-      parameters:
-        - name: filename
-          in: path
-          description: file path to download
-          required: True
-          type: string
-      produces:
-        - text/html
-      responses:
-        200:
-          description: Successfully loaded html page.
-
-  /nest/static/img/{filename}:
-    get:
-      tags:
-        - Server
-      operationId: jackdaw.nest.api.server.serve_img
       summary: Serves the html files
       description: Serves the html files
       parameters:
