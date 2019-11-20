@@ -57,6 +57,17 @@ paths:
           description: Successfully loaded html page.
 
   /graph:
+    get:
+      operationId: jackdaw.nest.api.graph.list_all
+      tags:
+        - Graph
+      summary: Returns all graph IDs
+      description: Returns all graph IDs
+      responses:
+        200:
+          description: Returns list of graph IDs
+          schema:
+            type: array
     put:
       operationId: jackdaw.nest.api.graph.create
       tags:

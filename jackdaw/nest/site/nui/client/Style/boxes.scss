@@ -1,0 +1,45 @@
+@import './_variables/general.scss';
+@import './text.scss';
+
+.box {
+    background-color: $panel-bg-color;
+}
+
+.mbox {
+    margin: $primary-large-margin;
+}
+
+.pbox {
+    padding: $primary-large-padding;
+}
+
+.drawer {
+    border-right: 1px solid rgb(27, 28, 29) !important;
+}
+
+.drawer div {
+    border-right: 0px !important;
+}
+
+.standard {
+    background-color: #ffffff !important;
+}
+
+.node_item_popup {
+    position: relative;
+    background-color: #333333;
+    color: #fafafa;
+    width: 200px;
+}
+
+.node_item_popup_name {
+    //
+}
+
+.node_item_popup_type {
+    //
+}
+
+.node_item_popup_id {
+    //
+}

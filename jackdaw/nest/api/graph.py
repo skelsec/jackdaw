@@ -12,6 +12,9 @@ from flask import current_app
 graph_id_ctr = 1
 graphs = {}
 
+def list_all():
+    return list(graphs.keys())
+
 def create(adids):
 	global graph_id_ctr
 	db = current_app.db
