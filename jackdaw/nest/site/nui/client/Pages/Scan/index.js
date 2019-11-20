@@ -41,7 +41,7 @@ class ScanComponent extends ApiClient {
     }
 
     startScan = async() => {
-        const result = await this.apiUpdate('/scans/enum/create', this.state);
+        const result = await this.apiCreate('/scans/enum/create', this.state);
         if (result.status == 200) {
             this.props.notifyUser({
                 severity: 'success',
