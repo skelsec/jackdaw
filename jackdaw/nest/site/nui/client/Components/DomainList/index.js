@@ -4,16 +4,9 @@ import { withStyles } from '@material-ui/core/styles';
 import { Box, VBox } from 'react-layout-components';
 const moment = require('moment');
 import { 
-    Button, Dialog, DialogTitle, DialogContent, 
-    DialogActions, Tooltip, IconButton, 
-    Table, TableRow, TableBody, TableCell,
-    TableHead, TableFooter, TablePagination
+    Button, Table, TableRow, TableBody, TableCell,
+    TableHead
 } from '@material-ui/core';
-
-import FirstPageIcon from '@material-ui/icons/FirstPage';
-import KeyboardArrowLeft from '@material-ui/icons/KeyboardArrowLeft';
-import KeyboardArrowRight from '@material-ui/icons/KeyboardArrowRight';
-import LastPageIcon from '@material-ui/icons/LastPage';
 
 import ApiClient from '../ApiClient';
 
