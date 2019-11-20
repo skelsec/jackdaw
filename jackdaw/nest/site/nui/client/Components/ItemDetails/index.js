@@ -5,13 +5,25 @@ import { Box, VBox } from 'react-layout-components';
 const moment = require('moment');
 import { 
     Table, TableRow, TableBody, TableCell,
-    TableHead, Typography, Paper
+    TableHead, Typography, Paper, Tooltip
 } from '@material-ui/core';
 
 import ApiClient from '../ApiClient';
 
 const styles = theme => ({
+    clipboard: {
+        marginLeft: '10px',
+        fontSize: '0.8em',
+        cursor: 'pointer'
+    },
+    iconcol: {
+        maxWidth: 30
+    }
 });
+
+import LaunchOutlined from '@material-ui/icons/LaunchOutlined';
+
+import * as actions from '../../Store/actions';
 
 // this.props.domain
 // this.props.type
@@ -25,6 +37,20 @@ class ItemDetailsComponent extends ApiClient {
 
     componentDidMount = async() => {
         await this.fetchData();
+    }
+
+    copyToClipboard = (id) => {
+        const copyText = document.getElementById(id);
+        const textArea = document.createElement("textarea");
+        textArea.value = copyText.textContent;
+        document.body.appendChild(textArea);
+        textArea.select();
+        document.execCommand("Copy");
+        textArea.remove();
+        this.props.notifyUser({
+            severity: 'success',
+            message: 'Copied to clipboard.'
+        });
     }
 
     getItemId = () => {
@@ -85,7 +111,9 @@ class ItemDetailsComponent extends ApiClient {
     }
 
     renderDataItems = () => {
+        const { classes } = this.props;
         return Object.keys(this.state.data).map((key, index) => {
+            const rid = `item-value-${key}`;
             return (
                 <TableRow
                     key={index}
@@ -94,7 +122,21 @@ class ItemDetailsComponent extends ApiClient {
                         {key}
                     </TableCell>
                     <TableCell>
-                        {this.formatValue(this.state.data[key])}
+                        <span id={rid}>
+                            {this.formatValue(this.state.data[key])}
+                        </span>
+                    </TableCell>
+                    <TableCell className={classes.iconcol}>
+                        <Tooltip
+                            disableFocusListener
+                            disableTouchListener
+                            title="Copy Value to Clipboard"
+                        >
+                            <LaunchOutlined
+                                className={classes.clipboard}
+                                onClick={ (e) => this.copyToClipboard(rid) }
+                            />
+                        </Tooltip>
                     </TableCell>
                 </TableRow>
             );
@@ -102,12 +144,14 @@ class ItemDetailsComponent extends ApiClient {
     }
 
     renderData = () => {
+        const { classes } = this.props;
         return (
             <Table>
                 <TableHead>
                     <TableRow>
                         <TableCell>Attribute</TableCell>     
                         <TableCell>Value</TableCell>
+                        <TableCell className={classes.iconcol}></TableCell>
                     </TableRow>
                 </TableHead>
                 <TableBody>
@@ -142,7 +186,9 @@ const mapStateToProps = (state) => {
 }
 
 const mapDispatchToProps = (dispatch) => {
-    return {}
+    return {
+        notifyUser: (payload) => { dispatch(actions.notifyUser(payload)) }
+    }
 }
 
 const ItemDetails = connect(mapStateToProps, mapDispatchToProps)(withStyles(styles, { withTheme: true })(ItemDetailsComponent));

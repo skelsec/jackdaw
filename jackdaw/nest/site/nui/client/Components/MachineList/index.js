@@ -27,6 +27,9 @@ const styles = theme => ({
         marginLeft: '10px',
         fontSize: '0.8em',
         cursor: 'pointer'
+    },
+    iconcol: {
+        maxWidth: 30
     }
 });
 
@@ -105,7 +108,7 @@ class MachineListComponent extends ApiClient {
                     <TableCell onClick={ (e) => this.selectMachine(row) }>
                         <span id={rid}>{row[1]}</span>
                     </TableCell>
-                    <TableCell>
+                    <TableCell className={classes.iconcol}>
                         <Tooltip
                             disableFocusListener
                             disableTouchListener
@@ -123,25 +126,26 @@ class MachineListComponent extends ApiClient {
     }
 
     render() {
+        const { classes } = this.props;
         return (
             <VBox>
                 <Box>
                     <TextField
                         fullWidth={true}
                         label="Filter by Name"
-                        skeleton={this.props.skeleton}
                         value={this.state.filter}
                         onChange={ (e) => this.setState({ filter: e.target.value }) }
                     />
                 </Box>
-                <Box wrap>
-                    <Box flex={3}>
+                <Box>
+                    <Box flex={1}>
                         <Table className="margin-top">
                         <TableHead>
                             <TableRow>
                                 <TableCell>ID</TableCell>     
                                 <TableCell>Name</TableCell>
                                 <TableCell>SID</TableCell>
+                                <TableCell className={classes.iconcol}></TableCell>
                             </TableRow>
                         </TableHead>
                         <TableBody>

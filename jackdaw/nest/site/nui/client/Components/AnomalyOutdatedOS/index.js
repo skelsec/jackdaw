@@ -5,7 +5,8 @@ import { Box, VBox } from 'react-layout-components';
 const moment = require('moment');
 import { 
     Table, TableRow, TableBody, TableCell,
-    TableHead
+    TableHead, FormControl, InputLabel,
+    Select, MenuItem, Input
 } from '@material-ui/core';
 
 import ApiClient from '../ApiClient';
@@ -16,7 +17,8 @@ const styles = theme => ({
 class AnomalyOutdatedOSComponent extends ApiClient {
 
     state = {
-        data: []
+        data: [],
+        versionFilter: null
     }
 
     componentDidMount = async() => {
@@ -27,10 +29,40 @@ class AnomalyOutdatedOSComponent extends ApiClient {
         });
     }
 
+    renderOsVersionList = () => {
+        const versions = Object.keys(this.state.data);
+        return versions.map((item, index) => {
+            return (
+                <MenuItem key={index} value={item}>{item}</MenuItem>
+            );
+        });
+    }
+
+    renderOsSelector = () => {
+        if (this.state.data.length == 0) return null;
+        return (
+            <FormControl fullWidth={true}>
+                <InputLabel>Operating System</InputLabel>
+                <Select
+                    fullWidth={true}
+                    value={this.state.versionFilter || ''}
+                    onChange={(e) => this.setState({ versionFilter: e.target.value })}
+                    input={<Input value={this.state.versionFilter} fullWidth={true} />}
+                >
+                    <MenuItem key="os_all" value={null}>All</MenuItem>
+                    {this.renderOsVersionList()}
+                </Select>
+            </FormControl>
+        );
+    }
+
     renderItems = () => {
         let versions = Object.keys(this.state.data);
 
         return versions.map((version, index) => {
+            if (![undefined, null].includes(this.state.versionFilter) && version != this.state.versionFilter) {
+                return null;
+            }
             return this.state.data[version].map((machine, mindex) => {
                 return (
                     <TableRow
@@ -54,6 +86,9 @@ class AnomalyOutdatedOSComponent extends ApiClient {
     render() {
         return (
             <VBox>
+                <Box className="mbox">
+                    {this.renderOsSelector()}
+                </Box>
                 <Table className="margin-top">
                     <TableHead>
                         <TableRow>

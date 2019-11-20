@@ -68,7 +68,7 @@ paths:
           description: Returns list of graph IDs
           schema:
             type: array
-    put:
+    post:
       operationId: jackdaw.nest.api.graph.create
       tags:
         - Graph
@@ -1219,7 +1219,7 @@ paths:
                 description: Placeholder TODO 
 
   /scans/enum/create:
-    put:
+    post:
       operationId: jackdaw.nest.api.scan.scan_enum
       tags:
         - Scan
