@@ -77,7 +77,7 @@ function TablePaginationActions(props) {
     );
 }
 
-class AnomalyUserDescriptionsComponent extends ApiClient {
+class AnomalyUserATypeListComponent extends ApiClient {
 
     state = {
         data: [],
@@ -90,8 +90,22 @@ class AnomalyUserDescriptionsComponent extends ApiClient {
         await this.fetch(this.state.currentPage);
     }
 
+    componentDidUpdate = async(prevProps) => {
+        let refetch = 0;
+        if (this.props.domain !== prevProps.domain) {
+            refetch++;
+        }
+        if (this.props.type !== prevProps.type) {
+            refetch++;
+        }
+        if (refetch > 0) {
+            await this.fetch(this.state.currentPage);
+        }
+    }
+
     fetch = async(page) => {
-        let result = await this.apiFetch(`/anomalies/${this.props.domain}/users/description?page=${page + 1}&maxcnt=${this.state.perPage}`);
+        if ([undefined, null].includes(this.props.type)) return null;
+        let result = await this.apiFetch(`/anomalies/${this.props.domain}/users/${this.props.type}?page=${page + 1}&maxcnt=${this.state.perPage}`);
         if ([undefined, null, false].includes(result)) return null;
         this.setState({
             data: result.data.res,
@@ -115,13 +129,10 @@ class AnomalyUserDescriptionsComponent extends ApiClient {
                     key={index}
                 >
                     <TableCell>
-                        {row.userid}
+                        {row.uid}
                     </TableCell>
                     <TableCell>
                         {row.username}
-                    </TableCell>
-                    <TableCell>
-                        {row.description}
                     </TableCell>
                 </TableRow>
             );
@@ -129,6 +140,7 @@ class AnomalyUserDescriptionsComponent extends ApiClient {
     }
 
     render() {
+        if ([undefined, null].includes(this.props.type)) return null;
         return (
             <VBox>
                 <Table className="margin-top">
@@ -136,7 +148,6 @@ class AnomalyUserDescriptionsComponent extends ApiClient {
                         <TableRow>
                             <TableCell>User ID</TableCell>     
                             <TableCell>User Name</TableCell>
-                            <TableCell>Description</TableCell>
                         </TableRow>
                     </TableHead>
                     <TableBody>
@@ -174,5 +185,5 @@ const mapDispatchToProps = (dispatch) => {
     return {}
 }
 
-const AnomalyUserDescriptions = connect(mapStateToProps, mapDispatchToProps)(withStyles(styles, { withTheme: true })(AnomalyUserDescriptionsComponent));
-export default AnomalyUserDescriptions;
+const AnomalyUserATypeList = connect(mapStateToProps, mapDispatchToProps)(withStyles(styles, { withTheme: true })(AnomalyUserATypeListComponent));
+export default AnomalyUserATypeList;
