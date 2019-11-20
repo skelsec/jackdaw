@@ -28,7 +28,7 @@ paths:
     get:
       tags:
         - Server
-      operationId: jackdaw.nest.api.server.serve_home
+      operationId: jackdaw.nest.api.server.serve_index
       summary: Serves the index.html
       description: Serves the index.html          
       produces:
@@ -56,64 +56,18 @@ paths:
         200:
           description: Successfully loaded html page.
 
-  /nest/static/js/{filename}:
-    get:
-      tags:
-        - Server
-      operationId: jackdaw.nest.api.server.serve_js
-      summary: Serves the html files
-      description: Serves the html files
-      parameters:
-        - name: filename
-          in: path
-          description: file path to download
-          required: True
-          type: string
-      produces:
-        - text/html
-      responses:
-        200:
-          description: Successfully loaded html page.
-
-  /nest/static/css/{filename}:
-    get:
-      tags:
-        - Server
-      operationId: jackdaw.nest.api.server.serve_css
-      summary: Serves the html files
-      description: Serves the html files
-      parameters:
-        - name: filename
-          in: path
-          description: file path to download
-          required: True
-          type: string
-      produces:
-        - text/html
-      responses:
-        200:
-          description: Successfully loaded html page.
-
-  /nest/static/img/{filename}:
-    get:
-      tags:
-        - Server
-      operationId: jackdaw.nest.api.server.serve_img
-      summary: Serves the html files
-      description: Serves the html files
-      parameters:
-        - name: filename
-          in: path
-          description: file path to download
-          required: True
-          type: string
-      produces:
-        - text/html
-      responses:
-        200:
-          description: Successfully loaded html page.
-
   /graph:
+    get:
+      operationId: jackdaw.nest.api.graph.list_all
+      tags:
+        - Graph
+      summary: Returns all graph IDs
+      description: Returns all graph IDs
+      responses:
+        200:
+          description: Returns list of graph IDs
+          schema:
+            type: array
     put:
       operationId: jackdaw.nest.api.graph.create
       tags:
