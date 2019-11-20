@@ -121,12 +121,15 @@ paths:
       summary: Crates a new graph view based on active directory ID
       description: Crates a new graph view based on active directory ID
       parameters:
-        - name: adid
+        - name: adids
           in: query
           description: Database ID of the Active Directory root
-          required: False
-          type: string
-            
+          required: True
+          type: array
+          items:
+            type: string
+          collectionFormat: multi
+      
       responses:
         200:
           description: Returns the graph ID if creation is sucsessfull
