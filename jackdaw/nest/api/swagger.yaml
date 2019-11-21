@@ -265,6 +265,18 @@ paths:
                 description: Placeholder TODO
 
   /graph/diff/:
+    get:
+      operationId: jackdaw.nest.api.graph.list_diff_all
+      tags:
+        - Graph
+      summary: Returns all diff IDs
+      description: Returns all diff IDs
+      responses:
+        200:
+          description: Returns list of diff IDs
+          schema:
+            type: array
+
     post:
       operationId: jackdaw.nest.api.graph.diff
       tags:
@@ -282,7 +294,6 @@ paths:
                 type: integer
               dst:
                 type: integer
-            
       responses:
         200:
           description: Returns all differences between the two graph views 
@@ -367,6 +378,29 @@ paths:
           description: TODO
           type: string
           required: False
+      responses:
+        200:
+          description: TODO
+          schema:
+            type: object
+            properties:
+              graph:
+                type: string
+                description: TODO
+  
+  /graph/diff/{diffid}/path/da:
+    get:
+      operationId: jackdaw.nest.api.graph.diff_path_da
+      tags:
+        - Graph
+      summary: TODO
+      description: TODO
+      parameters:
+        - name: diffid
+          in: path
+          description: TODO
+          type: integer
+          required: True
       responses:
         200:
           description: TODO
@@ -1244,7 +1278,7 @@ paths:
                 
 
   /credentials/{domainid}/upload/impacket:
-    put:
+    post:
       operationId: jackdaw.nest.api.credential.impacket_upload
       tags:
         - Credentials
@@ -1274,7 +1308,7 @@ paths:
                 description: Placeholder TODO
 
   /credentials/{domainid}/upload/lsass:
-    put:
+    post:
       operationId: jackdaw.nest.api.credential.lsass_upload
       tags:
         - Credentials
@@ -1309,7 +1343,7 @@ paths:
                 description: Placeholder TODO
   
   /credentials/{domainid}/upload/aiosmb:
-    put:
+    post:
       operationId: jackdaw.nest.api.credential.aiosmb_upload
       tags:
         - Credentials
@@ -1462,8 +1496,6 @@ paths:
               graph:
                 type: string
                 description: Placeholder TODO
-                
-
   
   /hases/upload/potfile:
     put:

@@ -118,6 +118,9 @@ def diff(graphids):
 		'diffid' : diff_id_ctr - 1
 	}
 
+def list_diff_all():
+	return list(diffs.keys())
+
 def diff_nodes(diffid):
 	diffres = diffs[diffid].diff_nodes()
 	return diffres
@@ -128,4 +131,8 @@ def diff_path_distance(diffid, sid):
 
 def diff_path(diffid, srcsid, dstsid):
 	diffres = diffs[diffid].diff_path(srcsid, dstsid)
+	return diffres
+
+def diff_path_da(diffid):
+	diffres = diffs[diffid].diff_path_da()
 	return diffres

@@ -2,8 +2,9 @@
 
 
 class GraphConstruct:
-	def __init__(self, ad_id):
+	def __init__(self, ad_id, diff_name = None):
 		self.ad_id = ad_id
+		self.diff_name = diff_name # should be a string 'new' or 'old'
 		
 		self.include_nodes = []
 		self.include_edges = []

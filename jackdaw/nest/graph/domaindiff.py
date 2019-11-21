@@ -91,8 +91,10 @@ class DomainDiff:
 
 		path_old = self.old_graph.all_shortest_paths(srcsid, dstsid)
 		path_new = self.new_graph.all_shortest_paths(srcsid, dstsid)
-		
 
+
+	def diff_path_da(self):
+		return {}
 
 	def diff_path_distance(self, sid):
 		if not self.old_graph.graph.has_node(sid):
@@ -116,8 +118,10 @@ class DomainDiff:
 				
 
 	def construct(self, construct_old, construct_new):
+		construct_old.diff_name = 'old'
 		self.old_graph = DomainGraph(dbsession = self.dbsession)
 		self.old_graph.construct(construct_old)
 
+		construct_new.diff_name = 'new'
 		self.new_graph = DomainGraph(dbsession = self.dbsession)
 		self.new_graph.construct(construct_new)
