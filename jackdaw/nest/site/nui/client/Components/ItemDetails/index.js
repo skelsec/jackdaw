@@ -54,10 +54,13 @@ class ItemDetailsComponent extends ApiClient {
     }
 
     getItemId = () => {
-        if ([undefined, null].includes(this.props.selection.id)) {
-            return this.props.selection[0];
+        // This is required as API endpoint are not standardized so they
+        // return object IDs in all different ways...
+        let idFieldName = 'id';
+        if (![undefined, null].includes(this.props.id_field_name)) {
+            idFieldName = this.props.id_field_name;
         }
-        return this.props.selection.id;
+        return this.props.selection[idFieldName];
     }
 
     getBy = () => {
