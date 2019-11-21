@@ -5,10 +5,11 @@ import { Box, VBox } from 'react-layout-components';
 const moment = require('moment');
 import { 
     Table, TableRow, TableBody, TableCell,
-    TableHead, FormControl, InputLabel,
-    Select, MenuItem, Input, IconButton, 
+    TableHead, IconButton, 
     TableFooter, TablePagination
 } from '@material-ui/core';
+
+import ItemDetails from '../ItemDetails';
 
 import { makeStyles, useTheme } from '@material-ui/core/styles';
 import FirstPageIcon from '@material-ui/icons/FirstPage';
@@ -19,6 +20,13 @@ import LastPageIcon from '@material-ui/icons/LastPage';
 import ApiClient from '../ApiClient';
 
 const styles = theme => ({
+    not_selected: {
+        cursor: 'pointer'
+    },
+    selected: {
+        backgroundColor: '#212121',
+        cursor: 'pointer'
+    }
 });
 
 const useStyles1 = makeStyles(theme => ({
@@ -87,7 +95,8 @@ class AnomalyOutdatedOSListComponent extends ApiClient {
         versionFilter: null,
         currentPage: 0,
         perPage: 50,
-        total: 0
+        total: 0,
+        selected: null
     }
 
     componentDidMount = async() => {
@@ -115,11 +124,37 @@ class AnomalyOutdatedOSListComponent extends ApiClient {
         this.setState({ perPage: e.target.value }, () => this.fetch(this.state.currentPage));
     }
 
+    isSelected = (item) => {
+        const { classes } = this.props;
+        if ([undefined, null].includes(this.state.selected)) {
+            return classes.not_selected;
+        }
+        if (item.machineid == this.state.selected.machineid) {
+            return classes.selected;
+        } else {
+            return classes.not_selected;
+        }
+    }
+
+    select = (item) => {
+        if ([undefined, null].includes(this.state.selected)) {
+            this.setState({ selected: item })
+            return;
+        }
+        if (this.state.selected.machineid == item.machineid) {
+            this.setState({ selected: null });
+        } else {
+            this.setState({ selected: item })
+        }
+    }
+
     renderItems = () => {
         if ([undefined, null].includes(this.state.data)) return null;
         return this.state.data.map((machine, index) => {
             return (
                 <TableRow
+                    className={this.isSelected(machine)}
+                    onClick={ (e) => this.select(machine) }
                     key={index}
                 >
                     <TableCell>
@@ -140,36 +175,48 @@ class AnomalyOutdatedOSListComponent extends ApiClient {
         if ([undefined, null].includes(this.props.domain)) return null;
         if ([undefined, null].includes(this.props.version)) return null;
         return (
-            <Table className="margin-top">
-                <TableHead>
-                    <TableRow>
-                        <TableCell>OS</TableCell>     
-                        <TableCell>Machine ID</TableCell>
-                        <TableCell>Machine Name</TableCell>
-                    </TableRow>
-                </TableHead>
-                <TableBody>
-                    {this.renderItems()}
-                </TableBody>
-                <TableFooter>
-                    <TableRow>
-                        <TablePagination
-                            rowsPerPageOptions={[10, 20, 50, 100]}
-                            colSpan={4}
-                            count={this.state.total}
-                            rowsPerPage={this.state.perPage}
-                            page={this.state.currentPage}
-                            SelectProps={{
-                                inputProps: { 'aria-label': 'rows per page' },
-                                native: true,
-                            }}
-                            onChangePage={this.setCurrentPage}
-                            onChangeRowsPerPage={this.handlePerPageSelectChange}
-                            ActionsComponent={TablePaginationActions}
-                        />
-                    </TableRow>
-                </TableFooter>
-            </Table>
+            <Box>
+                <Box flex={1}>
+                    <Table className="margin-top">
+                        <TableHead>
+                            <TableRow>
+                                <TableCell>Machine ID</TableCell>     
+                                <TableCell>Machine Name</TableCell>
+                                <TableCell>Machine SID</TableCell>
+                            </TableRow>
+                        </TableHead>
+                        <TableBody>
+                            {this.renderItems()}
+                        </TableBody>
+                        <TableFooter>
+                            <TableRow>
+                                <TablePagination
+                                    rowsPerPageOptions={[10, 20, 50, 100]}
+                                    colSpan={4}
+                                    count={this.state.total}
+                                    rowsPerPage={this.state.perPage}
+                                    page={this.state.currentPage}
+                                    SelectProps={{
+                                        inputProps: { 'aria-label': 'rows per page' },
+                                        native: true,
+                                    }}
+                                    onChangePage={this.setCurrentPage}
+                                    onChangeRowsPerPage={this.handlePerPageSelectChange}
+                                    ActionsComponent={TablePaginationActions}
+                                />
+                            </TableRow>
+                        </TableFooter>
+                    </Table>
+                </Box>
+                {this.state.selected && <Box flex={2} className="mbox pbox">
+                    <ItemDetails
+                        domain={this.props.domain}
+                        type="machine"
+                        selection={this.state.selected}
+                        id_field_name="machineid"
+                    />
+                </Box>}
+            </Box>
         );
     }
 }

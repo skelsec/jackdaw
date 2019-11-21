@@ -15,8 +15,16 @@ import KeyboardArrowRight from '@material-ui/icons/KeyboardArrowRight';
 import LastPageIcon from '@material-ui/icons/LastPage';
 
 import ApiClient from '../ApiClient';
+import ItemDetails from '../ItemDetails';
 
 const styles = theme => ({
+    not_selected: {
+        cursor: 'pointer'
+    },
+    selected: {
+        backgroundColor: '#212121',
+        cursor: 'pointer'
+    }
 });
 
 const useStyles1 = makeStyles(theme => ({
@@ -122,10 +130,36 @@ class AnomalyUserATypeListComponent extends ApiClient {
         this.setState({ perPage: e.target.value }, () => this.fetch(this.state.currentPage));
     }
 
+    isSelected = (item) => {
+        const { classes } = this.props;
+        if ([undefined, null].includes(this.state.selected)) {
+            return classes.not_selected;
+        }
+        if (item.uid == this.state.selected.uid) {
+            return classes.selected;
+        } else {
+            return classes.not_selected;
+        }
+    }
+
+    select = (item) => {
+        if ([undefined, null].includes(this.state.selected)) {
+            this.setState({ selected: item })
+            return;
+        }
+        if (this.state.selected.uid == item.uid) {
+            this.setState({ selected: null });
+        } else {
+            this.setState({ selected: item })
+        }
+    }
+
     renderItems = () => {
         return this.state.data.map((row, index) => {
             return (
                 <TableRow
+                    className={this.isSelected(row)}
+                    onClick={ (e) => this.select(row) }
                     key={index}
                 >
                     <TableCell>
@@ -143,35 +177,47 @@ class AnomalyUserATypeListComponent extends ApiClient {
         if ([undefined, null].includes(this.props.type)) return null;
         return (
             <VBox>
-                <Table className="margin-top">
-                    <TableHead>
-                        <TableRow>
-                            <TableCell>User ID</TableCell>     
-                            <TableCell>User Name</TableCell>
-                        </TableRow>
-                    </TableHead>
-                    <TableBody>
-                        {this.renderItems()}
-                    </TableBody>
-                    <TableFooter>
-                        <TableRow>
-                            <TablePagination
-                                rowsPerPageOptions={[10, 20, 50, 100]}
-                                colSpan={4}
-                                count={this.state.total}
-                                rowsPerPage={this.state.perPage}
-                                page={this.state.currentPage}
-                                SelectProps={{
-                                    inputProps: { 'aria-label': 'rows per page' },
-                                    native: true,
-                                }}
-                                onChangePage={this.setCurrentPage}
-                                onChangeRowsPerPage={this.handlePerPageSelectChange}
-                                ActionsComponent={TablePaginationActions}
-                            />
-                        </TableRow>
-                    </TableFooter>
-                </Table>
+                <Box>
+                    <Box flex={1}>
+                        <Table className="margin-top">
+                            <TableHead>
+                                <TableRow>
+                                    <TableCell>User ID</TableCell>     
+                                    <TableCell>User Name</TableCell>
+                                </TableRow>
+                            </TableHead>
+                            <TableBody>
+                                {this.renderItems()}
+                            </TableBody>
+                            <TableFooter>
+                                <TableRow>
+                                    <TablePagination
+                                        rowsPerPageOptions={[10, 20, 50, 100]}
+                                        colSpan={4}
+                                        count={this.state.total}
+                                        rowsPerPage={this.state.perPage}
+                                        page={this.state.currentPage}
+                                        SelectProps={{
+                                            inputProps: { 'aria-label': 'rows per page' },
+                                            native: true,
+                                        }}
+                                        onChangePage={this.setCurrentPage}
+                                        onChangeRowsPerPage={this.handlePerPageSelectChange}
+                                        ActionsComponent={TablePaginationActions}
+                                    />
+                                </TableRow>
+                            </TableFooter>
+                        </Table>
+                    </Box>
+                    {this.state.selected && <Box flex={2} className="mbox pbox">
+                        <ItemDetails
+                            domain={this.props.domain}
+                            type="user"
+                            selection={this.state.selected}
+                            id_field_name="uid"
+                        />
+                    </Box>}
+                </Box>
             </VBox>
         );
     }
