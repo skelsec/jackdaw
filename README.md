@@ -87,7 +87,7 @@ This project is in experimental phase! This means multiple things:
 Jackdaw uses SQLAlchemy ORM module, which gives you the option to use any SQL DB backend you like. The tests are mainly done on SQLite for ovbious reasons. There will be no backend-specific commands used in this project that would limit you.
 
 ## Building the UI
-
+**THIS IS ONLY NEEDED IF YOU CHANGE SOMETHING IN THE UI CODE**
 The UI was written in React. Before first use/installation you have to build it. For this, you will need `nodejs` and `npm` installed. Then:
 
  1. Go to `jackdaw/nest/site/nui`
