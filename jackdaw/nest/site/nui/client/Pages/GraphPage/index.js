@@ -378,6 +378,9 @@ class GraphPageComponent extends ApiClient {
                 <Box className="margin-top">
                 {this.renderTextField('dstsid', 'DST SID', 'Destination SID')}
                 </Box>
+                <Box className="margin-top">
+                    {this.renderModeSelector()}
+                </Box>
                 <VBox className="margin-top">
                     <Box className="margin-top margin-bottom">
                         <Button
@@ -406,11 +409,8 @@ class GraphPageComponent extends ApiClient {
         const { classes, theme } = this.props;
 
         return (
-            <Paper className="mbox pbox" style={{ minHeight: '82%'}} >
+            <Paper className="mbox pbox" height="100%" >
                 <VBox fit>
-                    <Box className="margin-bottom">
-                        {this.renderModeSelector()}
-                    </Box>
                     <Box fit>
                         <VBox flex={3}>
                             {this.renderGraph()}
