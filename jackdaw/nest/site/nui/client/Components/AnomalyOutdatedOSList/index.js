@@ -143,9 +143,9 @@ class AnomalyOutdatedOSListComponent extends ApiClient {
             <Table className="margin-top">
                 <TableHead>
                     <TableRow>
-                        <TableCell>OS</TableCell>     
-                        <TableCell>Machine ID</TableCell>
+                        <TableCell>Machine ID</TableCell>     
                         <TableCell>Machine Name</TableCell>
+                        <TableCell>Machine SID</TableCell>
                     </TableRow>
                 </TableHead>
                 <TableBody>
