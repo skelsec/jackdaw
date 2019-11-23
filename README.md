@@ -105,5 +105,5 @@ BloodHound team
 #### For the awesome UI
 Zsolt Imre (https://github.com/keymandll)
 #### For the data collection parts
-please see kudos section in `aiosmb` and `msldap` modules
+please see kudos section in [`aiosmb`](https://github.com/skelsec/aiosmb) and [`msldap`](https://github.com/skelsec/msldap) modules
 #### In case I forgot to mention someone pls send a PR
