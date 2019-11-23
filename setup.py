@@ -5,7 +5,7 @@ setup(
 	name="jackdaw",
 
 	# Version number (initial):
-	version="0.1.6",
+	version="0.1.7",
 
 	# Application author details:
 	author="Tamas Jos",
@@ -33,7 +33,7 @@ setup(
 	),
 	install_requires=[
 		'aiosmb>=0.1.7',
-		'msldap>=0.2.4',
+		'msldap>=0.2.5',
 		'sqlalchemy',
 		'dnspython',
 		'tqdm',

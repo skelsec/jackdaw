@@ -1,5 +1,6 @@
 import traceback
 import os
+import re
 from jackdaw.dbmodel.spnservice import JackDawSPNService
 from jackdaw.dbmodel.addacl import JackDawADDACL
 from jackdaw.dbmodel.adgroup import JackDawADGroup
@@ -10,6 +11,7 @@ from jackdaw.dbmodel.adou import JackDawADOU
 from jackdaw.dbmodel.usergroup import JackDawGroupUser
 from jackdaw.dbmodel.adinfo import JackDawADInfo
 from jackdaw.dbmodel.tokengroup import JackDawTokenGroup
+from jackdaw.dbmodel.adgpo import JackDawADGPO
 from jackdaw.dbmodel import *
 from jackdaw.wintypes.lookup_tables import *
 from jackdaw import logger
@@ -35,6 +37,8 @@ class LDAPAgentCommand(enum.Enum):
 	MEMBERSHIPS = 12
 	SD = 13
 	SDS = 14
+	GPO = 15
+	GPOS = 16
 	EXCEPTION = 99
 
 	SPNSERVICES_FINISHED = 31
@@ -45,6 +49,7 @@ class LDAPAgentCommand(enum.Enum):
 	MEMBERSHIPS_FINISHED = 36
 	SDS_FINISHED = 37
 	DOMAININFO_FINISHED = 38
+	GPOS_FINISHED = 39
 
 class LDAPAgentJob:
 	def __init__(self, command, data):
@@ -129,6 +134,15 @@ class LDAPEnumeratorAgent(multiprocessing.Process):
 		finally:
 			self.agent_out_q.put((LDAPAgentCommand.GROUPS_FINISHED, None))
 
+	def get_all_gpos(self):
+		try:
+			for gpo in self.ldap.get_all_gpos():
+				self.agent_out_q.put((LDAPAgentCommand.GPO, JackDawADGPO.from_adgpo(gpo)))
+		except Exception as e:
+			self.agent_out_q.put((LDAPAgentCommand.EXCEPTION, str(traceback.format_exc())))
+		finally:
+			self.agent_out_q.put((LDAPAgentCommand.GPOS_FINISHED, None))
+
 
 	def get_all_machines(self):
 		try:
@@ -202,6 +216,8 @@ class LDAPEnumeratorAgent(multiprocessing.Process):
 				self.get_all_groups()
 			elif res.command == LDAPAgentCommand.OUS:
 				self.get_all_ous()
+			elif res.command == LDAPAgentCommand.GPOS:
+				self.get_all_gpos()
 			elif res.command == LDAPAgentCommand.SPNSERVICES:
 				self.get_all_spnservices()
 			elif res.command == LDAPAgentCommand.MEMBERSHIPS:
@@ -230,6 +246,7 @@ class LDAPEnumeratorManager:
 		self.spn_ctr = 0
 		self.member_ctr = 0
 		self.domaininfo_ctr = 0
+		self.gpo_ctr = 0
 
 		self.user_finish_ctr = 0
 		self.machine_finish_ctr = 0
@@ -239,6 +256,7 @@ class LDAPEnumeratorManager:
 		self.spn_finish_ctr = 0
 		self.member_finish_ctr = 0
 		self.domaininfo_finish_ctr = 0
+		self.gpo_finish_ctr = 0
 
 
 	@staticmethod
@@ -280,6 +298,10 @@ class LDAPEnumeratorManager:
 
 		self.spn_ctr += 1
 		job = LDAPAgentJob(LDAPAgentCommand.SPNSERVICES, self.ad_id)
+		self.agent_in_q.put(job)
+
+		self.gpo_ctr += 1
+		job = LDAPAgentJob(LDAPAgentCommand.GPOS, self.ad_id)
 		self.agent_in_q.put(job)
 
 
@@ -369,10 +391,37 @@ class LDAPEnumeratorManager:
 		ou.ad_id = self.ad_id
 		self.session.add(ou)
 		self.session.commit()
+		self.session.refresh(ou)
+
+		for x in ou.gPLink.split(']'):
+			x = x.strip()
+			if x == '':
+				continue
+			gp, order = x[1:].split(';')
+			gp = re.search(r'{(.*?)}', gp).group(1)
+			gp = '{' + gp + '}'
+
+			link = JackDawADGplink()
+			link.ent_id = ou.id
+			link.gpo_dn = gp
+			link.order = order
+			self.session.add(link)
+		self.session.commit()
 		
 		self.sd_ctr += 1
 		job = LDAPAgentJob(LDAPAgentCommand.SDS, {'dn' : ou.dn, 'obj_type': 'ou' })
 		self.agent_in_q.put(job)
+
+	def enum_gpo(self, res):
+		#print('Got gpo object!')
+		res.ad_id = self.ad_id
+		self.session.add(res)
+		self.session.commit()
+
+		self.sd_ctr += 1
+		job = LDAPAgentJob(LDAPAgentCommand.SDS, {'dn' : res.dn, 'obj_type': 'user' })
+		self.agent_in_q.put(job)
+
 
 	def store_spnservice(self, spn):
 		#print('Got SPNSERVICE!')
@@ -386,6 +435,7 @@ class LDAPEnumeratorManager:
 		res.ad_id = self.ad_id
 		self.session.add(res)
 		self.session.commit()
+
 
 	def store_sd(self, data):
 		#print('Got SD object!')
@@ -480,7 +530,8 @@ class LDAPEnumeratorManager:
 			and self.sd_ctr == self.sd_finish_ctr\
 			and self.spn_ctr == self.spn_finish_ctr\
 			and self.member_ctr == self.member_finish_ctr\
-			and self.domaininfo_ctr == self.domaininfo_finish_ctr:
+			and self.domaininfo_ctr == self.domaininfo_finish_ctr\
+			and self.gpo_ctr == self.gpo_finish_ctr:
 			return True
 		return False
 
@@ -527,6 +578,9 @@ class LDAPEnumeratorManager:
 			elif res_type == LDAPAgentCommand.SD:
 				self.store_sd(res)
 			
+			elif res_type == LDAPAgentCommand.GPO:
+				self.enum_gpo(res)
+			
 			elif res_type == LDAPAgentCommand.MEMBERSHIP:
 				self.store_membership(res)
 
@@ -549,6 +603,8 @@ class LDAPEnumeratorManager:
 				self.sd_finish_ctr += 1
 			elif res_type == LDAPAgentCommand.DOMAININFO_FINISHED:
 				self.domaininfo_finish_ctr += 1
+			elif res_type == LDAPAgentCommand.GPOS_FINISHED:
+				self.gpo_finish_ctr += 1
 
 			if self.check_status() == True:
 				break

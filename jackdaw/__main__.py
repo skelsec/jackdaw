@@ -148,6 +148,7 @@ def main():
 
 	ldap_group = subparsers.add_parser('ldap', formatter_class=argparse.RawDescriptionHelpFormatter, help='Enumerate potentially vulnerable users via LDAP', epilog = MSLDAPURLDecoder.help_epilog)
 	ldap_group.add_argument('ldap_url',  help='Connection specitication in URL format')
+	ldap_group.add_argument('--ldap-workers', type=int, default = 4, help='LDAP worker count for parallelization')
 	
 	enum_group = subparsers.add_parser('enum', formatter_class=argparse.RawDescriptionHelpFormatter, help='Enumerate all stuffs', epilog = MSLDAPURLDecoder.help_epilog)
 	enum_group.add_argument('ldap_url',  help='Connection specitication in URL format')

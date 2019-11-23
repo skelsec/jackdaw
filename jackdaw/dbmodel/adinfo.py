@@ -45,7 +45,8 @@ class JackDawADInfo(Basemodel):
 	spnservices = relationship("JackDawSPNService", back_populates="ad", lazy = True)
 	objectacls = relationship("JackDawADDACL", back_populates="ad", lazy = True)
 	customrelations = relationship("JackDawCustomRelations", back_populates="ad", lazy = True)
-	ou = relationship("JackDawADOU", back_populates="ad", lazy = True)
+	ous = relationship("JackDawADOU", back_populates="ad", lazy = True)
+	gpos = relationship("JackDawADGPO", back_populates="ad", lazy = True)
 	
 	def to_dict(self):
 		return {
