@@ -95,3 +95,15 @@ The UI was written in React. Before first use/installation you have to build it.
  3. Run `npm run build`
 
 Once done with the above, the UI is ready to play with.
+
+# Kudos
+"If I have seen further it is by standing on the shoulders of Giants."
+#### For the original idea 
+BloodHound team
+#### For the ACL edge calculation
+@dirkjanm (https://github.com/dirkjanm/)
+#### For the awesome UI
+Zsolt Imre (https://github.com/keymandll)
+#### For the data collection parts
+please see kudos section in `aiosmb` and `msldap` modules
+#### In case I forgot to mention someone pls send a PR
