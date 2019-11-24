@@ -87,7 +87,7 @@ This project is in experimental phase! This means multiple things:
 Jackdaw uses SQLAlchemy ORM module, which gives you the option to use any SQL DB backend you like. The tests are mainly done on SQLite for ovbious reasons. There will be no backend-specific commands used in this project that would limit you.
 
 ## Building the UI
-**THIS IS ONLY NEEDED IF YOU INSTALL VIA GIT AND/OR CHANGE SOMETHING IN THE UI CODE**
+**THIS IS ONLY NEEDED IF YOU INSTALL VIA GIT AND/OR CHANGE SOMETHING IN THE UI CODE**  
 The UI was written in React. Before first use/installation you have to build it. For this, you will need `nodejs` and `npm` installed. Then:
 
  1. Go to `jackdaw/nest/site/nui`
@@ -95,3 +95,15 @@ The UI was written in React. Before first use/installation you have to build it.
  3. Run `npm run build`
 
 Once done with the above, the UI is ready to play with.
+
+# Kudos
+"If I have seen further it is by standing on the shoulders of Giants."
+#### For the original idea 
+BloodHound team
+#### For the ACL edge calculation
+@dirkjanm (https://github.com/dirkjanm/)
+#### For the awesome UI
+Zsolt Imre (https://github.com/keymandll)
+#### For the data collection parts
+please see kudos section in [`aiosmb`](https://github.com/skelsec/aiosmb) and [`msldap`](https://github.com/skelsec/msldap) modules
+#### In case I forgot to mention someone pls send a PR
