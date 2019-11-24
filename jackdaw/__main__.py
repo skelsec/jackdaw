@@ -11,6 +11,7 @@ from jackdaw.dbmodel import create_db, get_session
 from jackdaw.common.apq import AsyncProcessQueue
 from jackdaw.common.proxy import ProxyConnection
 from jackdaw.gatherer.universal.smb import SMBGathererManager
+from jackdaw.gatherer.universal.smb_file import SMBShareGathererSettings, ShareGathererManager
 
 from jackdaw import logger as jdlogger
 from jackdaw.gatherer.ldap_mp import LDAPEnumeratorManager
@@ -55,6 +56,10 @@ def run(args):
 		mgr.gathering_type = ['all']
 		mgr.db_conn = db_conn
 		mgr.target_ad = adifo_id
+		mgr.run()
+
+		settings_base = SMBShareGathererSettings(adifo_id, smb_mgr, None, None, None)
+		mgr = ShareGathererManager(settings_base, db_conn = db_conn, worker_cnt = args.smb_workers)
 		mgr.run()
 	
 	elif args.command == 'dbinit':
@@ -101,6 +106,33 @@ def run(args):
 			mgr.targets_file = args.target_file
 		
 		mgr.run()
+
+	#elif args.command == 'files':
+	#	if args.src == 'file':
+	#		if not args.target_file:
+	#			raise Exception('target-file parameter is mandatory in file mode')
+	#		
+	#		args.target_file
+	#		args.lookup_ad
+	#		args.with_sid
+	#		args.smb_workers
+	#
+	#	elif args.src == 'ldap':
+	#		if not args.ldap_url:
+	#			raise Exception('ldap-url parameter is mandatory in ldap mode')
+	#		args.lookup_ad
+	#		args.with_sid
+	#		args.smb_workers
+	#
+	#	elif args.src == 'domain':
+	#		if not args.ad_id:
+	#			raise Exception('ad-id parameter is mandatory in ldap mode')
+	#		args.ad_id
+	#		args.with_sid
+	#		args.smb_workers
+	#
+	#	elif args.src == 'cmd':
+			
 		
 	elif args.command == 'creds':
 		creds = JackDawCredentials(args.db_conn, args.domain_id)
@@ -165,6 +197,19 @@ def main():
 	share_group.add_argument('-d', '--ad-id', help='ID of the domainfo to poll targets rom the DB')
 	share_group.add_argument('-i', '--lookup-ad', help='ID of the domainfo to look up comupter names. Advisable to set for LDAP and file pbased targets')
 	
+	files_group = subparsers.add_parser('files', help='Enumerate files on targets')
+	files_group.add_argument('src', choices=['file', 'ldap', 'domain', 'cmd'])
+	files_group.add_argument('smb_url',  help='Credential specitication in URL format')
+	files_group.add_argument('-l', '--ldap-url', help='ldap_connection_string. Use this to get targets from the domain controller')
+	files_group.add_argument('-d', '--ad-id', help='ID of the domainfo to poll targets from the DB')
+	files_group.add_argument('-s', '--with-sid', action='store_true', help='Also fetches the SId for each file and folder')	
+	files_group.add_argument('-i', '--lookup-ad', help='ID of the domainfo to look up comupter names. Advisable to set for LDAP and file pbased targets')
+	files_group.add_argument('-t', '--target-file', help='taget file with hostnames. One per line.')
+	files_group.add_argument('--depth', type=int, default = 1, help='Recursion depth for folder enumeration')
+	files_group.add_argument('--smb-workers', type=int, default = 50, help='SMB worker count for parallelization. Read: connection/share')
+	
+	
+
 	localgroup_group = subparsers.add_parser('localgroups', help='Enumerate local group memberships on target')
 	localgroup_group.add_argument('smb_url',  help='Credential specitication in URL format')
 	localgroup_group.add_argument('-t', '--target-file', help='taget file with hostnames. One per line.')

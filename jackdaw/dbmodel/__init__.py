@@ -83,6 +83,8 @@ from .customrelations import *
 from .smbfinger import *
 from .adgplink import *
 from .adgpo import *
+from .netfile import *
+from .netdir import *
 
 
 
