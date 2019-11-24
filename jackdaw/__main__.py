@@ -188,6 +188,7 @@ def main():
 	enum_group.add_argument('-q', '--same-query', action='store_true', help='Use the same query for LDAP as for SMB. LDAP url must still be present, but without a query')
 	enum_group.add_argument('--ldap-workers', type=int, default = 4, help='LDAP worker count for parallelization')
 	enum_group.add_argument('--smb-workers', type=int, default = 50, help='SMB worker count for parallelization')
+	enum_group.add_argument('--smb-folder-depth', type=int, default = 1, help='Files enumeration folder depth')
 	
 	share_group = subparsers.add_parser('shares', help='Enumerate shares on target')
 	share_group.add_argument('smb_url',  help='Credential specitication in URL format')
@@ -197,16 +198,16 @@ def main():
 	share_group.add_argument('-d', '--ad-id', help='ID of the domainfo to poll targets rom the DB')
 	share_group.add_argument('-i', '--lookup-ad', help='ID of the domainfo to look up comupter names. Advisable to set for LDAP and file pbased targets')
 	
-	files_group = subparsers.add_parser('files', help='Enumerate files on targets')
-	files_group.add_argument('src', choices=['file', 'ldap', 'domain', 'cmd'])
-	files_group.add_argument('smb_url',  help='Credential specitication in URL format')
-	files_group.add_argument('-l', '--ldap-url', help='ldap_connection_string. Use this to get targets from the domain controller')
-	files_group.add_argument('-d', '--ad-id', help='ID of the domainfo to poll targets from the DB')
-	files_group.add_argument('-s', '--with-sid', action='store_true', help='Also fetches the SId for each file and folder')	
-	files_group.add_argument('-i', '--lookup-ad', help='ID of the domainfo to look up comupter names. Advisable to set for LDAP and file pbased targets')
-	files_group.add_argument('-t', '--target-file', help='taget file with hostnames. One per line.')
-	files_group.add_argument('--depth', type=int, default = 1, help='Recursion depth for folder enumeration')
-	files_group.add_argument('--smb-workers', type=int, default = 50, help='SMB worker count for parallelization. Read: connection/share')
+	#files_group = subparsers.add_parser('files', help='Enumerate files on targets')
+	#files_group.add_argument('src', choices=['file', 'ldap', 'domain', 'cmd'])
+	#files_group.add_argument('smb_url',  help='Credential specitication in URL format')
+	#files_group.add_argument('-l', '--ldap-url', help='ldap_connection_string. Use this to get targets from the domain controller')
+	#files_group.add_argument('-d', '--ad-id', help='ID of the domainfo to poll targets from the DB')
+	#files_group.add_argument('-s', '--with-sid', action='store_true', help='Also fetches the SId for each file and folder')	
+	#files_group.add_argument('-i', '--lookup-ad', help='ID of the domainfo to look up comupter names. Advisable to set for LDAP and file pbased targets')
+	#files_group.add_argument('-t', '--target-file', help='taget file with hostnames. One per line.')
+	#files_group.add_argument('--depth', type=int, default = 1, help='Recursion depth for folder enumeration')
+	#files_group.add_argument('--smb-workers', type=int, default = 50, help='SMB worker count for parallelization. Read: connection/share')
 	
 	
 
