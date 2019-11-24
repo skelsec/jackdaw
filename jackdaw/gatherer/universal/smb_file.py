@@ -361,7 +361,13 @@ class ShareGathererManager:
 						nf.change_time = f.change_time
 						nf.unc = f.unc_path
 						nf.size = f.size
-						nf.name = f.name
+						name = f.name
+						x = f.name.rsplit('.',1)
+						if len(x) > 1:
+							name = x[0]
+							ext = x[1]
+						nf.name = name
+						nf.ext = ext
 						self.db_session.add(nf)
 						self.db_session.commit()
 						self.db_session.refresh(nf)

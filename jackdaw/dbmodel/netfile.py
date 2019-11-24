@@ -15,6 +15,7 @@ class NetFile(Basemodel):
 	unc = Column(String, index=True)
 	size = Column(Integer, index=True)
 	name = Column(String, index=True)
+	ext = Column(String, index=True)
 
 	def to_dict(self):
 		return {
@@ -27,6 +28,8 @@ class NetFile(Basemodel):
 			'last_write_time' : self.last_write_time , 
 			'change_time' : self.change_time , 
 			'unc' : self.unc ,
-			'name' : self.name ,
 			'size' : self.size ,
+			'name' : self.name ,
+			'ext' : self.ext ,
+
 		}

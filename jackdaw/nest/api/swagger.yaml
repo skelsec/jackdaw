@@ -1662,6 +1662,146 @@ paths:
                 type: string
                 description: Placeholder TODO 
 
+  /files/{domainid}/search-name/:
+    post:
+      operationId: jackdaw.nest.api.files.search_file_name
+      tags:
+        - File
+      summary: Searches file names in DB
+      description: Searches file names in DB
+      parameters:
+        - name: domainid
+          in: path
+          description: ID of the domain
+          type: integer
+          required: True
+        - name: page
+          in: query
+          description: ID of the domain
+          type: integer
+          required: True
+        - name: maxcnt
+          in: query
+          description: ID of the domain
+          type: integer
+          required: True
+        - name: pattern
+          in: body
+          description: search pattern
+          schema:
+            properties:
+              pattern:
+                type: string
+      responses:
+        200:
+          description: Nah
+          schema:
+            type: object
+            properties:
+              graph:
+                type: string
+                description: Placeholder TODO 
 
+  /files/{domainid}/search-ext/:
+    post:
+      operationId: jackdaw.nest.api.files.search_file_ext
+      tags:
+        - File
+      summary: Searches file extensions in DB
+      description: Searches file extensions in DB
+      parameters:
+        - name: domainid
+          in: path
+          description: ID of the domain
+          type: integer
+          required: True
+        - name: page
+          in: query
+          description: Page number
+          type: integer
+          required: True
+        - name: maxcnt
+          in: query
+          description: Results per page
+          type: integer
+          required: True
+        - name: pattern
+          in: body
+          description: search pattern
+          schema:
+            properties:
+              pattern:
+                type: string
+      responses:
+        200:
+          description: Nah
+          schema:
+            type: object
+            properties:
+              graph:
+                type: string
+                description: Placeholder TODO
+
+  /files/{domainid}/search/:
+    post:
+      operationId: jackdaw.nest.api.files.search_file_full
+      tags:
+        - File
+      summary: Searches files and folders by name, extension, path
+      description: Searches files and folders by name, extension, path
+      parameters:
+        - name: domainid
+          in: path
+          description: ID of the domain
+          type: integer
+          required: True
+        - name: page
+          in: query
+          description: ID of the domain
+          type: integer
+          required: True
+        - name: maxcnt
+          in: query
+          description: ID of the domain
+          type: integer
+          required: True
+        - name: filter
+          in: body
+          description: search filter
+          schema:
+            properties:
+              pattern:
+                type: string
+              ownersid:
+                type: string
+              machineid:
+                type: integer
+              size_greather:
+                type: integer
+              size_smaller:
+                type: integer
+              created_after:
+                type: string
+                pattern: date
+              created_before:
+                type: string
+                pattern: date
+              changed_after:
+                type: string
+                pattern: date
+              changed_before:
+                type: string
+                pattern: date
+              extension_pattern:
+                type: string
+      responses:
+        200:
+          description: Nah
+          schema:
+            type: object
+            properties:
+              graph:
+                type: string
+                description: Placeholder TODO 
 
 
