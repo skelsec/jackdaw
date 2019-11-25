@@ -97,6 +97,8 @@ class ShareGathererProcess(multiprocessing.Process):
 
 			res = SMBShareGathererResult(directory, settings)
 			await self.out_q.coro_put(res)
+			if depth == 0:
+				return
 			for name in directory.subdirs:
 				await self.enum_directory(connection, settings, directory.subdirs[name], depth - 1)
 

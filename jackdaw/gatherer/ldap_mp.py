@@ -393,19 +393,22 @@ class LDAPEnumeratorManager:
 		self.session.commit()
 		self.session.refresh(ou)
 
-		for x in ou.gPLink.split(']'):
-			x = x.strip()
-			if x == '':
-				continue
-			gp, order = x[1:].split(';')
-			gp = re.search(r'{(.*?)}', gp).group(1)
-			gp = '{' + gp + '}'
+		if ou.gPLink is not None and ou.gPLink != 'None':
+			for x in ou.gPLink.split(']'):
+				if x is None or x == 'None':
+					continue
+				x = x.strip()
+				if x == '':
+					continue
+				gp, order = x[1:].split(';')
+				gp = re.search(r'{(.*?)}', gp).group(1)
+				gp = '{' + gp + '}'
 
-			link = JackDawADGplink()
-			link.ent_id = ou.id
-			link.gpo_dn = gp
-			link.order = order
-			self.session.add(link)
+				link = JackDawADGplink()
+				link.ent_id = ou.id
+				link.gpo_dn = gp
+				link.order = order
+				self.session.add(link)
 		self.session.commit()
 		
 		self.sd_ctr += 1
