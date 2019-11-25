@@ -59,10 +59,11 @@ def run(args):
 		mgr.target_ad = adifo_id
 		mgr.run()
 
-		settings_base = SMBShareGathererSettings(adifo_id, smb_mgr, None, None, None)
-		settings_base.dir_depth = args.smb_folder_depth
-		mgr = ShareGathererManager(settings_base, db_conn = db_conn, worker_cnt = args.smb_workers)
-		mgr.run()
+		if args.smb_share_enum is True:
+			settings_base = SMBShareGathererSettings(adifo_id, smb_mgr, None, None, None)
+			settings_base.dir_depth = args.smb_folder_depth
+			mgr = ShareGathererManager(settings_base, db_conn = db_conn, worker_cnt = args.smb_workers)
+			mgr.run()
 	
 	elif args.command == 'dbinit':
 		create_db(db_conn)
@@ -199,6 +200,7 @@ def main():
 	enum_group.add_argument('--ldap-workers', type=int, default = 4, help='LDAP worker count for parallelization')
 	enum_group.add_argument('--smb-workers', type=int, default = 50, help='SMB worker count for parallelization')
 	enum_group.add_argument('--smb-folder-depth', type=int, default = 1, help='Files enumeration folder depth')
+	enum_group.add_argument('--smb-share-enum', action='store_true', help='Enables file enumeration in shares')
 	
 	share_group = subparsers.add_parser('shares', help='Enumerate shares on target')
 	share_group.add_argument('smb_url',  help='Credential specitication in URL format')
