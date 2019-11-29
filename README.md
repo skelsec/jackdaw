@@ -4,7 +4,7 @@ gather gather gather
 
 # What is this?
 Jackdaw is here to collect all information in your domain, store it in a SQL database and show you nice graphs on how your domain objects interact with each-other an how a potential attacker may exploit these interactions.
-It also comes with a handy feature to help you in a password-cracking project by storing/looking up/reporting hashes/passowrds/users.
+It also comes with a handy feature to help you in a password-cracking project by storing/looking up/reporting hashes/passwords/users.
 
 # Example commands
 Most of these commands are available already from the webapi, except for the database init.
