@@ -49,9 +49,9 @@ The framework allows users to upload impacket's DCSYNC files to store credential
 The framework allows manually extending the available DB in every aspect. Example: when user session information on a given computer is discovered (outside of the automatic enumeration) there is a possibility to manually upload these sessions, which will populate the DB and also the result graph
 
 ## Graph
-The framework can generate a graph using the available information in the database and plot it via the web UI (nest). Furthermore the graph generation and path canculations can be invoked programmatically, either by using the web API (/ui endpoint) or the grph object's functions.  
+The framework can generate a graph using the available information in the database and plot it via the web UI (nest). Furthermore the graph generation and path canculations can be invoked programmatically, either by using the web API (/ui endpoint) or the graph object's functions.  
 
-## Anomlaies detection  
+## Anomalies detection  
 The framework can identify common AD misconfigurations without graph generation. Currently only via the web API.  
 
 #### User
