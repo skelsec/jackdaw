@@ -43,7 +43,7 @@ class JackDawADInfo(Basemodel):
 	groups = relationship("JackDawADGroup", back_populates="ad", lazy = True)
 	group_lookups = relationship("JackDawTokenGroup", back_populates="ad", lazy = True)
 	spnservices = relationship("JackDawSPNService", back_populates="ad", lazy = True)
-	objectacls = relationship("JackDawADDACL", back_populates="ad", lazy = True)
+	objectacls = relationship("JackDawADDACL", back_populates="ad", lazy='dynamic')
 	customrelations = relationship("JackDawCustomRelations", back_populates="ad", lazy = True)
 	ous = relationship("JackDawADOU", back_populates="ad", lazy = True)
 	gpos = relationship("JackDawADGPO", back_populates="ad", lazy = True)

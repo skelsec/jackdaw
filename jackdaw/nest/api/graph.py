@@ -7,7 +7,6 @@ from jackdaw.nest.graph.domaindiff import DomainDiff
 
 # 3rd party modules
 from flask import make_response, abort, current_app
-from flask import current_app
 
 
 graph_id_ctr = 1
@@ -54,10 +53,9 @@ def query_path_da(graphid, format = 'vis'):
 	da_sids = {}
 	#searching for domain admin SID
 	for node in graphs[graphid].get_node():
-		if node.id.endswith('-512'):
+		if node.id == graphs[graphid].domain_sid + '-512':
 			da_sids[node.id] = 1
 	
-	#print(da_sids)
 	if len(da_sids) == 0:
 		return 'No domain administrator group found', 404
 	
