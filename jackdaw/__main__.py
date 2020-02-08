@@ -1,3 +1,8 @@
+#!/usr/bin/env python3
+#
+# Author:
+#  Tamas Jos (@skelsec)
+#
 
 import sys
 import logging
@@ -51,9 +56,9 @@ def run(args):
 
 		mgr = LDAPEnumeratorManager(db_conn, ldap_mgr, agent_cnt=args.ldap_workers)
 		adifo_id = mgr.run()
-		print('ADInfo entry successfully created with ID %s' % adifo_id)
+		jdlogger.info('ADInfo entry successfully created with ID %s' % adifo_id)
 		
-		mgr = SMBGathererManager(smb_mgr, worker_cnt=args.smb_workers)
+		mgr = SMBGathererManager(smb_mgr, worker_cnt=args.smb_workers, queue_size = args.smb_queue_size)
 		mgr.gathering_type = ['all']
 		mgr.db_conn = db_conn
 		mgr.target_ad = adifo_id
@@ -85,13 +90,13 @@ def run(args):
 		ldap_conn = ldap_mgr.get_connection()
 		ldap_conn.connect()
 	
-		mgr = LDAPEnumeratorManager(db_conn, ldap_mgr, agent_cnt=args.ldap_workers)
+		mgr = LDAPEnumeratorManager(db_conn, ldap_mgr, agent_cnt=args.ldap_workers, queue_size=args.ldap_queue_size)
 		adifo_id = mgr.run()
-		print('ADInfo entry successfully created with ID %s' % adifo_id)
+		jdlogger.info('ADInfo entry successfully created with ID %s' % adifo_id)
 		
 	elif args.command in ['shares', 'sessions', 'localgroups']:
 		smb_mgr = construct_smbdef(args)
-		mgr = SMBGathererManager(smb_mgr)
+		mgr = SMBGathererManager(smb_mgr, worker_cnt=args.smb_workers, queue_size = args.smb_queue_size)
 		mgr.gathering_type = [args.command]
 		mgr.db_conn = db_conn
 		mgr.lookup_ad = args.lookup_ad
@@ -192,23 +197,28 @@ def main():
 	ldap_group = subparsers.add_parser('ldap', formatter_class=argparse.RawDescriptionHelpFormatter, help='Enumerate potentially vulnerable users via LDAP', epilog = MSLDAPURLDecoder.help_epilog)
 	ldap_group.add_argument('ldap_url',  help='Connection specitication in URL format')
 	ldap_group.add_argument('--ldap-workers', type=int, default = 4, help='LDAP worker count for parallelization')
+	ldap_group.add_argument('--ldap-queue-size', type=int, default = 100000, help='LDAP worker queue max size.')
 	
 	enum_group = subparsers.add_parser('enum', formatter_class=argparse.RawDescriptionHelpFormatter, help='Enumerate all stuffs', epilog = MSLDAPURLDecoder.help_epilog)
 	enum_group.add_argument('ldap_url',  help='Connection specitication in URL format')
 	enum_group.add_argument('smb_url',  help='Connection specitication in URL format')
 	enum_group.add_argument('-q', '--same-query', action='store_true', help='Use the same query for LDAP as for SMB. LDAP url must still be present, but without a query')
 	enum_group.add_argument('--ldap-workers', type=int, default = 4, help='LDAP worker count for parallelization')
+	enum_group.add_argument('--ldap-queue-size', type=int, default = 100000, help='LDAP worker queue max size.')
 	enum_group.add_argument('--smb-workers', type=int, default = 50, help='SMB worker count for parallelization')
+	enum_group.add_argument('--smb-queue-size', type=int, default = 100000, help='SMB worker queue max size.')
 	enum_group.add_argument('--smb-folder-depth', type=int, default = 1, help='Files enumeration folder depth')
 	enum_group.add_argument('--smb-share-enum', action='store_true', help='Enables file enumeration in shares')
 	
 	share_group = subparsers.add_parser('shares', help='Enumerate shares on target')
 	share_group.add_argument('smb_url',  help='Credential specitication in URL format')
+	share_group.add_argument('--smb-queue-size', type=int, default = 100000, help='SMB worker queue max size.')
 	share_group.add_argument('-t', '--target-file', help='taget file with hostnames. One per line.')
 	share_group.add_argument('-l', '--ldap-url', help='ldap_connection_string. Use this to get targets from the domain controller')
 	share_group.add_argument('-q', '--same-query', action='store_true', help='Use the same query for LDAP as for SMB. LDAP url must still be present, but without a query')
 	share_group.add_argument('-d', '--ad-id', help='ID of the domainfo to poll targets rom the DB')
 	share_group.add_argument('-i', '--lookup-ad', help='ID of the domainfo to look up comupter names. Advisable to set for LDAP and file pbased targets')
+	share_group.add_argument('--smb-workers', type=int, default = 50, help='SMB worker count for parallelization')
 	
 	files_group = subparsers.add_parser('files', help='Enumerate files on targets')
 	#files_group.add_argument('src', choices=['file', 'ldap', 'domain', 'cmd'])
@@ -221,6 +231,7 @@ def main():
 	#files_group.add_argument('-t', '--target-file', help='taget file with hostnames. One per line.')
 	files_group.add_argument('--smb-folder-depth', type=int, default = 1, help='Recursion depth for folder enumeration')
 	files_group.add_argument('--smb-workers', type=int, default = 50, help='SMB worker count for parallelization. Read: connection/share')
+	files_group.add_argument('--smb-queue-size', type=int, default = 100000, help='SMB worker queue max size.')
 	
 	
 
@@ -230,6 +241,8 @@ def main():
 	localgroup_group.add_argument('-l', '--ldap-url', help='ldap_connection_string. Use this to get targets from the domain controller')
 	localgroup_group.add_argument('-d', '--ad-id', help='ID of the domainfo to poll targets rom the DB')
 	localgroup_group.add_argument('-i', '--lookup-ad', help='ID of the domainfo to look up comupter names. Advisable to set for LDAP and file pbased targets')
+	localgroup_group.add_argument('--smb-queue-size', type=int, default = 100000, help='SMB worker queue max size.')
+	localgroup_group.add_argument('--smb-workers', type=int, default = 50, help='SMB worker count for parallelization.')
 	
 	session_group = subparsers.add_parser('sessions', help='Enumerate connected sessions on target')
 	session_group.add_argument('smb_url',  help='Credential specitication in URL format')
@@ -237,6 +250,8 @@ def main():
 	session_group.add_argument('-l', '--ldap-url', help='ldap_connection_string. Use this to get targets from the domain controller')
 	session_group.add_argument('-d', '--ad-id', help='ID of the domainfo to poll targets rom the DB')
 	session_group.add_argument('-i', '--lookup-ad', help='ID of the domainfo to look up comupter names. Advisable to set for LDAP and file pbased targets')
+	session_group.add_argument('--smb-queue-size', type=int, default = 100000, help='SMB worker queue max size.')
+	session_group.add_argument('--smb-workers', type=int, default = 50, help='SMB worker count for parallelization.')
 	
 	credential_group = subparsers.add_parser('creds', help='Add credential information from impacket')
 	credential_group.add_argument('impacket_file', help='file with LM and NT hashes, generated by impacket secretsdump.py')

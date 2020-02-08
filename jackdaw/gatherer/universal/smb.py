@@ -1,3 +1,9 @@
+#!/usr/bin/env python3
+#
+# Author:
+#  Tamas Jos (@skelsec)
+#
+
 import asyncio
 import logging
 import json
@@ -25,9 +31,10 @@ from jackdaw.dbmodel.adinfo import JackDawADInfo
 from jackdaw.dbmodel.adcomp import JackDawADMachine
 
 class SMBGathererManager:
-	def __init__(self, smb_mgr, worker_cnt = 50):
-		self.in_q = AsyncProcessQueue()
-		self.out_q = AsyncProcessQueue()
+	def __init__(self, smb_mgr, worker_cnt = 50, queue_size = 100000):
+		self.queue_size = queue_size
+		self.in_q = AsyncProcessQueue(queue_size)
+		self.out_q = AsyncProcessQueue(queue_size)
 		self.smb_mgr = smb_mgr
 		self.gathering_type = ['all']
 		self.localgroups = ['Administrators', 'Distributed COM Users','Remote Desktop Users']

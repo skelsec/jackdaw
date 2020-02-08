@@ -1,3 +1,9 @@
+#!/usr/bin/env python3
+#
+# Author:
+#  Tamas Jos (@skelsec)
+#
+
 # System modules
 from datetime import datetime
 from jackdaw.nest.graph.domain import DomainGraph

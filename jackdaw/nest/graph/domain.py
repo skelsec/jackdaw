@@ -1,20 +1,26 @@
+#!/usr/bin/env python3
+#
+# Author:
+#  Tamas Jos (@skelsec)
+#
+
+import multiprocessing as mp
+import threading
+import enum
+
+from sqlalchemy import not_, and_, or_, case
+from sqlalchemy.orm import load_only
+import networkx as nx
+
 
 from jackdaw.dbmodel.adinfo import JackDawADInfo
 from jackdaw.dbmodel.tokengroup import JackDawTokenGroup
 from jackdaw.dbmodel import *
 from jackdaw.wintypes.well_known_sids import get_name_or_sid, get_sid_for_name
 from jackdaw.wintypes.lookup_tables import *
-from sqlalchemy import not_, and_, or_, case
-from sqlalchemy.orm import load_only
-#from pyvis.network import Network
-#from pyvis.options import Layout
-import networkx as nx
-import multiprocessing as mp
-import threading
-
 from jackdaw.nest.graph.graphdata import *
 from jackdaw import logger
-import enum
+
 
 def windowed_query(q, column, windowsize, is_single_entity = True):
 	""""Break a Query into chunks on a given column."""

@@ -1,3 +1,5 @@
 include jackdaw/nest/api/swagger.yaml
 recursive-include jackdaw/nest/site/ *
 global-exclude *.pyc
+include LICENSE
+include README.md

@@ -1,3 +1,9 @@
+#!/usr/bin/env python3
+#
+# Author:
+#  Tamas Jos (@skelsec)
+#
+
 from . import Basemodel, lf
 import datetime
 from sqlalchemy.orm import relationship

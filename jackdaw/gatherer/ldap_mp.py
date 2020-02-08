@@ -1,3 +1,9 @@
+#!/usr/bin/env python3
+#
+# Author:
+#  Tamas Jos (@skelsec)
+#
+
 import traceback
 import os
 import re
@@ -226,16 +232,17 @@ class LDAPEnumeratorAgent(multiprocessing.Process):
 				self.get_sds(res.data)
 
 class LDAPEnumeratorManager:
-	def __init__(self, db_conn, ldam_mgr, agent_cnt = 5):
+	def __init__(self, db_conn, ldam_mgr, agent_cnt = None, queue_size = 10000):
 		self.db_conn = db_conn
 		self.ldam_mgr = ldam_mgr
 
 		self.session = None
 
-		self.agent_in_q = multiprocessing.Queue()
-		self.agent_out_q = multiprocessing.Queue()
+		self.queue_size = queue_size
+		self.agent_in_q = multiprocessing.Queue(queue_size)
+		self.agent_out_q = multiprocessing.Queue(queue_size)
 		self.agents = []
-		self.agent_cnt = agent_cnt
+		self.agent_cnt = multiprocessing.cpu_count() if agent_cnt is None else 5
 		self.ad_id = None
 
 		self.user_ctr = 0
@@ -591,22 +598,31 @@ class LDAPEnumeratorManager:
 				logger.warning(res)
 
 			elif res_type == LDAPAgentCommand.SPNSERVICES_FINISHED:
+				logger.info('SPN enumeration finished!')
 				self.spn_finish_ctr += 1
 			elif res_type == LDAPAgentCommand.USERS_FINISHED:
+				logger.info('Users enumeration finished!')
 				self.user_finish_ctr += 1
 			elif res_type == LDAPAgentCommand.MACHINES_FINISHED:
+				logger.info('Machines enumeration finished!')
 				self.machine_finish_ctr += 1
 			elif res_type == LDAPAgentCommand.OUS_FINISHED:
+				logger.info('OUs enumeration finished!')
 				self.ou_finish_ctr += 1
 			elif res_type == LDAPAgentCommand.GROUPS_FINISHED:
+				logger.info('Groups enumeration finished!')
 				self.group_finish_ctr += 1
 			elif res_type == LDAPAgentCommand.MEMBERSHIPS_FINISHED:
+				logger.info('Memberships enumeration finished!')
 				self.member_finish_ctr += 1
 			elif res_type == LDAPAgentCommand.SDS_FINISHED:
+				logger.info('Secuirty Descriptor enumeration finished!')
 				self.sd_finish_ctr += 1
 			elif res_type == LDAPAgentCommand.DOMAININFO_FINISHED:
+				logger.info('Domaininfo enumeration finished!')
 				self.domaininfo_finish_ctr += 1
 			elif res_type == LDAPAgentCommand.GPOS_FINISHED:
+				logger.info('GPOs enumeration finished!')
 				self.gpo_finish_ctr += 1
 
 			if self.check_status() == True:
