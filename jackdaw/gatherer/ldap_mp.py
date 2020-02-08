@@ -24,6 +24,8 @@ from jackdaw import logger
 
 from msldap.ldap_objects import *
 
+from tqdm import tqdm
+
 import multiprocessing
 import enum
 
@@ -265,6 +267,10 @@ class LDAPEnumeratorManager:
 		self.domaininfo_finish_ctr = 0
 		self.gpo_finish_ctr = 0
 
+		self.total_progress = None
+		self.total_counter = 0
+		self.total_counter_steps = 100
+
 
 	@staticmethod
 	def spn_to_account(spn):
@@ -272,7 +278,8 @@ class LDAPEnumeratorManager:
 			return spn.rsplit('/')[1].upper() + '$'
 	
 	def setup(self):
-		logger.info('mgr setup')
+		logger.debug('mgr setup')
+		self.total_progress = tqdm(desc='LDAP info entries', ascii = True)
 		self.session = get_session(self.db_conn)
 		for _ in range(self.agent_cnt):
 			agent = LDAPEnumeratorAgent(self.ldam_mgr, self.agent_in_q, self.agent_out_q)
@@ -533,6 +540,11 @@ class LDAPEnumeratorManager:
 		#print(self.domaininfo_ctr)
 		#print(self.domaininfo_finish_ctr)
 
+		self.total_counter += 1
+		if self.total_counter == self.total_counter_steps:
+			self.total_progress.update(self.total_counter)
+			self.total_counter = 0
+
 		if self.user_ctr == self.user_finish_ctr \
 			and self.machine_ctr == self.machine_finish_ctr\
 			and self.ou_ctr == self.ou_finish_ctr\
@@ -542,22 +554,24 @@ class LDAPEnumeratorManager:
 			and self.member_ctr == self.member_finish_ctr\
 			and self.domaininfo_ctr == self.domaininfo_finish_ctr\
 			and self.gpo_ctr == self.gpo_finish_ctr:
+			self.total_progress.update(self.total_counter)
 			return True
 		return False
 
 	def stop_agents(self):
-		logger.info('mgr stop')
+		logger.debug('mgr stop')
 		self.session.commit()
 		self.session.close()
 		for _ in self.agents:
 			self.agent_in_q.put(None)
 		for agent in self.agents:
 			agent.join()
-		logger.info('stopped all agents!')
+		logger.debug('All agents finished!')
 
 	def run(self):
+		logger.info('[+] Starting LDAP information acqusition. This might take a while...')
 		self.setup()
-		logger.info('setup finished!')
+		logger.debug('setup finished!')
 
 		self.domaininfo_ctr += 1
 		job = LDAPAgentJob(LDAPAgentCommand.DOMAININFO, None)
@@ -598,37 +612,38 @@ class LDAPEnumeratorManager:
 				logger.warning(res)
 
 			elif res_type == LDAPAgentCommand.SPNSERVICES_FINISHED:
-				logger.info('SPN enumeration finished!')
+				logger.debug('SPN enumeration finished!')
 				self.spn_finish_ctr += 1
 			elif res_type == LDAPAgentCommand.USERS_FINISHED:
-				logger.info('Users enumeration finished!')
+				logger.debug('Users enumeration finished!')
 				self.user_finish_ctr += 1
 			elif res_type == LDAPAgentCommand.MACHINES_FINISHED:
-				logger.info('Machines enumeration finished!')
+				logger.debug('Machines enumeration finished!')
 				self.machine_finish_ctr += 1
 			elif res_type == LDAPAgentCommand.OUS_FINISHED:
-				logger.info('OUs enumeration finished!')
+				logger.debug('OUs enumeration finished!')
 				self.ou_finish_ctr += 1
 			elif res_type == LDAPAgentCommand.GROUPS_FINISHED:
-				logger.info('Groups enumeration finished!')
+				logger.debug('Groups enumeration finished!')
 				self.group_finish_ctr += 1
 			elif res_type == LDAPAgentCommand.MEMBERSHIPS_FINISHED:
-				logger.info('Memberships enumeration finished!')
+				logger.debug('Memberships enumeration finished!')
 				self.member_finish_ctr += 1
 			elif res_type == LDAPAgentCommand.SDS_FINISHED:
-				logger.info('Secuirty Descriptor enumeration finished!')
+				logger.debug('Secuirty Descriptor enumeration finished!')
 				self.sd_finish_ctr += 1
 			elif res_type == LDAPAgentCommand.DOMAININFO_FINISHED:
-				logger.info('Domaininfo enumeration finished!')
+				logger.debug('Domaininfo enumeration finished!')
 				self.domaininfo_finish_ctr += 1
 			elif res_type == LDAPAgentCommand.GPOS_FINISHED:
-				logger.info('GPOs enumeration finished!')
+				logger.debug('GPOs enumeration finished!')
 				self.gpo_finish_ctr += 1
 
 			if self.check_status() == True:
 				break
 		
 		self.stop_agents()
+		logger.info('[+] LDAP information acqusition finished!')
 		return self.ad_id
 
 		

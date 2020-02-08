@@ -139,6 +139,7 @@ class SMBGathererManager:
 					self.prg_hosts.update()
 	
 	def run(self):
+		logger.info('[+] Starting SMB information acqusition. This might take a while...')
 		self.in_q = AsyncProcessQueue()
 		self.out_q = AsyncProcessQueue()
 		if self.use_progress_bar is True:
@@ -166,6 +167,7 @@ class SMBGathererManager:
 		#	self.prg_hosts.total = self.total_targets
 
 		self.results_thread.join()
+		logger.info('[+] SMB information acqusition finished!')
 
 
 class AIOSMBGatherer(multiprocessing.Process):
