@@ -4,7 +4,7 @@ gather gather gather
 
 # What is this?
 Jackdaw is here to collect all information in your domain, store it in a SQL database and show you nice graphs on how your domain objects interact with each-other an how a potential attacker may exploit these interactions.
-It also comes with a handy feature to help you in a password-cracking project by storing/looking up/reporting hashes/passowrds/users.
+It also comes with a handy feature to help you in a password-cracking project by storing/looking up/reporting hashes/passwords/users.
 
 # Example commands
 Most of these commands are available already from the webapi, except for the database init.
@@ -15,10 +15,10 @@ Most of these commands are available already from the webapi, except for the dat
 #### Full enumeration with integrated sspi - windows only
 `jackdaw --sql sqlite:///test.db enum 'ldap+sspi://10.10.10.2' 'smb+sspi-ntlm://10.10.10.2'`
 #### Full enumeration with username and password - platform independent
-The passowrd is `Passw0rd!`  
+The password is `Passw0rd!`  
 `jackdaw --sql sqlite:///test.db ldap 'ldap://TEST\victim:Passw0rd!@10.10.10.2' 'smb+ntlm-password://TEST\victim:Passw0rd!@10.10.10.2'`
 #### LDAP-only enumeration with username and password - platform independent
-The passowrd is `Passw0rd!`  
+The password is `Passw0rd!`  
 `jackdaw --sql sqlite:///test.db ldap 'ldap://TEST\victim:Passw0rd!@10.10.10.2'`
 
 ### Start interactive web interface to plot graph and access additional features
@@ -49,9 +49,9 @@ The framework allows users to upload impacket's DCSYNC files to store credential
 The framework allows manually extending the available DB in every aspect. Example: when user session information on a given computer is discovered (outside of the automatic enumeration) there is a possibility to manually upload these sessions, which will populate the DB and also the result graph
 
 ## Graph
-The framework can generate a graph using the available information in the database and plot it via the web UI (nest). Furthermore the graph generation and path canculations can be invoked programmatically, either by using the web API (/ui endpoint) or the grph object's functions.  
+The framework can generate a graph using the available information in the database and plot it via the web UI (nest). Furthermore the graph generation and path canculations can be invoked programmatically, either by using the web API (/ui endpoint) or the graph object's functions.  
 
-## Anomlaies detection  
+## Anomalies detection  
 The framework can identify common AD misconfigurations without graph generation. Currently only via the web API.  
 
 #### User
