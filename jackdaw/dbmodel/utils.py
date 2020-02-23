@@ -26,6 +26,11 @@ class UAC_FLAGS(enum.IntFlag):
 	TRUSTED_TO_AUTHENTICATE_FOR_DELEGATION = 0x01000000  #[ADS_UF_TRUSTED_TO_AUTHENTICATE_FOR_DELEGATION](https://msdn.microsoft.com/library/aa772300) 	The account is enabled for delegation. This is a security-sensi	tive 	setting; accounts with this option enabled should be strictly controlled. This setting enables a service running under the account to assume a client identity and authenticate 	as that user to other remote servers on the network.
 	
 def calc_uac_flags(obj):
+	try:
+		int(obj.userAccountControl)
+	except:
+		return
+	
 	flags = UAC_FLAGS(int(obj.userAccountControl))
 	obj.UAC_SCRIPT = bool(flags & UAC_FLAGS.SCRIPT)
 	obj.UAC_ACCOUNTDISABLE = bool(flags & UAC_FLAGS.ACCOUNTDISABLE)

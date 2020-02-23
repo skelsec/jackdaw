@@ -12,10 +12,23 @@ from sqlalchemy import not_, and_, or_, case
 from sqlalchemy.orm import load_only
 import networkx as nx
 
-
+from jackdaw.dbmodel import get_session
+from jackdaw.dbmodel.spnservice import JackDawSPNService
+from jackdaw.dbmodel.addacl import JackDawADDACL
+from jackdaw.dbmodel.adgroup import JackDawADGroup
+from jackdaw.dbmodel.adinfo import JackDawADInfo
+from jackdaw.dbmodel.aduser import JackDawADUser
+from jackdaw.dbmodel.adcomp import JackDawADMachine
+from jackdaw.dbmodel.adou import JackDawADOU
+from jackdaw.dbmodel.usergroup import JackDawGroupUser
 from jackdaw.dbmodel.adinfo import JackDawADInfo
 from jackdaw.dbmodel.tokengroup import JackDawTokenGroup
-from jackdaw.dbmodel import *
+from jackdaw.dbmodel.adgpo import JackDawADGPO
+from jackdaw.dbmodel.constrained import JackDawMachineConstrainedDelegation, JackDawUserConstrainedDelegation
+from jackdaw.dbmodel.adgplink import JackDawADGplink
+from jackdaw.dbmodel.netsession import NetSession
+from jackdaw.dbmodel.localgroup import LocalGroup
+from jackdaw.dbmodel.credential import Credential
 from jackdaw.wintypes.well_known_sids import get_name_or_sid, get_sid_for_name
 from jackdaw.wintypes.lookup_tables import *
 from jackdaw.nest.graph.graphdata import *
@@ -355,7 +368,7 @@ class DomainGraph:
 					proc.join()
 				logger.debug('[DST_CALC] Finished!')
 
-			except Exception as e:
+			except:
 				logger.exception('[DST_CALC]')
 			
 		elif src_sid and not dst_sid:
@@ -445,7 +458,7 @@ class DomainGraph:
 				proc.join()
 			logger.debug('[ACL] Finished!')
 
-		except Exception as e:
+		except:
 			logger.exception('[ACL]')
 	
 	def calc_acl_edges(self, session, construct):
@@ -660,19 +673,19 @@ class DomainGraph:
 				try:
 					self.add_edge(tokengroup.sid, tokengroup.member_sid, construct, label='member')
 					cnt += 1
-				except AssertionError as e:
+				except AssertionError:
 					logger.exception()
 			elif tokengroup.is_machine == True:
 				try:
 					self.add_edge(tokengroup.sid, tokengroup.member_sid, construct, label='member')
 					cnt += 1
-				except AssertionError as e:
+				except AssertionError:
 					logger.exception()
 			elif tokengroup.is_group == True:
 				try:
 					self.add_edge(tokengroup.sid, tokengroup.member_sid, construct, label='member')
 					cnt += 1
-				except AssertionError as e:
+				except AssertionError:
 					logger.exception()
 		
 		logger.debug('Added %s membership edges' % cnt)
