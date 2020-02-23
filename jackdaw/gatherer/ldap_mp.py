@@ -87,6 +87,8 @@ class LDAPEnumeratorAgent(multiprocessing.Process):
 				s.is_group = True if membership_attr['type'] == 'group' else False
 				s.is_machine = True if membership_attr['type'] == 'machine' else False
 				self.agent_out_q.put((LDAPAgentCommand.MEMBERSHIP, s))
+				del s
+				del sid
 		except:
 			self.agent_out_q.put((LDAPAgentCommand.EXCEPTION, str(traceback.format_exc())))
 		finally:
@@ -118,6 +120,7 @@ class LDAPEnumeratorAgent(multiprocessing.Process):
 					s.service = service
 					s.port = port
 					self.agent_out_q.put((LDAPAgentCommand.SPNSERVICE, s))
+					del s
 		except:
 			self.agent_out_q.put((LDAPAgentCommand.EXCEPTION, str(traceback.format_exc())))
 		finally:
@@ -129,7 +132,9 @@ class LDAPEnumeratorAgent(multiprocessing.Process):
 				#TODO: fix this ugly stuff here...
 				if user.sAMAccountName[-1] == "$":
 					continue
-				self.agent_out_q.put((LDAPAgentCommand.USER, JackDawADUser.from_aduser(user)))
+				u = JackDawADUser.from_aduser(user)
+				self.agent_out_q.put((LDAPAgentCommand.USER, u))
+				del u
 		except:
 			self.agent_out_q.put((LDAPAgentCommand.EXCEPTION, str(traceback.format_exc())))
 		finally:
@@ -138,7 +143,9 @@ class LDAPEnumeratorAgent(multiprocessing.Process):
 	def get_all_groups(self):
 		try:
 			for group in self.ldap.get_all_groups():
-				self.agent_out_q.put((LDAPAgentCommand.GROUP, JackDawADGroup.from_dict(group.to_dict())))
+				g = JackDawADGroup.from_dict(group.to_dict())
+				self.agent_out_q.put((LDAPAgentCommand.GROUP, g))
+				del g
 		except:
 			self.agent_out_q.put((LDAPAgentCommand.EXCEPTION, str(traceback.format_exc())))
 		finally:
@@ -147,7 +154,9 @@ class LDAPEnumeratorAgent(multiprocessing.Process):
 	def get_all_gpos(self):
 		try:
 			for gpo in self.ldap.get_all_gpos():
-				self.agent_out_q.put((LDAPAgentCommand.GPO, JackDawADGPO.from_adgpo(gpo)))
+				g = JackDawADGPO.from_adgpo(gpo)
+				self.agent_out_q.put((LDAPAgentCommand.GPO, g))
+				del g
 		except:
 			self.agent_out_q.put((LDAPAgentCommand.EXCEPTION, str(traceback.format_exc())))
 		finally:
@@ -157,7 +166,9 @@ class LDAPEnumeratorAgent(multiprocessing.Process):
 	def get_all_machines(self):
 		try:
 			for machine in self.ldap.get_all_machine_objects():
-				self.agent_out_q.put((LDAPAgentCommand.MACHINE, JackDawADMachine.from_adcomp(machine)))
+				m = JackDawADMachine.from_adcomp(machine)
+				self.agent_out_q.put((LDAPAgentCommand.MACHINE, m))
+				del m
 		except:
 			self.agent_out_q.put((LDAPAgentCommand.EXCEPTION, str(traceback.format_exc())))
 		finally:
@@ -166,7 +177,9 @@ class LDAPEnumeratorAgent(multiprocessing.Process):
 	def get_all_ous(self):
 		try:
 			for ou in self.ldap.get_all_ous():
-				self.agent_out_q.put((LDAPAgentCommand.OU, JackDawADOU.from_adou(ou)))
+				o = JackDawADOU.from_adou(ou)
+				self.agent_out_q.put((LDAPAgentCommand.OU, o))
+				del o
 		except:
 			self.agent_out_q.put((LDAPAgentCommand.EXCEPTION, str(traceback.format_exc())))
 		finally:
@@ -190,6 +203,7 @@ class LDAPEnumeratorAgent(multiprocessing.Process):
 				if not sd.nTSecurityDescriptor or not sd.nTSecurityDescriptor.Dacl:
 					return
 				self.agent_out_q.put((LDAPAgentCommand.SD, {'sd':sd, 'obj_type': obj_type}))
+				del sd
 		
 		except:
 			self.agent_out_q.put((LDAPAgentCommand.EXCEPTION, str(traceback.format_exc())))

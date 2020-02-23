@@ -4,7 +4,6 @@
 #  Tamas Jos (@skelsec)
 #
 
-import tracemalloc
 import sys
 import logging
 
@@ -14,8 +13,6 @@ from aiosmb import logger as smblogger
 from msldap import logger as msldaplogger
 
 from jackdaw.dbmodel import create_db, get_session
-from jackdaw.common.apq import AsyncProcessQueue
-from jackdaw.common.proxy import ProxyConnection
 from jackdaw.gatherer.universal.smb import SMBGathererManager
 from jackdaw.gatherer.universal.smb_file import SMBShareGathererSettings, ShareGathererManager
 
@@ -276,12 +273,4 @@ def main():
 	run(args)
 
 if __name__ == '__main__':
-	tracemalloc.start()
 	main()
-	snapshot = tracemalloc.take_snapshot()
-	top_stats = snapshot.statistics('lineno')
-
-	print("[ Top 10 ]")
-	for stat in top_stats[:10]:
-		print(stat)
-	
