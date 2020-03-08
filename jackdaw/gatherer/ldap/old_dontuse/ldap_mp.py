@@ -4,6 +4,10 @@
 #  Tamas Jos (@skelsec)
 #
 
+import tracemalloc
+import threading
+import time
+import objgraph
 import traceback
 import os
 import re
@@ -23,6 +27,8 @@ from jackdaw.dbmodel.adgplink import JackDawADGplink
 from jackdaw.dbmodel import get_session
 from jackdaw.wintypes.lookup_tables import *
 from jackdaw import logger
+
+from msldap.ldap_objects import *
 
 #from msldap.ldap_objects import *
 
@@ -73,6 +79,7 @@ class LDAPEnumeratorAgent(multiprocessing.Process):
 		self.agent_in_q = agent_in_q
 		self.agent_out_q = agent_out_q
 		self.ldap = None
+		self.test_ctr = 0
 
 	def get_effective_memberships(self, membership_attr):
 		try:
@@ -106,7 +113,7 @@ class LDAPEnumeratorAgent(multiprocessing.Process):
 			attributes = ['sAMAccountName', 'servicePrincipalName']
 			
 			for entry in self.ldap.pagedsearch(ldap_filter, attributes):
-				for spn in entry['attributes']['servicePrincipalName']:			
+				for spn in entry['attributes']['servicePrincipalName']:
 					port = None
 					service, t = spn.rsplit('/',1)
 					m = t.find(':')
@@ -128,13 +135,12 @@ class LDAPEnumeratorAgent(multiprocessing.Process):
 
 	def get_all_users(self):
 		try:
-			for user in self.ldap.get_all_user_objects():
-				#TODO: fix this ugly stuff here...
-				if user.sAMAccountName[-1] == "$":
-					continue
-				u = JackDawADUser.from_aduser(user)
-				self.agent_out_q.put((LDAPAgentCommand.USER, u))
-				del u
+			for user_data in self.ldap.get_all_user_raw():
+				#self.test_ctr += 1
+				#if self.test_ctr > 10000:
+				#	self.test_ctr = 0
+				#	objgraph.show_most_common_types()
+				self.agent_out_q.put((LDAPAgentCommand.USER, user_data))
 		except:
 			self.agent_out_q.put((LDAPAgentCommand.EXCEPTION, str(traceback.format_exc())))
 		finally:
@@ -165,10 +171,8 @@ class LDAPEnumeratorAgent(multiprocessing.Process):
 
 	def get_all_machines(self):
 		try:
-			for machine in self.ldap.get_all_machine_objects():
-				m = JackDawADMachine.from_adcomp(machine)
-				self.agent_out_q.put((LDAPAgentCommand.MACHINE, m))
-				del m
+			for machine_data in self.ldap.get_all_machine_objects():
+				self.agent_out_q.put((LDAPAgentCommand.MACHINE, machine_data))
 		except:
 			self.agent_out_q.put((LDAPAgentCommand.EXCEPTION, str(traceback.format_exc())))
 		finally:
@@ -197,6 +201,7 @@ class LDAPEnumeratorAgent(multiprocessing.Process):
 
 	def get_sds(self, data):
 		try:
+			return
 			dn = data['dn']
 			obj_type = data['obj_type']
 			for sd in self.ldap.get_objectacl_by_dn(dn):
@@ -219,7 +224,20 @@ class LDAPEnumeratorAgent(multiprocessing.Process):
 			self.agent_out_q.put((LDAPAgentCommand.EXCEPTION, str(traceback.format_exc())))
 			return False
 
+	def test_f(self):
+		while True:
+			print(self.pid)
+			t = 'STATS %s\r\n' % self.pid
+			for x in objgraph.most_common_types():
+				t += '%s %s\r\n' % (x[0], x[1])
+			print(t)
+			time.sleep(20)
+
 	def run(self):
+		i = 0
+		t = threading.Thread(target=self.test_f, args=())
+		t.daemon = True
+		t.start()
 		res = self.setup()
 		#print('agent setup res: %s' % res)
 		if res is False:
@@ -229,7 +247,7 @@ class LDAPEnumeratorAgent(multiprocessing.Process):
 			#print('Got new job! %s' % res)
 			if res is None:
 				return
-			
+		
 			if res.command == LDAPAgentCommand.DOMAININFO:
 				self.get_domain_info()
 			elif res.command == LDAPAgentCommand.USERS:
@@ -250,7 +268,7 @@ class LDAPEnumeratorAgent(multiprocessing.Process):
 				self.get_sds(res.data)
 
 class LDAPEnumeratorManager:
-	def __init__(self, db_conn, ldam_mgr, agent_cnt = None, queue_size = 100):
+	def __init__(self, db_conn, ldam_mgr, agent_cnt = None, queue_size = 10):
 		self.db_conn = db_conn
 		self.ldam_mgr = ldam_mgr
 
@@ -335,8 +353,9 @@ class LDAPEnumeratorManager:
 		self.agent_in_q.put(job)
 
 
-	def enum_machine(self, machine):
+	def enum_machine(self, machine_data):
 		#print('Got machine object!')
+		machine = JackDawADMachine.from_adcomp(machine_data)
 		machine.ad_id = self.ad_id
 		self.session.add(machine)
 		self.session.commit()
@@ -364,9 +383,12 @@ class LDAPEnumeratorManager:
 		
 		self.sd_ctr += 1
 		job = LDAPAgentJob(LDAPAgentCommand.SDS, {'dn' : machine.dn, 'obj_type': 'machine' })
-		self.agent_in_q.put(job)		
+		self.agent_in_q.put(job)
+		del machine
 
-	def enum_user(self, user):
+	def enum_user(self, user_data):
+		user_data = MSADUser.from_ldap(user_data)
+		user = JackDawADUser.from_aduser(user_data)
 		user.ad_id = self.ad_id
 		self.session.add(user)
 		self.session.commit()

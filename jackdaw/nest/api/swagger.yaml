@@ -449,6 +449,49 @@ paths:
         200:
           description: Successfully deleted the graph
 
+  /graph/{graphid}/save:
+    get:
+      operationId: jackdaw.nest.api.graph.save
+      tags:
+        - Graph
+      summary: Saves the graph to a local file
+      description: Saves the graph to a local file
+      parameters:
+        - name: graphid
+          in: path
+          description: ID of the graph view
+          type: integer
+          required: True
+      responses:
+        200:
+          description: OK
+          schema:
+            type: file
+
+  /graph/load:
+    put:
+      operationId: jackdaw.nest.api.graph.load
+      tags:
+        - Graph
+      summary: Loads the graph from the supplied file
+      description: Returns the FULL graph view selected by graphid
+      parameters:
+        - name: file_to_upload
+          in: formData
+          description: File to upload
+          type: file
+          required: True
+      responses:
+        200:
+          description: TODO
+          schema:
+            type: object
+            properties:
+              graph:
+                type: string
+                description: Placeholder TODO
+
+        
 
   /domain/list:
     get:

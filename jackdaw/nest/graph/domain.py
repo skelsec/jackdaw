@@ -7,14 +7,19 @@
 import multiprocessing as mp
 import threading
 import enum
+import gzip
+import json
 
+from sqlalchemy import func
 from sqlalchemy import not_, and_, or_, case
 from sqlalchemy.orm import load_only
 import networkx as nx
+from networkx.readwrite import json_graph
 
 from jackdaw.dbmodel import get_session
 from jackdaw.dbmodel.spnservice import JackDawSPNService
 from jackdaw.dbmodel.addacl import JackDawADDACL
+from jackdaw.dbmodel.adsd import JackDawSD
 from jackdaw.dbmodel.adgroup import JackDawADGroup
 from jackdaw.dbmodel.adinfo import JackDawADInfo
 from jackdaw.dbmodel.aduser import JackDawADUser
@@ -33,7 +38,19 @@ from jackdaw.wintypes.well_known_sids import get_name_or_sid, get_sid_for_name
 from jackdaw.wintypes.lookup_tables import *
 from jackdaw.nest.graph.graphdata import *
 from jackdaw import logger
+from jackdaw.utils.encoder import UniversalEncoder
+from winacl.dtyp.security_descriptor import SECURITY_DESCRIPTOR
+import base64
+from tqdm import tqdm
 
+from jackdaw.nest.graph.construct import GraphConstruct
+class GraphDecoder(json.JSONDecoder):
+	def __init__(self, *args, **kwargs):
+		json.JSONDecoder.__init__(self, object_hook=self.object_hook, *args, **kwargs)
+	def object_hook(self, dct):
+		if 'construct' in dct:
+			dct['construct'] = GraphConstruct.from_dict(dct['construct'])
+		return dct
 
 def windowed_query(q, column, windowsize, is_single_entity = True):
 	""""Break a Query into chunks on a given column."""
@@ -120,10 +137,61 @@ def short_worker(inqueue, outqueue, graph, dst_sid):
 
 
 def acl_calc_gen(session, adid, inqueue, procno):
-	q = session.query(JackDawADDACL).filter_by(ad_id = adid)
+	print('counting rows')
+	total = session.query(func.count(JackDawSD.id)).filter_by(ad_id = adid).scalar()
 
-	for acl in windowed_query(q, JackDawADDACL.id, 1000):
-		inqueue.put(acl)
+	q = session.query(JackDawSD).filter_by(ad_id = adid)
+
+	for adsd in tqdm(windowed_query(q, JackDawSD.id, 1000), total=total):
+		sd = SECURITY_DESCRIPTOR.from_bytes(base64.b64decode(adsd.sd))
+		
+		order_ctr = 0
+		for ace in sd.Dacl.aces:
+			acl = JackDawADDACL()
+			acl.ad_id = adsd.ad_id
+			acl.object_type = adsd.object_type
+			acl.object_type_guid = OBJECTTYPE_GUID_MAP.get(adsd.object_type)
+			acl.owner_sid = str(sd.Owner)
+			acl.group_sid = str(sd.Group)
+			acl.ace_order = order_ctr
+			
+			order_ctr += 1
+			acl.guid = str(adsd.guid)
+			if adsd.sid:
+				acl.sid = str(adsd.sid)
+			#if sd.cn:
+			#	acl.cn = sd.cn
+			#if sd.distinguishedName:
+			#	acl.dn = str(sd.distinguishedName)
+			acl.sd_control = sd.Control
+			
+			acl.ace_type = ace.AceType.name
+			acl.ace_mask = ace.Mask
+			t = getattr(ace,'ObjectType', None)
+			if t:
+				acl.ace_objecttype = str(t)
+			
+			t = getattr(ace,'InheritedObjectType', None)
+			if t:
+				acl.ace_inheritedobjecttype = str(t)
+				
+			true_attr, false_attr = JackDawADDACL.mask2attr(ace.Mask)
+			
+			for attr in true_attr:	
+				setattr(acl, attr, True)
+			for attr in false_attr:	
+				setattr(acl, attr, False)
+				
+			true_attr, false_attr = JackDawADDACL.hdrflag2attr(ace.AceFlags)
+			
+			for attr in true_attr:	
+				setattr(acl, attr, True)
+			for attr in false_attr:	
+				setattr(acl, attr, False)
+			
+			acl.ace_sid = str(ace.Sid)
+		
+			inqueue.put(acl)
 	#adinfo = session.query(JackDawADInfo).get(adid)
 	#for acl in adinfo.objectacls:
 	#	inqueue.put(acl)
@@ -224,7 +292,26 @@ class DomainGraph:
 		self.graph = nx.DiGraph()
 		self.domain_sid = None
 
-		
+	def to_gzip(self, filename = 'test.gzip'):
+		gd = json_graph.node_link_data(self.graph)
+		gd['domain_sid'] = self.domain_sid
+
+		with gzip.open(filename, 'wt', encoding="utf-8") as zipfile:
+			json.dump(gd, zipfile, cls = UniversalEncoder)
+	
+	@staticmethod
+	def from_gzip_stream(stream):
+		domain_graph = DomainGraph()
+		with gzip.GzipFile(fileobj=stream, mode='r') as zipfile:
+			gd = json.load(zipfile, cls=GraphDecoder)
+		#print(gd)
+		domain_graph.domain_sid = gd['domain_sid']
+		del gd['domain_sid']
+		domain_graph.graph = json_graph.node_link_graph(gd)
+
+		return domain_graph
+
+
 	def get_session(self):
 		if self.db_conn is not None:
 			return get_session(self.db_conn)

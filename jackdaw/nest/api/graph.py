@@ -5,14 +5,20 @@
 #
 
 # System modules
-from datetime import datetime
+import datetime
+import tempfile
+import os
+
 from jackdaw.nest.graph.domain import DomainGraph
 from jackdaw.nest.graph.graphdata import GraphData
 from jackdaw.nest.graph.construct import GraphConstruct
 from jackdaw.nest.graph.domaindiff import DomainDiff
+from jackdaw import logger
+import connexion
 
 # 3rd party modules
-from flask import make_response, abort, current_app
+from flask import make_response, abort, current_app, send_file, after_this_request
+
 
 
 graph_id_ctr = 1
@@ -22,21 +28,50 @@ diff_id_ctr = 1
 diffs = {}
 
 def list_all():
-    return list(graphs.keys())
+	return list(graphs.keys())
 
 def create(adids):
 	global graph_id_ctr
+	old_graph_id_ctr = graph_id_ctr
+	graph_id_ctr += 1
 	db = current_app.db
 	dg = DomainGraph(dbsession = db.session)
 	for adid in adids:
 		construct = GraphConstruct(adid)
 		dg.construct(construct)
-	graphs[graph_id_ctr] = dg
-	graph_id_ctr += 1
-	return {'graphid' : graph_id_ctr - 1}
+	graphs[old_graph_id_ctr] = dg
+	return {'graphid' : old_graph_id_ctr}
 
 def delete(graphid):
+	del graphs[graphid]
 	return {}
+
+
+def save(graphid):
+	with tempfile.NamedTemporaryFile(delete=False) as tmpfile:
+		temp_file_name = tmpfile.name
+
+	logger.warining('Temp file created, but will not be removed! %s' % temp_file_name)
+	graphs[graphid].to_gzip(temp_file_name)
+
+	attachment_name = 'graph_%s_%s.gzip' % (graphid, datetime.datetime.now().isoformat())
+	resp = send_file(temp_file_name,
+		as_attachment=True, 
+		mimetype='application/octet-stream',
+		attachment_filename=attachment_name
+	)
+	return resp
+
+def load():	
+	global graph_id_ctr
+	old_graph_id_ctr = graph_id_ctr
+	graph_id_ctr += 1
+
+	file_to_upload = connexion.request.files['file_to_upload']
+	graphs[old_graph_id_ctr] = DomainGraph.from_gzip_stream(file_to_upload.stream)
+	graphs[old_graph_id_ctr].dbsession = current_app.db.session #need to restore db session
+
+	return {'graphid' : old_graph_id_ctr}
 
 def get(graphid):
 	if graphid not in graphs:

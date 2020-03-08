@@ -6,8 +6,8 @@ from flask import current_app
 
 from aiosmb.commons.connection.url import SMBConnectionURL
 from msldap.commons.url import MSLDAPURLDecoder
-from jackdaw.gatherer.universal.smb import SMBGathererManager
-from jackdaw.gatherer.ldap_mp import LDAPEnumeratorManager
+from jackdaw.gatherer.smb.smb import SMBGathererManager
+from jackdaw.gatherer.ldap.aioldap import LDAPEnumeratorManager
 
 
 def scan_enum(params):

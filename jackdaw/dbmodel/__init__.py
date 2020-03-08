@@ -10,7 +10,7 @@ from sqlalchemy import create_engine, func
 from sqlalchemy.orm import sessionmaker
 import enum
 
-from msldap.wintypes.security_descriptor import *
+from winacl.dtyp.ace import ADS_ACCESS_MASK, AceFlags
 
 Basemodel = declarative_base()
 
@@ -64,7 +64,7 @@ def bc(x):
 			return None
 	raise Exception('Cant convert this to bool: %s type: %s' % (x, type(x)))
 
-from .addacl import *
+#from .addacl import *
 from .adgroup import *
 from .adcomp import *
 from .adinfo import *
@@ -85,6 +85,7 @@ from .adgplink import *
 from .adgpo import *
 from .netfile import *
 from .netdir import *
+from .adsd import *
 
 
 

@@ -13,11 +13,11 @@ from aiosmb import logger as smblogger
 from msldap import logger as msldaplogger
 
 from jackdaw.dbmodel import create_db, get_session
-from jackdaw.gatherer.universal.smb import SMBGathererManager
-from jackdaw.gatherer.universal.smb_file import SMBShareGathererSettings, ShareGathererManager
+from jackdaw.gatherer.smb.smb import SMBGathererManager
+from jackdaw.gatherer.smb.smb_file import SMBShareGathererSettings, ShareGathererManager
 
 from jackdaw import logger as jdlogger
-from jackdaw.gatherer.ldap_mp import LDAPEnumeratorManager
+from jackdaw.gatherer.ldap.aioldap import LDAPEnumeratorManager
 from jackdaw.utils.argshelper import *
 from jackdaw.credentials.credentials import JackDawCredentials
 from aiosmb.commons.connection.url import SMBConnectionURL
@@ -85,7 +85,7 @@ def run(args):
 		
 	elif args.command == 'ldap':
 		ldap_mgr = construct_ldapdef(args)
-		ldap_conn = ldap_mgr.get_connection()
+		ldap_conn = ldap_mgr.get_client()
 		ldap_conn.connect()
 	
 		mgr = LDAPEnumeratorManager(db_conn, ldap_mgr, agent_cnt=args.ldap_workers, queue_size=args.ldap_queue_size)
@@ -101,7 +101,7 @@ def run(args):
 		
 		if args.ldap_url:
 			ldap_mgr = construct_ldapdef(args)
-			ldap_conn = ldap_mgr.get_connection()
+			ldap_conn = ldap_mgr.get_client()
 			ldap_conn.connect()
 			mgr.ldap_conn = ldap_conn
 		

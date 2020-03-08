@@ -1,0 +1,697 @@
+#!/usr/bin/env python3
+#
+# Author:
+#  Tamas Jos (@skelsec)
+#
+
+import asyncio
+import tracemalloc
+import threading
+import time
+import objgraph
+import traceback
+import os
+import re
+from jackdaw.dbmodel.spnservice import JackDawSPNService
+from jackdaw.dbmodel.addacl import JackDawADDACL
+from jackdaw.dbmodel.adgroup import JackDawADGroup
+from jackdaw.dbmodel.adinfo import JackDawADInfo
+from jackdaw.dbmodel.aduser import JackDawADUser
+from jackdaw.dbmodel.adcomp import JackDawADMachine
+from jackdaw.dbmodel.adou import JackDawADOU
+from jackdaw.dbmodel.usergroup import JackDawGroupUser
+from jackdaw.dbmodel.adinfo import JackDawADInfo
+from jackdaw.dbmodel.tokengroup import JackDawTokenGroup
+from jackdaw.dbmodel.adgpo import JackDawADGPO
+from jackdaw.dbmodel.constrained import JackDawMachineConstrainedDelegation, JackDawUserConstrainedDelegation
+from jackdaw.dbmodel.adgplink import JackDawADGplink
+from jackdaw.dbmodel import get_session
+from jackdaw.wintypes.lookup_tables import *
+from jackdaw import logger
+
+from msldap.ldap_objects import *
+from jackdaw.common.apq import AsyncProcessQueue
+
+import multiprocessing
+
+from tqdm import tqdm
+
+import enum
+
+class LDAPAgentCommand(enum.Enum):
+	SPNSERVICE = 0
+	SPNSERVICES = 1
+	USER = 2
+	USERS = 3
+	MACHINE = 4
+	MACHINES = 5
+	OU = 6
+	OUS = 7
+	DOMAININFO = 8
+	GROUP = 9
+	GROUPS = 10
+	MEMBERSHIP = 11
+	MEMBERSHIPS = 12
+	SD = 13
+	SDS = 14
+	GPO = 15
+	GPOS = 16
+	EXCEPTION = 99
+
+	SPNSERVICES_FINISHED = 31
+	USERS_FINISHED = 32
+	MACHINES_FINISHED = 33
+	OUS_FINISHED = 34
+	GROUPS_FINISHED = 35
+	MEMBERSHIPS_FINISHED = 36
+	SDS_FINISHED = 37
+	DOMAININFO_FINISHED = 38
+	GPOS_FINISHED = 39
+
+class LDAPAgentJob:
+	def __init__(self, command, data):
+		self.command = command
+		self.data = data
+
+class LDAPEnumeratorAgent(multiprocessing.Process):
+	def __init__(self, ldap_mgr, agent_in_q, agent_out_q):
+		multiprocessing.Process.__init__(self)
+		self.ldap_mgr = ldap_mgr
+		self.agent_in_q = agent_in_q
+		self.agent_out_q = agent_out_q
+		self.ldap = None
+		self.test_ctr = 0
+
+	async def get_effective_memberships(self, membership_attr):
+		try:
+			async for sid in self.ldap.get_tokengroups(membership_attr['dn']):
+				s = JackDawTokenGroup()
+				s.cn = membership_attr['cn']
+				s.dn = membership_attr['dn']
+				s.guid = membership_attr['guid']
+				s.sid = membership_attr['sid']
+				s.member_sid = sid
+				s.is_user = True if membership_attr['type'] == 'user' else False
+				s.is_group = True if membership_attr['type'] == 'group' else False
+				s.is_machine = True if membership_attr['type'] == 'machine' else False
+				await self.agent_out_q.coro_put((LDAPAgentCommand.MEMBERSHIP, s))
+				del s
+				del sid
+		except:
+			await self.agent_out_q.coro_put((LDAPAgentCommand.EXCEPTION, str(traceback.format_exc())))
+		finally:
+			await self.agent_out_q.coro_put((LDAPAgentCommand.MEMBERSHIPS_FINISHED, None))
+
+	async def enumerate_spnservices(self):
+		pass
+
+	async def enumerate_machine(self, machine):
+		pass
+		
+	async def get_all_spnservices(self):
+		try:
+			ldap_filter = r'(&(sAMAccountType=805306369))'
+			attributes = ['sAMAccountName', 'servicePrincipalName']
+			
+			async for entry in self.ldap.pagedsearch(ldap_filter, attributes):
+				for spn in entry['attributes']['servicePrincipalName']:
+					port = None
+					service, t = spn.rsplit('/',1)
+					m = t.find(':')
+					if m != -1:
+						computername, port = spn.rsplit(':',1)
+					else:
+						computername = t
+						
+					s = JackDawSPNService()
+					s.computername = computername
+					s.service = service
+					s.port = port
+					await self.agent_out_q.coro_put((LDAPAgentCommand.SPNSERVICE, s))
+					del s
+		except:
+			await self.agent_out_q.coro_put((LDAPAgentCommand.EXCEPTION, str(traceback.format_exc())))
+		finally:
+			await self.agent_out_q.coro_put((LDAPAgentCommand.SPNSERVICES_FINISHED, None))
+
+	async def get_all_users(self):
+		try:
+			async for user_data in self.ldap.get_all_user_objects():
+				user = JackDawADUser.from_aduser(user_data)
+				await self.agent_out_q.coro_put((LDAPAgentCommand.USER, user))
+		except:
+			await self.agent_out_q.coro_put((LDAPAgentCommand.EXCEPTION, str(traceback.format_exc())))
+		finally:
+			await self.agent_out_q.coro_put((LDAPAgentCommand.USERS_FINISHED, None))
+
+	async def get_all_groups(self):
+		try:
+			async for group in self.ldap.get_all_groups():
+				g = JackDawADGroup.from_dict(group.to_dict())
+				await self.agent_out_q.coro_put((LDAPAgentCommand.GROUP, g))
+				del g
+		except:
+			await self.agent_out_q.coro_put((LDAPAgentCommand.EXCEPTION, str(traceback.format_exc())))
+		finally:
+			await self.agent_out_q.coro_put((LDAPAgentCommand.GROUPS_FINISHED, None))
+
+	async def get_all_gpos(self):
+		try:
+			async for gpo in self.ldap.get_all_gpos():
+				g = JackDawADGPO.from_adgpo(gpo)
+				await self.agent_out_q.coro_put((LDAPAgentCommand.GPO, g))
+				del g
+		except:
+			await self.agent_out_q.coro_put((LDAPAgentCommand.EXCEPTION, str(traceback.format_exc())))
+		finally:
+			await self.agent_out_q.coro_put((LDAPAgentCommand.GPOS_FINISHED, None))
+
+
+	async def get_all_machines(self):
+		try:
+			async for machine_data in self.ldap.get_all_machine_objects():
+				await self.agent_out_q.coro_put((LDAPAgentCommand.MACHINE, machine_data))
+		except:
+			await self.agent_out_q.coro_put((LDAPAgentCommand.EXCEPTION, str(traceback.format_exc())))
+		finally:
+			await self.agent_out_q.coro_put((LDAPAgentCommand.MACHINES_FINISHED, None))
+	
+	async def get_all_ous(self):
+		try:
+			async for ou in self.ldap.get_all_ous():
+				o = JackDawADOU.from_adou(ou)
+				await self.agent_out_q.coro_put((LDAPAgentCommand.OU, o))
+				del o
+		except:
+			await self.agent_out_q.coro_put((LDAPAgentCommand.EXCEPTION, str(traceback.format_exc())))
+		finally:
+			await self.agent_out_q.coro_put((LDAPAgentCommand.OUS_FINISHED, None))
+
+	async def get_domain_info(self):
+		try:
+			info = await self.ldap.get_ad_info()
+			adinfo = JackDawADInfo.from_dict(info.to_dict())
+			await self.agent_out_q.coro_put((LDAPAgentCommand.DOMAININFO, adinfo))
+		except:
+			await self.agent_out_q.coro_put((LDAPAgentCommand.EXCEPTION, str(traceback.format_exc())))
+		finally:
+			await self.agent_out_q.coro_put((LDAPAgentCommand.DOMAININFO_FINISHED, None))
+
+	async def get_sds(self, data):
+		try:
+			async for sd in self.ldap.get_objectacl_by_dn( data['dn']):
+				if not sd.nTSecurityDescriptor or not sd.nTSecurityDescriptor.Dacl:
+					return
+				await self.agent_out_q.coro_put((LDAPAgentCommand.SD, {'sd':sd, 'obj_type': data['obj_type']}))
+				del sd
+		
+		except:
+			await self.agent_out_q.coro_put((LDAPAgentCommand.EXCEPTION, str(traceback.format_exc())))
+		finally:
+			await self.agent_out_q.coro_put((LDAPAgentCommand.SDS_FINISHED, None))
+
+	async def setup(self):
+		try:
+			self.ldap = self.ldap_mgr.get_client()
+			res, err = await self.ldap.connect()
+			if err is not None:
+				raise err
+			return res
+		except:
+			await self.agent_out_q.coro_put((LDAPAgentCommand.EXCEPTION, str(traceback.format_exc())))
+			return False
+
+	async def arun(self):
+		res = await self.setup()
+		#print('agent setup res: %s' % res)
+		if res is False:
+			return
+		while True:
+			res = await self.agent_in_q.coro_get()
+			#print('Got new job! %s' % res)
+			if res is None:
+				return
+		
+			if res.command == LDAPAgentCommand.DOMAININFO:
+				await self.get_domain_info()
+			elif res.command == LDAPAgentCommand.USERS:
+				await self.get_all_users()
+			elif res.command == LDAPAgentCommand.MACHINES:
+				await self.get_all_machines()
+			elif res.command == LDAPAgentCommand.GROUPS:
+				await self.get_all_groups()
+			elif res.command == LDAPAgentCommand.OUS:
+				await self.get_all_ous()
+			elif res.command == LDAPAgentCommand.GPOS:
+				await self.get_all_gpos()
+			elif res.command == LDAPAgentCommand.SPNSERVICES:
+				await self.get_all_spnservices()
+			elif res.command == LDAPAgentCommand.MEMBERSHIPS:
+				await self.get_effective_memberships(res.data)
+			elif res.command == LDAPAgentCommand.SDS:
+				await self.get_sds(res.data)
+
+	def run(self):
+		try:
+			loop = asyncio.get_event_loop()
+		except:
+			loop = asyncio.new_event_loop()
+		#loop.set_debug(True)  # Enable debug
+		loop.run_until_complete(self.arun())
+
+class LDAPEnumeratorManager:
+	def __init__(self, db_conn, ldam_mgr, agent_cnt = None, queue_size = 10):
+		self.db_conn = db_conn
+		self.ldam_mgr = ldam_mgr
+
+		self.session = None
+
+		self.queue_size = queue_size
+		self.agent_in_q = AsyncProcessQueue()
+		self.agent_out_q = AsyncProcessQueue(100)
+		self.agents = []
+		self.agent_cnt = multiprocessing.cpu_count() if agent_cnt is None else agent_cnt
+		self.ad_id = None
+
+		self.user_ctr = 0
+		self.machine_ctr = 0
+		self.ou_ctr = 0
+		self.group_ctr = 0
+		self.sd_ctr = 0
+		self.spn_ctr = 0
+		self.member_ctr = 0
+		self.domaininfo_ctr = 0
+		self.gpo_ctr = 0
+
+		self.user_finish_ctr = 0
+		self.machine_finish_ctr = 0
+		self.ou_finish_ctr = 0
+		self.group_finish_ctr = 0
+		self.sd_finish_ctr = 0
+		self.spn_finish_ctr = 0
+		self.member_finish_ctr = 0
+		self.domaininfo_finish_ctr = 0
+		self.gpo_finish_ctr = 0
+
+		self.total_progress = None
+		self.total_counter = 0
+		self.total_counter_steps = 100
+
+
+	@staticmethod
+	def spn_to_account(spn):
+		if spn.find('/') != -1:
+			return spn.rsplit('/')[1].upper() + '$'
+	
+	def setup(self):
+		logger.debug('mgr setup')
+		self.total_progress = tqdm(desc='LDAP info entries', ascii = True)
+		self.session = get_session(self.db_conn)
+		for _ in range(self.agent_cnt):
+			agent = LDAPEnumeratorAgent(self.ldam_mgr, self.agent_in_q, self.agent_out_q)
+			agent.daemon = True
+			agent.start()
+			self.agents.append(agent)
+
+	def enum_domain(self, info):
+		#print('Got domain!')
+		self.session.add(info)
+		self.session.commit()
+		self.session.refresh(info)
+		self.ad_id = info.id
+
+		self.user_ctr += 1
+		job = LDAPAgentJob(LDAPAgentCommand.USERS, self.ad_id)
+		self.agent_in_q.put(job)
+
+		self.machine_ctr += 1
+		job = LDAPAgentJob(LDAPAgentCommand.MACHINES, self.ad_id)
+		self.agent_in_q.put(job)
+
+		self.group_ctr += 1
+		job = LDAPAgentJob(LDAPAgentCommand.GROUPS, self.ad_id)
+		self.agent_in_q.put(job)
+
+		self.ou_ctr += 1
+		job = LDAPAgentJob(LDAPAgentCommand.OUS, self.ad_id)
+		self.agent_in_q.put(job)
+
+		self.spn_ctr += 1
+		job = LDAPAgentJob(LDAPAgentCommand.SPNSERVICES, self.ad_id)
+		self.agent_in_q.put(job)
+
+		self.gpo_ctr += 1
+		job = LDAPAgentJob(LDAPAgentCommand.GPOS, self.ad_id)
+		self.agent_in_q.put(job)
+
+
+	def enum_machine(self, machine_data):
+		#print('Got machine object!')
+		machine = JackDawADMachine.from_adcomp(machine_data)
+		machine.ad_id = self.ad_id
+		self.session.add(machine)
+		self.session.commit()
+		self.session.refresh(machine)
+		
+		for spn in getattr(machine,'allowedtodelegateto',[]):
+			con = JackDawMachineConstrainedDelegation()
+			con.spn = spn
+			con.targetaccount = LDAPEnumeratorManager.spn_to_account(spn)
+			machine.allowedtodelegateto.append(con)
+		
+		self.session.commit()
+
+		membership_attr = {
+			'dn'  : str(machine.dn),
+			'cn'  : str(machine.cn),
+			'guid': str(machine.objectGUID),
+			'sid' : str(machine.objectSid),
+			'type': 'machine'
+		}
+
+		self.member_ctr += 1
+		job = LDAPAgentJob(LDAPAgentCommand.MEMBERSHIPS, membership_attr)
+		self.agent_in_q.put(job)
+		
+		self.sd_ctr += 1
+		job = LDAPAgentJob(LDAPAgentCommand.SDS, {'dn' : machine.dn, 'obj_type': 'machine' })
+		self.agent_in_q.put(job)
+		del machine
+
+	def store_user(self, user):
+		user.ad_id = self.ad_id
+		
+		#self.session.flush()
+		#self.session.refresh(user)
+
+		for spn in getattr(user,'allowedtodelegateto',[]):
+			con = JackDawUserConstrainedDelegation()
+			con.spn = spn
+			con.targetaccount = LDAPEnumeratorManager.spn_to_account(spn)
+			user.allowedtodelegateto.append(con)
+		
+		self.session.add(user)
+		self.session.flush()
+
+		membership_attr = {
+			'dn'  : str(user.dn),
+			'cn'  : str(user.cn),
+			'guid': str(user.objectGUID),
+			'sid' : str(user.objectSid),
+			'type': 'user'
+		}
+
+	def enum_users(self):
+
+		self.member_ctr += 1
+		job = LDAPAgentJob(LDAPAgentCommand.MEMBERSHIPS, membership_attr)
+		self.agent_in_q.put(job)
+
+		self.sd_ctr += 1
+		job = LDAPAgentJob(LDAPAgentCommand.SDS, {'dn' : user.dn, 'obj_type': 'user' })
+		self.agent_in_q.put(job)
+
+	def enum_group(self, group):
+		#qry = 
+		
+		membership_attr = {
+			'dn'  : str(group.dn),
+			'cn'  : str(group.cn),
+			'guid': str(group.guid),
+			'sid' : str(group.sid),
+			'type': 'group'
+		}
+		
+		self.member_ctr += 1
+		job = LDAPAgentJob(LDAPAgentCommand.MEMBERSHIPS, membership_attr)
+		self.agent_in_q.put(job)
+
+		self.sd_ctr += 1
+		job = LDAPAgentJob(LDAPAgentCommand.SDS, {'dn' : group.dn, 'obj_type': 'group' })
+		self.agent_in_q.put(job)
+
+	def store_groups(self, group):
+		group.ad_id = self.ad_id
+		self.session.add(group)
+		self.session.commit()
+
+	def enum_ou(self, ou):
+		ou.ad_id = self.ad_id
+		self.session.add(ou)
+		self.session.commit()
+		self.session.refresh(ou)
+
+		if ou.gPLink is not None and ou.gPLink != 'None':
+			for x in ou.gPLink.split(']'):
+				if x is None or x == 'None':
+					continue
+				x = x.strip()
+				if x == '':
+					continue
+				gp, order = x[1:].split(';')
+				gp = re.search(r'{(.*?)}', gp).group(1)
+				gp = '{' + gp + '}'
+
+				link = JackDawADGplink()
+				link.ent_id = ou.id
+				link.gpo_dn = gp
+				link.order = order
+				self.session.add(link)
+		self.session.commit()
+		
+		self.sd_ctr += 1
+		job = LDAPAgentJob(LDAPAgentCommand.SDS, {'dn' : ou.dn, 'obj_type': 'ou' })
+		self.agent_in_q.put(job)
+
+	def enum_gpo(self, res):
+		#print('Got gpo object!')
+		res.ad_id = self.ad_id
+		self.session.add(res)
+		self.session.commit()
+
+		self.sd_ctr += 1
+		job = LDAPAgentJob(LDAPAgentCommand.SDS, {'dn' : res.dn, 'obj_type': 'user' })
+		self.agent_in_q.put(job)
+
+
+	def store_spnservice(self, spn):
+		#print('Got SPNSERVICE!')
+		spn.ad_id = self.ad_id
+		self.session.add(spn)
+		self.session.commit()
+
+
+	def store_membership(self, res):
+		#print('Got membership object!')
+		res.ad_id = self.ad_id
+		self.session.add(res)
+		self.session.commit()
+
+
+	def store_sd(self, data):
+		#print('Got SD object!')
+		sd = data['sd']
+		obj_type = data['obj_type']
+		order_ctr = 0
+		for ace in sd.nTSecurityDescriptor.Dacl.aces:
+			acl = JackDawADDACL()
+			acl.ad_id = self.ad_id
+			acl.object_type = obj_type
+			acl.object_type_guid = OBJECTTYPE_GUID_MAP.get(obj_type)
+			acl.owner_sid = str(sd.nTSecurityDescriptor.Owner)
+			acl.group_sid = str(sd.nTSecurityDescriptor.Group)
+			acl.ace_order = order_ctr
+			
+			order_ctr += 1
+			acl.guid = str(sd.objectGUID)
+			if sd.objectSid:
+				acl.sid = str(sd.objectSid)
+			if sd.cn:
+				acl.cn = sd.cn
+			if sd.distinguishedName:
+				acl.dn = str(sd.distinguishedName)
+			acl.sd_control = sd.nTSecurityDescriptor.Control
+			
+			acl.ace_type = ace.AceType.name
+			acl.ace_mask = ace.Mask
+			t = getattr(ace,'ObjectType', None)
+			if t:
+				acl.ace_objecttype = str(t)
+			
+			t = getattr(ace,'InheritedObjectType', None)
+			if t:
+				acl.ace_inheritedobjecttype = str(t)
+				
+			true_attr, false_attr = JackDawADDACL.mask2attr(ace.Mask)
+			
+			for attr in true_attr:	
+				setattr(acl, attr, True)
+			for attr in false_attr:	
+				setattr(acl, attr, False)
+				
+			true_attr, false_attr = JackDawADDACL.hdrflag2attr(ace.AceFlags)
+			
+			for attr in true_attr:	
+				setattr(acl, attr, True)
+			for attr in false_attr:	
+				setattr(acl, attr, False)
+			
+			acl.ace_sid = str(ace.Sid)
+			self.session.add(acl)
+		
+		self.session.commit()
+
+	def check_status(self):
+		#print('user')
+		#print(self.user_ctr)
+		#print(self.user_finish_ctr)
+		#
+		#print('machine')
+		#print(self.machine_ctr)
+		#print(self.machine_finish_ctr)
+		#
+		#print('ou')
+		#print(self.ou_ctr)
+		#print(self.ou_finish_ctr)
+		#
+		#print('group')
+		#print(self.group_ctr)
+		#print(self.group_finish_ctr)
+		#
+		#print('sd')
+		#print(self.sd_ctr)
+		#print(self.sd_finish_ctr)
+		#
+		#print('spn')
+		#print(self.spn_ctr)
+		#print(self.spn_finish_ctr)
+		#
+		#print('member')
+		#print(self.member_ctr)
+		#print(self.member_finish_ctr)
+		#
+		#print('domain')
+		#print(self.domaininfo_ctr)
+		#print(self.domaininfo_finish_ctr)
+
+		self.total_counter += 1
+		if self.total_counter == self.total_counter_steps:
+			self.total_progress.update(self.total_counter)
+			self.total_counter = 0
+
+		if self.user_ctr == self.user_finish_ctr \
+			and self.machine_ctr == self.machine_finish_ctr\
+			and self.ou_ctr == self.ou_finish_ctr\
+			and self.group_ctr == self.group_finish_ctr\
+			and self.sd_ctr == self.sd_finish_ctr\
+			and self.spn_ctr == self.spn_finish_ctr\
+			and self.member_ctr == self.member_finish_ctr\
+			and self.domaininfo_ctr == self.domaininfo_finish_ctr\
+			and self.gpo_ctr == self.gpo_finish_ctr:
+			self.total_progress.update(self.total_counter)
+			return True
+		return False
+
+	def stop_agents(self):
+		logger.debug('mgr stop')
+		self.session.commit()
+		self.session.close()
+		for _ in self.agents:
+			self.agent_in_q.put(None)
+		for agent in self.agents:
+			agent.join()
+		logger.debug('All agents finished!')
+
+	def run(self):
+		logger.info('[+] Starting LDAP information acqusition. This might take a while...')
+		self.setup()
+		logger.debug('setup finished!')
+
+		self.domaininfo_ctr += 1
+		job = LDAPAgentJob(LDAPAgentCommand.DOMAININFO, None)
+		self.agent_in_q.put(job)
+
+		while True:
+			res = self.agent_out_q.get()
+			#print(res)
+			res_type, res = res
+			if res_type == LDAPAgentCommand.DOMAININFO:
+				self.enum_domain(res)
+			
+			elif res_type == LDAPAgentCommand.USER:
+				self.enum_user(res)
+
+			elif res_type == LDAPAgentCommand.MACHINE:
+				self.enum_machine(res)
+
+			elif res_type == LDAPAgentCommand.SPNSERVICE:
+				self.store_spnservice(res)
+
+			elif res_type == LDAPAgentCommand.GROUP:
+				self.enum_group(res)
+
+			elif res_type == LDAPAgentCommand.OU:
+				self.enum_ou(res)
+			
+			elif res_type == LDAPAgentCommand.SD:
+				self.store_sd(res)
+			
+			elif res_type == LDAPAgentCommand.GPO:
+				self.enum_gpo(res)
+			
+			elif res_type == LDAPAgentCommand.MEMBERSHIP:
+				self.store_membership(res)
+
+			elif res_type == LDAPAgentCommand.EXCEPTION:
+				logger.warning(res)
+
+			elif res_type == LDAPAgentCommand.SPNSERVICES_FINISHED:
+				logger.debug('SPN enumeration finished!')
+				self.spn_finish_ctr += 1
+			elif res_type == LDAPAgentCommand.USERS_FINISHED:
+				logger.debug('Users enumeration finished!')
+				self.user_finish_ctr += 1
+			elif res_type == LDAPAgentCommand.MACHINES_FINISHED:
+				logger.debug('Machines enumeration finished!')
+				self.machine_finish_ctr += 1
+			elif res_type == LDAPAgentCommand.OUS_FINISHED:
+				logger.debug('OUs enumeration finished!')
+				self.ou_finish_ctr += 1
+			elif res_type == LDAPAgentCommand.GROUPS_FINISHED:
+				logger.debug('Groups enumeration finished!')
+				self.group_finish_ctr += 1
+			elif res_type == LDAPAgentCommand.MEMBERSHIPS_FINISHED:
+				logger.debug('Memberships enumeration finished!')
+				self.member_finish_ctr += 1
+			elif res_type == LDAPAgentCommand.SDS_FINISHED:
+				logger.debug('Secuirty Descriptor enumeration finished!')
+				self.sd_finish_ctr += 1
+			elif res_type == LDAPAgentCommand.DOMAININFO_FINISHED:
+				logger.debug('Domaininfo enumeration finished!')
+				self.domaininfo_finish_ctr += 1
+			elif res_type == LDAPAgentCommand.GPOS_FINISHED:
+				logger.debug('GPOs enumeration finished!')
+				self.gpo_finish_ctr += 1
+
+			if self.check_status() == True:
+				break
+		
+		self.stop_agents()
+		logger.info('[+] LDAP information acqusition finished!')
+		return self.ad_id
+
+		
+if __name__ == '__main__':
+	from msldap.commons.url import MSLDAPURLDecoder
+
+	import sys
+	sql = sys.argv[1]
+	ldap_conn_url = sys.argv[2]
+
+	print(sql)
+	print(ldap_conn_url)
+	
+	ldap_mgr = MSLDAPURLDecoder(ldap_conn_url)
+
+	mgr = LDAPEnumeratorManager(sql, ldap_mgr)
+	mgr.run()

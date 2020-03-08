@@ -3,7 +3,8 @@ from jackdaw.dbmodel.utils import *
 import datetime
 from sqlalchemy.orm import relationship
 from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Boolean
-
+import json
+from jackdaw.utils.encoder import UniversalEncoder
 
 class JackDawADUser(Basemodel):
 	__tablename__ = 'users'
@@ -139,6 +140,9 @@ class JackDawADUser(Basemodel):
 			'UAC_PASSWORD_EXPIRED' : self.UAC_PASSWORD_EXPIRED ,
 			'UAC_TRUSTED_TO_AUTHENTICATE_FOR_DELEGATION' : self.UAC_TRUSTED_TO_AUTHENTICATE_FOR_DELEGATION ,
 		}
+
+	def to_json(self):
+		return json.dumps(self.to_dict(), cls=UniversalEncoder)
 
 	@staticmethod
 	def from_aduser(u):

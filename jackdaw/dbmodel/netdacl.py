@@ -3,7 +3,7 @@ import datetime
 from sqlalchemy.orm import relationship
 from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Boolean
 
-from msldap.wintypes.security_descriptor import *
+from winacl.dtyp.ace import ADS_ACCESS_MASK, AceFlags
 
 
 am_lookup_table = {
@@ -91,6 +91,8 @@ class NetDACL(Basemodel):
 	ace_mask_write_dacl      = Column(Boolean, index = True)
 	ace_mask_read_control    = Column(Boolean, index = True)
 	ace_mask_delete          = Column(Boolean, index = True)
+
+	
 	
 	@staticmethod
 	def hdrflag2attr(hdrflag):

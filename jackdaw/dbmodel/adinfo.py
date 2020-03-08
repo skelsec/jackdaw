@@ -8,6 +8,7 @@ from . import Basemodel, lf
 import datetime
 from sqlalchemy.orm import relationship
 from sqlalchemy import Column, Integer, String, DateTime, ForeignKey
+from jackdaw._version import __version__
 
 class JackDawADInfo(Basemodel):
 	__tablename__ = 'ads'
@@ -43,16 +44,18 @@ class JackDawADInfo(Basemodel):
 	uSNCreated = Column(Integer)
 	whenChanged = Column(DateTime)
 	whenCreated = Column(DateTime)
+	jdversion = Column(String)
 
 	users = relationship("JackDawADUser", back_populates="ad", lazy = True)
 	computers = relationship("JackDawADMachine", back_populates="ad", lazy = True)
 	groups = relationship("JackDawADGroup", back_populates="ad", lazy = True)
 	group_lookups = relationship("JackDawTokenGroup", back_populates="ad", lazy = True)
 	spnservices = relationship("JackDawSPNService", back_populates="ad", lazy = True)
-	objectacls = relationship("JackDawADDACL", back_populates="ad", lazy='dynamic')
+	#objectacls = relationship("JackDawADDACL", back_populates="ad", lazy='dynamic')
 	customrelations = relationship("JackDawCustomRelations", back_populates="ad", lazy = True)
 	ous = relationship("JackDawADOU", back_populates="ad", lazy = True)
 	gpos = relationship("JackDawADGPO", back_populates="ad", lazy = True)
+	sds = relationship("JackDawSD", back_populates="ad", lazy = True)
 	
 	def to_dict(self):
 		return {
@@ -73,6 +76,7 @@ class JackDawADInfo(Basemodel):
 			'pwdProperties' : self.pwdProperties ,
 			'whenChanged' : self.whenChanged ,
 			'whenCreated' : self.whenCreated ,
+			'jdversion' : self.jdversion,
 		}
 
 	@staticmethod
@@ -107,4 +111,6 @@ class JackDawADInfo(Basemodel):
 		adinfo.uSNCreated = lf(d.get('uSNCreated'))
 		adinfo.whenChanged = lf(d.get('whenChanged'))
 		adinfo.whenCreated = lf(d.get('whenCreated'))
+		if d.get('jdversion') is None:
+			adinfo.jdversion = __version__
 		return adinfo

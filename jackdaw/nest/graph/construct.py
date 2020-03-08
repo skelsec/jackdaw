@@ -21,3 +21,26 @@ class GraphConstruct:
 				return True
 			
 		return False
+
+	@staticmethod
+	def from_dict(d):
+		g = GraphConstruct(d['ad_id'])
+		g.diff_name = d['diff_name']
+		
+		#g.include_nodes = []
+		#g.include_edges = []
+
+		g.blacklist_sids = d['blacklist_sids']
+		g.ignoresids = d['ignoresids']
+
+		return g
+
+	def to_dict(self):
+		return {
+			'ad_id' : self.ad_id,
+			'diff_name' : self.diff_name, 
+			'include_nodes': None, #TODO! FIX!
+			'include_edges' : None, #TODO! FIX!
+			'blacklist_sids' : self.blacklist_sids,
+			'ignoresids' : self.ignoresids
+		}
