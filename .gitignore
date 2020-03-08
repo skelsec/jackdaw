@@ -110,3 +110,4 @@ venv.bak/
 *.db
 dist/*
 build/*
+*.gzip
