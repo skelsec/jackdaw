@@ -43,7 +43,7 @@ setup(
 		"Operating System :: OS Independent",
 	),
 	install_requires=[
-		'aiosmb>=0.1.9',
+		'aiosmb>=0.2.2',
 		'msldap>=0.2.7',
 		'sqlalchemy',
 		'dnspython',
@@ -52,7 +52,7 @@ setup(
 		'connexion',
 		'flask-sqlalchemy',
 		'connexion[swagger-ui]',
-		'pypykatz>=0.2.4',
+		'pypykatz>=0.3.6',
         'swagger-ui-bundle>=0.0.2',
 		'werkzeug==0.16.1'
 	],
