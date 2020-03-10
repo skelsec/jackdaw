@@ -4,14 +4,15 @@
 #  Tamas Jos (@skelsec)
 #
 
-import asyncio
-import tracemalloc
-import threading
-import time
-import objgraph
-import traceback
 import os
 import re
+import enum
+import base64
+import asyncio
+import threading
+import traceback
+import multiprocessing
+
 from jackdaw.dbmodel.spnservice import JackDawSPNService
 from jackdaw.dbmodel.addacl import JackDawADDACL
 from jackdaw.dbmodel.adgroup import JackDawADGroup
@@ -30,17 +31,11 @@ from jackdaw.dbmodel import get_session
 from jackdaw.wintypes.lookup_tables import *
 from jackdaw import logger
 
-from msldap.ldap_objects import *
 from jackdaw.common.apq import AsyncProcessQueue
 
+from msldap.ldap_objects import *
 from winacl.dtyp.security_descriptor import SECURITY_DESCRIPTOR
-
-import multiprocessing
-
 from tqdm import tqdm
-
-import enum
-import base64
 
 class LDAPAgentCommand(enum.Enum):
 	SPNSERVICE = 0

@@ -137,7 +137,6 @@ def short_worker(inqueue, outqueue, graph, dst_sid):
 
 
 def acl_calc_gen(session, adid, inqueue, procno):
-	print('counting rows')
 	total = session.query(func.count(JackDawSD.id)).filter_by(ad_id = adid).scalar()
 
 	q = session.query(JackDawSD).filter_by(ad_id = adid)
