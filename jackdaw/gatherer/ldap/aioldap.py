@@ -27,6 +27,7 @@ from jackdaw.dbmodel.adgpo import JackDawADGPO
 from jackdaw.dbmodel.constrained import JackDawMachineConstrainedDelegation, JackDawUserConstrainedDelegation
 from jackdaw.dbmodel.adgplink import JackDawADGplink
 from jackdaw.dbmodel.adsd import JackDawSD
+from jackdaw.dbmodel.adtrust import JackDawADTrust
 from jackdaw.dbmodel import get_session
 from jackdaw.wintypes.lookup_tables import *
 from jackdaw import logger
@@ -55,6 +56,7 @@ class LDAPAgentCommand(enum.Enum):
 	SDS = 14
 	GPO = 15
 	GPOS = 16
+	TRUSTS = 17
 	EXCEPTION = 99
 
 	SPNSERVICES_FINISHED = 31
@@ -66,6 +68,7 @@ class LDAPAgentCommand(enum.Enum):
 	SDS_FINISHED = 37
 	DOMAININFO_FINISHED = 38
 	GPOS_FINISHED = 39
+	TRUSTS_FINISHED = 40
 
 MSLDAP_JOB_TYPES = {
 	'users' : LDAPAgentCommand.USERS_FINISHED ,
@@ -76,7 +79,8 @@ MSLDAP_JOB_TYPES = {
 	'gpos' : LDAPAgentCommand.GPOS_FINISHED ,
 	'groups' : LDAPAgentCommand.GROUPS_FINISHED ,
 	'spns' : LDAPAgentCommand.SPNSERVICES_FINISHED ,
-	'adinfo' : LDAPAgentCommand.DOMAININFO_FINISHED
+	'adinfo' : LDAPAgentCommand.DOMAININFO_FINISHED,
+	'trusts' : LDAPAgentCommand.TRUSTS_FINISHED
 }
 MSLDAP_JOB_TYPES_INV = {v: k for k, v in MSLDAP_JOB_TYPES.items()}
 
@@ -117,6 +121,15 @@ class LDAPEnumeratorAgent(multiprocessing.Process):
 
 	async def enumerate_machine(self, machine):
 		pass
+
+	async def get_all_trusts(self):
+		try:
+			async for entry in self.ldap.get_all_trusts():
+				await self.agent_out_q.coro_put((LDAPAgentCommand.TRUSTS, JackDawADTrust.from_ldapdict(entry.to_dict())))
+		except:
+			await self.agent_out_q.coro_put((LDAPAgentCommand.EXCEPTION, str(traceback.format_exc())))
+		finally:
+			await self.agent_out_q.coro_put((LDAPAgentCommand.TRUSTS_FINISHED, None))
 
 	async def get_all_spnservices(self):
 		try:
@@ -255,6 +268,8 @@ class LDAPEnumeratorAgent(multiprocessing.Process):
 				await self.get_all_effective_memberships()
 			elif res.command == LDAPAgentCommand.SDS:
 				await self.get_sds(res.data)
+			elif res.command == LDAPAgentCommand.TRUSTS:
+				await self.get_all_trusts()
 
 	def run(self):
 		try:
@@ -291,6 +306,7 @@ class LDAPEnumeratorManager:
 		self.member_ctr = 0
 		self.domaininfo_ctr = 0
 		self.gpo_ctr = 0
+		self.trust_ctr = 0
 
 		self.user_finish_ctr = 0
 		self.machine_finish_ctr = 0
@@ -314,14 +330,15 @@ class LDAPEnumeratorManager:
 		self.finished_enums = []
 		self.enum_types = [
 			'adinfo',
-			'users', 
-			'machines',
-			'groups',
-			'memberships', 
-			'sds', 
-			'ous', 
-			'gpos',
-			'spns'
+			'trusts',
+			#'users', 
+			#'machines',
+			#'groups',
+			#'memberships', 
+			#'sds', 
+			#'ous', 
+			#'gpos',
+			#'spns'
 		]
 		self.enum_types_len = len(self.enum_types)
 
@@ -372,6 +389,8 @@ class LDAPEnumeratorManager:
 					self.enum_groups()
 				elif next_type == 'spns':
 					self.enum_spnservices()
+				elif next_type == 'trusts':
+					self.enum_trusts()
 				else:
 					logger.warning('Unknown next_type! %s' % next_type)
 
@@ -419,6 +438,16 @@ class LDAPEnumeratorManager:
 		self.session.commit()
 		self.session.refresh(info)
 		self.ad_id = info.id
+
+	def enum_trusts(self):
+		logger.debug('Enumerating trusts')
+		job = LDAPAgentJob(LDAPAgentCommand.TRUSTS, None)
+		self.agent_in_q.put(job)
+
+	def store_trust(self, trust):
+		trust.ad_id = self.ad_id
+		self.session.add(trust)
+		self.session.flush()
 
 	def enum_users(self):
 		logger.debug('Enumerating users')
@@ -598,6 +627,7 @@ class LDAPEnumeratorManager:
 			res = self.agent_out_q.get()
 			self.update_progress()
 			res_type, res = res
+
 			if res_type == LDAPAgentCommand.DOMAININFO:
 				self.domaininfo_ctr += 1
 				self.store_domain(res)
@@ -634,6 +664,13 @@ class LDAPEnumeratorManager:
 				self.member_ctr += 1
 				self.store_membership(res)
 
+			elif res_type == LDAPAgentCommand.TRUSTS:
+				self.trust_ctr += 1
+				self.store_trust(res)
+
+			elif res_type == LDAPAgentCommand.EXCEPTION:
+				logger.warning(str(res))
+				
 			elif res_type.name.endswith('FINISHED'):
 				if self.check_jobs(res_type) is True:
 					break

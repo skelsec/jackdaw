@@ -56,6 +56,7 @@ class JackDawADInfo(Basemodel):
 	ous = relationship("JackDawADOU", back_populates="ad", lazy = True)
 	gpos = relationship("JackDawADGPO", back_populates="ad", lazy = True)
 	sds = relationship("JackDawSD", back_populates="ad", lazy = True)
+	trusts = relationship("JackDawADTrust", back_populates="ad", lazy = True)
 	
 	def to_dict(self):
 		return {
