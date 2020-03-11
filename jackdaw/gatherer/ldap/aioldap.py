@@ -331,14 +331,14 @@ class LDAPEnumeratorManager:
 		self.enum_types = [
 			'adinfo',
 			'trusts',
-			#'users', 
-			#'machines',
-			#'groups',
-			#'memberships', 
-			#'sds', 
-			#'ous', 
-			#'gpos',
-			#'spns'
+			'users', 
+			'machines',
+			'groups',
+			'memberships', 
+			'sds', 
+			'ous', 
+			'gpos',
+			'spns'
 		]
 		self.enum_types_len = len(self.enum_types)
 
