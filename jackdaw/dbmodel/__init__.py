@@ -87,6 +87,7 @@ from .netfile import *
 from .netdir import *
 from .adsd import *
 from .adtrust import *
+from .lsasecrets import *
 
 
 

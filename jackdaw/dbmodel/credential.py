@@ -2,7 +2,7 @@ from . import Basemodel, lf
 import datetime
 import hashlib
 from sqlalchemy.orm import relationship
-from sqlalchemy import Column, Integer, String, ForeignKey, Index
+from sqlalchemy import Column, Integer, String, ForeignKey, Index, DateTime
 
 from pypykatz.pypykatz import pypykatz
 from pypykatz.utils.crypto.winhash import LM, NT
@@ -19,12 +19,20 @@ class Credential(Basemodel):
 
 	id = Column(Integer, primary_key=True)
 	ad_id = Column(Integer)
+	machine_id = Column(Integer, nullable= False, default = -1)
 	domain = Column(String, index=True, nullable= False)
 	username = Column(String, index=True, nullable= False)
 	nt_hash = Column(String, index=True, nullable= False)
 	lm_hash = Column(String, index=True, nullable= False)
+	krb_des_cbc = Column(String, index=True, nullable= True)
+	krb_aes128 = Column(String, index=True, nullable= True)
+	krb_aes256 = Column(String, index=True, nullable= True)
+	krb_rc4_hmac = Column(String, index=True, nullable= True)
 	history_no = Column(Integer, index=True, nullable= False)
 	cred_type = Column(String, index=True, nullable= False)
+	object_sid = Column(String, index=True, nullable= False)
+	object_rid = Column(String, index=True, nullable= False)
+	pwd_last_set = Column(DateTime, index = True)
 	
 	def __init__(self, domain = None, username = None, nt_hash = None, lm_hash = None, history_no = None, ad_id = -1):
 		self.domain = domain
@@ -33,6 +41,97 @@ class Credential(Basemodel):
 		self.lm_hash = lm_hash
 		self.history_no = history_no
 		self.ad_id = ad_id
+
+	@staticmethod
+	def from_samsecret(samsecret, ad_id = -1, machine_id = -1):
+		cred = Credential()
+		cred.ad_id = ad_id
+		cred.machine_id = machine_id
+		cred.domain = 'LOCAL'
+		cred.username = samsecret.username
+		cred.nt_hash = samsecret.nt_hash.hex() if samsecret.nt_hash is not None else None
+		cred.lm_hash = samsecret.lm_hash.hex() if samsecret.lm_hash is not None else None
+		cred.history_no = 0
+		cred.rid = samsecret.rid
+		cred.cred_type = 'pypykatz-registry-sam'
+
+		return cred
+
+	@staticmethod
+	def from_aiosmb_secret(secret, ad_id = -1):
+		# returns a complex touple in the format of (currentcred, [nthist], [lmhist], [cleartextcred], [pwds])
+		creds = []
+		pwds = []
+		
+		cred = Credential()
+		cred.ad_id = ad_id
+		cred.domain = secret.domain
+		cred.username = secret.username
+		cred.nt_hash = secret.nt_hash.hex() if secret.nt_hash is not None else None
+		cred.lm_hash = secret.lm_hash.hex() if secret.lm_hash is not None else None
+		cred.cred_type = 'aiosmb-dcsync-ntlm'
+		cred.pwd_last_set = secret.pwd_last_set
+		cred.history_no = 0
+
+		if secret.object_sid is not None:
+			cred.object_sid = str(secret.object_sid)
+			t = str(secret.object_sid)
+			_, rid = t.rsplit('-',1)
+			cred.rid = rid
+
+		for ktype, key in secret.kerberos_keys:
+			if str(ktype) == 'aes128-cts-hmac-sha1-96':
+				cred.krb_aes128 = str(key)
+			elif str(ktype) == 'aes256-cts-hmac-sha1-96':
+				cred.krb_aes256 = str(key)
+			elif str(ktype) == 'des-cbc-md5':
+				cred.krb_des_cbc = str(key)
+			elif str(ktype) == 'rc4_hmac':
+				cred.krb_rc4_hmac = str(key)
+
+		creds.append(cred) # this is the main one
+		
+		if secret.cleartext is not None:
+			for pw in secret.cleartext:
+				cred = Credential()
+				cred.ad_id = ad_id
+				cred.domain = secret.domain
+				cred.username = secret.username
+				
+				cred.nt_hash = NT(str(pw)).hex()
+				cred.lm_hash = None
+				cred.history_no = 0
+				cred.cred_type = 'aiosmb-dcsync-cleartext'
+
+				creds.append(cred)
+				pwds.append(str(pw))
+
+		if secret.lm_history is not None:
+			for i, lm in enumerate(secret.lm_history):
+				cred = Credential()
+				cred.ad_id = ad_id
+				cred.domain = secret.domain
+				cred.username = secret.username
+				cred.lm_hash = lm.hex()
+				cred.history_no = i + 1
+				cred.cred_type = 'aiosmb-dcsync-ntlm-history'
+
+				creds.append(cred)
+
+		if secret.nt_history is not None:
+			for i, nt in enumerate(secret.nt_history):
+				cred = Credential()
+				cred.ad_id = ad_id
+				cred.domain = secret.domain
+				cred.username = secret.username
+				cred.nt_hash = nt.hex()
+				cred.history_no = i + 1
+				cred.cred_type = 'aiosmb-dcsync-ntlm-history'
+
+				creds.append(cred)
+		
+		return creds, pwds
+
 
 	@staticmethod
 	def from_impacket_line(line, ad_id = -1):
