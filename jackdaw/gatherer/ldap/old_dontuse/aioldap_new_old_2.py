@@ -9,7 +9,6 @@ import re
 import enum
 import base64
 import asyncio
-import datetime
 import threading
 import traceback
 import multiprocessing
@@ -38,20 +37,6 @@ from jackdaw.common.apq import AsyncProcessQueue
 from msldap.ldap_objects import *
 from winacl.dtyp.security_descriptor import SECURITY_DESCRIPTOR
 from tqdm import tqdm
-
-class LDAPEnumeratorProgress:
-	def __init__(self):
-		self.type = 'LDAP'
-		self.msg_type = 'PROGRESS'
-		self.finished = None
-		self.running = None
-		self.total_finished = None
-		self.speed = None #per sec
-
-	def __str__(self):
-		if self.msg_type == 'PROGRESS':
-			return '[%s][%s] FINISHED %s RUNNING %s TOTAL %s SPEED %s' % (self.type, self.msg_type, ','.join(self.finished), ','.join(self.running), self.total_finished, self.speed)
-		return '[%s][%s]' % (self.type, self.msg_type)
 
 class LDAPAgentCommand(enum.Enum):
 	SPNSERVICE = 0
@@ -104,9 +89,9 @@ class LDAPAgentJob:
 		self.command = command
 		self.data = data
 
-class LDAPEnumeratorAgent():
+class LDAPEnumeratorAgent(multiprocessing.Process):
 	def __init__(self, ldap_mgr, agent_in_q, agent_out_q):
-		#multiprocessing.Process.__init__(self)
+		multiprocessing.Process.__init__(self)
 		self.ldap_mgr = ldap_mgr
 		self.agent_in_q = agent_in_q
 		self.agent_out_q = agent_out_q
@@ -125,11 +110,11 @@ class LDAPEnumeratorAgent():
 				s.is_user = True if res['type'] == 'user' else False
 				s.is_group = True if res['type'] == 'group' else False
 				s.is_machine = True if res['type'] == 'computer' else False
-				await self.agent_out_q.put((LDAPAgentCommand.MEMBERSHIP, s))
+				await self.agent_out_q.coro_put((LDAPAgentCommand.MEMBERSHIP, s))
 		except:
-			await self.agent_out_q.put((LDAPAgentCommand.EXCEPTION, str(traceback.format_exc())))
+			await self.agent_out_q.coro_put((LDAPAgentCommand.EXCEPTION, str(traceback.format_exc())))
 		finally:
-			await self.agent_out_q.put((LDAPAgentCommand.MEMBERSHIPS_FINISHED, None))
+			await self.agent_out_q.coro_put((LDAPAgentCommand.MEMBERSHIPS_FINISHED, None))
 
 	async def enumerate_spnservices(self):
 		pass
@@ -140,11 +125,11 @@ class LDAPEnumeratorAgent():
 	async def get_all_trusts(self):
 		try:
 			async for entry in self.ldap.get_all_trusts():
-				await self.agent_out_q.put((LDAPAgentCommand.TRUSTS, JackDawADTrust.from_ldapdict(entry.to_dict())))
+				await self.agent_out_q.coro_put((LDAPAgentCommand.TRUSTS, JackDawADTrust.from_ldapdict(entry.to_dict())))
 		except:
-			await self.agent_out_q.put((LDAPAgentCommand.EXCEPTION, str(traceback.format_exc())))
+			await self.agent_out_q.coro_put((LDAPAgentCommand.EXCEPTION, str(traceback.format_exc())))
 		finally:
-			await self.agent_out_q.put((LDAPAgentCommand.TRUSTS_FINISHED, None))
+			await self.agent_out_q.coro_put((LDAPAgentCommand.TRUSTS_FINISHED, None))
 
 	async def get_all_spnservices(self):
 		try:
@@ -163,87 +148,87 @@ class LDAPEnumeratorAgent():
 					s.computername = computername
 					s.service = service
 					s.port = port
-					await self.agent_out_q.put((LDAPAgentCommand.SPNSERVICE, s))
+					await self.agent_out_q.coro_put((LDAPAgentCommand.SPNSERVICE, s))
 		except:
-			await self.agent_out_q.put((LDAPAgentCommand.EXCEPTION, str(traceback.format_exc())))
+			await self.agent_out_q.coro_put((LDAPAgentCommand.EXCEPTION, str(traceback.format_exc())))
 		finally:
-			await self.agent_out_q.put((LDAPAgentCommand.SPNSERVICES_FINISHED, None))
+			await self.agent_out_q.coro_put((LDAPAgentCommand.SPNSERVICES_FINISHED, None))
 
 	async def get_all_users(self):
 		try:
 			async for user_data in self.ldap.get_all_user_objects():
 				user = JackDawADUser.from_aduser(user_data)
-				await self.agent_out_q.put((LDAPAgentCommand.USER, user))
+				await self.agent_out_q.coro_put((LDAPAgentCommand.USER, user))
 		except:
-			await self.agent_out_q.put((LDAPAgentCommand.EXCEPTION, str(traceback.format_exc())))
+			await self.agent_out_q.coro_put((LDAPAgentCommand.EXCEPTION, str(traceback.format_exc())))
 		finally:
-			await self.agent_out_q.put((LDAPAgentCommand.USERS_FINISHED, None))
+			await self.agent_out_q.coro_put((LDAPAgentCommand.USERS_FINISHED, None))
 
 	async def get_all_groups(self):
 		try:
 			async for group in self.ldap.get_all_groups():
 				g = JackDawADGroup.from_dict(group.to_dict())
-				await self.agent_out_q.put((LDAPAgentCommand.GROUP, g))
+				await self.agent_out_q.coro_put((LDAPAgentCommand.GROUP, g))
 				del g
 		except:
-			await self.agent_out_q.put((LDAPAgentCommand.EXCEPTION, str(traceback.format_exc())))
+			await self.agent_out_q.coro_put((LDAPAgentCommand.EXCEPTION, str(traceback.format_exc())))
 		finally:
-			await self.agent_out_q.put((LDAPAgentCommand.GROUPS_FINISHED, None))
+			await self.agent_out_q.coro_put((LDAPAgentCommand.GROUPS_FINISHED, None))
 
 	async def get_all_gpos(self):
 		try:
 			async for gpo in self.ldap.get_all_gpos():
 				g = JackDawADGPO.from_adgpo(gpo)
-				await self.agent_out_q.put((LDAPAgentCommand.GPO, g))
+				await self.agent_out_q.coro_put((LDAPAgentCommand.GPO, g))
 				del g
 		except:
-			await self.agent_out_q.put((LDAPAgentCommand.EXCEPTION, str(traceback.format_exc())))
+			await self.agent_out_q.coro_put((LDAPAgentCommand.EXCEPTION, str(traceback.format_exc())))
 		finally:
-			await self.agent_out_q.put((LDAPAgentCommand.GPOS_FINISHED, None))
+			await self.agent_out_q.coro_put((LDAPAgentCommand.GPOS_FINISHED, None))
 
 
 	async def get_all_machines(self):
 		try:
 			async for machine_data in self.ldap.get_all_machine_objects():
 				machine = JackDawADMachine.from_adcomp(machine_data)
-				await self.agent_out_q.put((LDAPAgentCommand.MACHINE, machine))
+				await self.agent_out_q.coro_put((LDAPAgentCommand.MACHINE, machine))
 		except:
-			await self.agent_out_q.put((LDAPAgentCommand.EXCEPTION, str(traceback.format_exc())))
+			await self.agent_out_q.coro_put((LDAPAgentCommand.EXCEPTION, str(traceback.format_exc())))
 		finally:
-			await self.agent_out_q.put((LDAPAgentCommand.MACHINES_FINISHED, None))
+			await self.agent_out_q.coro_put((LDAPAgentCommand.MACHINES_FINISHED, None))
 
 	async def get_all_ous(self):
 		try:
 			async for ou in self.ldap.get_all_ous():
 				o = JackDawADOU.from_adou(ou)
-				await self.agent_out_q.put((LDAPAgentCommand.OU, o))
+				await self.agent_out_q.coro_put((LDAPAgentCommand.OU, o))
 				del o
 		except:
-			await self.agent_out_q.put((LDAPAgentCommand.EXCEPTION, str(traceback.format_exc())))
+			await self.agent_out_q.coro_put((LDAPAgentCommand.EXCEPTION, str(traceback.format_exc())))
 		finally:
-			await self.agent_out_q.put((LDAPAgentCommand.OUS_FINISHED, None))
+			await self.agent_out_q.coro_put((LDAPAgentCommand.OUS_FINISHED, None))
 
 	async def get_domain_info(self):
 		try:
 			info = await self.ldap.get_ad_info()
 			adinfo = JackDawADInfo.from_dict(info.to_dict())
-			await self.agent_out_q.put((LDAPAgentCommand.DOMAININFO, adinfo))
+			await self.agent_out_q.coro_put((LDAPAgentCommand.DOMAININFO, adinfo))
 		except:
-			await self.agent_out_q.put((LDAPAgentCommand.EXCEPTION, str(traceback.format_exc())))
+			await self.agent_out_q.coro_put((LDAPAgentCommand.EXCEPTION, str(traceback.format_exc())))
 		finally:
-			await self.agent_out_q.put((LDAPAgentCommand.DOMAININFO_FINISHED, None))
+			await self.agent_out_q.coro_put((LDAPAgentCommand.DOMAININFO_FINISHED, None))
 
 	async def get_sds(self, data):
 		try:
 			async for adsec in self.ldap.get_all_objectacl():
 				if not adsec.nTSecurityDescriptor:
 					continue
-				await self.agent_out_q.put((LDAPAgentCommand.SD, adsec ))
+				await self.agent_out_q.coro_put((LDAPAgentCommand.SD, adsec ))
 
 		except:
-			await self.agent_out_q.put((LDAPAgentCommand.EXCEPTION, str(traceback.format_exc())))
+			await self.agent_out_q.coro_put((LDAPAgentCommand.EXCEPTION, str(traceback.format_exc())))
 		finally:
-			await self.agent_out_q.put((LDAPAgentCommand.SDS_FINISHED, None))
+			await self.agent_out_q.coro_put((LDAPAgentCommand.SDS_FINISHED, None))
 
 	async def setup(self):
 		try:
@@ -253,7 +238,7 @@ class LDAPEnumeratorAgent():
 				raise err
 			return res
 		except:
-			await self.agent_out_q.put((LDAPAgentCommand.EXCEPTION, str(traceback.format_exc())))
+			await self.agent_out_q.coro_put((LDAPAgentCommand.EXCEPTION, str(traceback.format_exc())))
 			return False
 
 	async def arun(self):
@@ -261,7 +246,7 @@ class LDAPEnumeratorAgent():
 		if res is False:
 			return
 		while True:
-			res = await self.agent_in_q.get()
+			res = await self.agent_in_q.coro_get()
 			if res is None:
 				return
 
@@ -295,15 +280,15 @@ class LDAPEnumeratorAgent():
 		loop.run_until_complete(self.arun())
 
 class LDAPEnumeratorManager:
-	def __init__(self, db_conn, ldam_mgr, agent_cnt = None, queue_size = 10, progress_queue = None):
+	def __init__(self, db_conn, ldam_mgr, agent_cnt = None, queue_size = 10):
 		self.db_conn = db_conn
 		self.ldam_mgr = ldam_mgr
 
 		self.session = None
 
 		self.queue_size = queue_size
-		self.agent_in_q = asyncio.Queue() #AsyncProcessQueue()
-		self.agent_out_q = asyncio.Queue(1000) #AsyncProcessQueue(1000)
+		self.agent_in_q = AsyncProcessQueue()
+		self.agent_out_q = AsyncProcessQueue(1000)
 		self.agents = []
 
 		self.agent_cnt = agent_cnt
@@ -333,14 +318,11 @@ class LDAPEnumeratorManager:
 		self.domaininfo_finish_ctr = 0
 		self.gpo_finish_ctr = 0
 
-		self.progress_queue = progress_queue
 		self.total_progress = None
 		self.total_counter = 0
 		self.total_counter_steps = 100
 		self.progress_total_present = False
 		self.remaining_ctr = None
-		self.progress_last_updated = datetime.datetime.utcnow()
-		self.progress_last_counter = 0
 
 		self.enum_finished_evt = None #multiprocessing.Event()
 		
@@ -360,7 +342,7 @@ class LDAPEnumeratorManager:
 		]
 		self.enum_types_len = len(self.enum_types)
 
-	async def check_jobs(self, finished_type):
+	def check_jobs(self, finished_type):
 		self.session.commit()
 		if finished_type is not None:
 			logger.debug('%s enumeration finished!' % MSLDAP_JOB_TYPES_INV[finished_type])
@@ -385,30 +367,30 @@ class LDAPEnumeratorManager:
 					return False
 				
 				if next_type == 'adinfo':
-					await self.enum_domain()
+					self.enum_domain()
 					#this must be the first!
 					self.running_enums[next_type] = 1
 					return False
 				
 				elif next_type == 'users':
-					await self.enum_users()
+					self.enum_users()
 
 				elif next_type == 'machines':
-					await self.enum_machines()
+					self.enum_machines()
 				elif next_type == 'sds':
-					await self.enum_sds()
+					self.enum_sds()
 				elif next_type == 'memberships':
-					await self.enum_memberships()
+					self.enum_memberships()
 				elif next_type == 'ous':
-					await self.enum_ous()
+					self.enum_ous()
 				elif next_type == 'gpos':
-					await self.enum_gpos()
+					self.enum_gpos()
 				elif next_type == 'groups':
-					await self.enum_groups()
+					self.enum_groups()
 				elif next_type == 'spns':
-					await self.enum_spnservices()
+					self.enum_spnservices()
 				elif next_type == 'trusts':
-					await self.enum_trusts()
+					self.enum_trusts()
 				else:
 					logger.warning('Unknown next_type! %s' % next_type)
 
@@ -437,66 +419,43 @@ class LDAPEnumeratorManager:
 
 	def setup(self):
 		logger.debug('mgr setup')
-		if self.progress_queue is None:
-			self.total_progress = tqdm(desc='LDAP info entries', ascii = True)
-		
+		self.total_progress = tqdm(desc='LDAP info entries', ascii = True)
 		self.session = get_session(self.db_conn)
 		
 		for _ in range(self.agent_cnt):
 			agent = LDAPEnumeratorAgent(self.ldam_mgr, self.agent_in_q, self.agent_out_q)
-			self.agents.append(asyncio.create_task(agent.arun()))
-			#agent.daemon = True
-			#agent.start()
-			#self.agents.append(agent)
+			agent.daemon = True
+			agent.start()
+			self.agents.append(agent)
 
-	async def terminate(self):
-		logger.debug('terminate called!')
-		if self.progress_queue is None:
-			msg = LDAPEnumeratorProgress()
-			msg.type = 'LDAP'
-			msg.msg_type = 'ABORTED'
-			await self.progress_queue.put(msg)
-
-		for task in self.agents:
-			task.cancel()
-		try:
-			self.session.commit()
-		except:
-			pass
-		
-		try:
-			self.session.close()
-		except:
-			pass
-
-	async def enum_domain(self):
+	def enum_domain(self):
 		logger.debug('Enumerating domain')
 		job = LDAPAgentJob(LDAPAgentCommand.DOMAININFO, None)
-		await self.agent_in_q.put(job)
+		self.agent_in_q.put(job)
 
-	async def store_domain(self, info):
+	def store_domain(self, info):
 		self.session.add(info)
 		self.session.commit()
 		self.session.refresh(info)
 		self.ad_id = info.id
 
-	async def enum_trusts(self):
+	def enum_trusts(self):
 		logger.debug('Enumerating trusts')
 		job = LDAPAgentJob(LDAPAgentCommand.TRUSTS, None)
-		await self.agent_in_q.put(job)
+		self.agent_in_q.put(job)
 
-	async def store_trust(self, trust):
+	def store_trust(self, trust):
 		trust.ad_id = self.ad_id
 		self.session.add(trust)
 		self.session.flush()
 
-	async def enum_users(self):
+	def enum_users(self):
 		logger.debug('Enumerating users')
 		job = LDAPAgentJob(LDAPAgentCommand.USERS, self.ad_id)
-		await self.agent_in_q.put(job)
+		self.agent_in_q.put(job)
 		
 
-	async def store_user(self, user):
+	def store_user(self, user):
 		user.ad_id = self.ad_id
 
 		#self.session.flush()
@@ -511,33 +470,33 @@ class LDAPEnumeratorManager:
 		self.session.add(user)
 		self.session.flush()
 
-	async def enum_machines(self):
+	def enum_machines(self):
 		logger.debug('Enumerating machines')
 		job = LDAPAgentJob(LDAPAgentCommand.MACHINES, self.ad_id)
-		await self.agent_in_q.put(job)
+		self.agent_in_q.put(job)
 
-	async def store_machine(self, machine):
+	def store_machine(self, machine):
 		machine.ad_id = self.ad_id
 		self.session.add(machine)
 		#self.session.commit()
 		self.session.flush()
 	
-	async def enum_groups(self):
+	def enum_groups(self):
 		logger.debug('Enumerating groups')
 		job = LDAPAgentJob(LDAPAgentCommand.GROUPS, self.ad_id)
-		await self.agent_in_q.put(job)
+		self.agent_in_q.put(job)
 
-	async def store_group(self, group):
+	def store_group(self, group):
 		group.ad_id = self.ad_id
 		self.session.add(group)
 		self.session.flush()
 
-	async def enum_ous(self):
+	def enum_ous(self):
 		logger.debug('Enumerating ous')
 		job = LDAPAgentJob(LDAPAgentCommand.OUS, self.ad_id)
-		await self.agent_in_q.put(job)
+		self.agent_in_q.put(job)
 
-	async def store_ous(self, ou):
+	def store_ous(self, ou):
 		ou.ad_id = self.ad_id
 		self.session.add(ou)
 		self.session.commit()
@@ -561,33 +520,33 @@ class LDAPEnumeratorManager:
 				self.session.add(link)
 		self.session.flush()
 
-	async def enum_spnservices(self):		
+	def enum_spnservices(self):		
 		logger.debug('Enumerating spns')
 		job = LDAPAgentJob(LDAPAgentCommand.SPNSERVICES, self.ad_id)
-		await self.agent_in_q.put(job)
+		self.agent_in_q.put(job)
 
-	async def store_spn(self, spn):
+	def store_spn(self, spn):
 		spn.ad_id = self.ad_id
 		self.session.add(spn)
 		self.session.flush()
 
-	async def enum_gpos(self):
+	def enum_gpos(self):
 		logger.debug('Enumerating gpos')
 		job = LDAPAgentJob(LDAPAgentCommand.GPOS, self.ad_id)
-		await self.agent_in_q.put(job)
+		self.agent_in_q.put(job)
 
-	async def store_gpo(self, gpo):
+	def store_gpo(self, gpo):
 		gpo.ad_id = self.ad_id
 		self.session.add(gpo)
 		self.session.flush()
 
-	async def enum_memberships(self):
+	def enum_memberships(self):
 		logger.debug('Enumerating memberships')
 		job = LDAPAgentJob(LDAPAgentCommand.MEMBERSHIPS, None)
-		await self.agent_in_q.put(job)
+		self.agent_in_q.put(job)
 
 
-	async def store_membership(self, res):
+	def store_membership(self, res):
 		res.ad_id = self.ad_id
 		self.session.add(res)
 		
@@ -596,12 +555,12 @@ class LDAPEnumeratorManager:
 		else:
 			self.session.flush()
 
-	async def enum_sds(self):
+	def enum_sds(self):
 		logger.debug('Enumerating security descriptors')
 		job = LDAPAgentJob(LDAPAgentCommand.SDS, None)
-		await self.agent_in_q.put(job)
+		self.agent_in_q.put(job)
 
-	async def store_sd(self, sd):
+	def store_sd(self, sd):
 		#secdesc = SECURITY_DESCRIPTOR.from_bytes(sd.nTSecurityDescriptor)
 		#
 		if sd.objectClass[-1] in ['user', 'group']:
@@ -631,134 +590,95 @@ class LDAPEnumeratorManager:
 		else:
 			self.session.flush()
 
-	async def update_progress(self):
+	def update_progress(self):
+		if self.remaining_ctr is not None and self.progress_total_present is False:
+			self.total_progress.total = (self.remaining_ctr +  self.total_counter)
+			self.progress_total_present = True
 		self.total_counter += 1
+		if self.total_counter % self.total_counter_steps == 0:
+			self.total_progress.update(self.total_counter_steps)
 
-		if self.progress_queue is None:
-			#if self.remaining_ctr is not None and self.progress_total_present is False:
-			#	self.total_progress.total = (self.remaining_ctr +  self.total_counter)
-			#	self.progress_total_present = True
-			
-			if self.total_counter % self.total_counter_steps == 0:
-				self.total_progress.update(self.total_counter_steps)
+		if self.total_counter % 5000 == 0:
+			running_jobs = ','.join([k for k in self.running_enums])
+			finished_jobs = ','.join(self.finished_enums)
+			msg = 'FINISHED: %s RUNNING: %s' % (finished_jobs, running_jobs)
+			#logger.debug(msg)
+			self.total_progress.set_description(msg)
+			self.total_progress.refresh()
 
-			if self.total_counter % 5000 == 0:
-				running_jobs = ','.join([k for k in self.running_enums])
-				finished_jobs = ','.join(self.finished_enums)
-				msg = 'FINISHED: %s RUNNING: %s' % (finished_jobs, running_jobs)
-				#logger.debug(msg)
-				self.total_progress.set_description(msg)
-				self.total_progress.refresh()
-		
-		else:
-			if self.total_counter % self.total_counter_steps == 0:
-				now = datetime.datetime.utcnow()
-				td = (now - self.progress_last_updated).total_seconds()
-				self.progress_last_updated = now
-				cd = self.total_counter - self.progress_last_counter
-				self.progress_last_counter = self.total_counter
-				msg = LDAPEnumeratorProgress()
-				msg.type = 'LDAP'
-				msg.msg_type = 'PROGRESS'
-				msg.finished = self.finished_enums
-				msg.running = self.running_enums
-				msg.total_finished = self.total_counter
-				msg.speed = str(cd / td)
-
-				await self.progress_queue.put(msg)
-
-	async def stop_agents(self):
+	def stop_agents(self):
 		logger.debug('mgr stop')
 		self.session.commit()
 		self.session.close()
 		for _ in range(self.agent_cnt):
-			await self.agent_in_q.put(None)
-
-		await asyncio.sleep(1)
+			self.agent_in_q.put(None)
 		for agent in self.agents:
-			agent.cancel()
-
-		if self.progress_queue is not None:
-			msg = LDAPEnumeratorProgress()
-			msg.type = 'LDAP'
-			msg.msg_type = 'FINISHED'
-			await self.progress_queue.put(msg)
-
+			agent.join()
 		logger.debug('All agents finished!')
 
-	async def run(self):
+	def run(self):
 		logger.info('[+] Starting LDAP information acqusition. This might take a while...')
 		self.setup()
-		if self.progress_queue is not None:
-			msg = LDAPEnumeratorProgress()
-			msg.type = 'LDAP'
-			msg.msg_type = 'STARTED'
-			await self.progress_queue.put(msg)
+		logger.debug('setup finished!')
 
-		await self.check_jobs(None)
+		self.check_jobs(None)
 
 		while True:
-			try:
-				res = await self.agent_out_q.get()
-				await self.update_progress()
-				res_type, res = res
+			res = self.agent_out_q.get()
+			self.update_progress()
+			res_type, res = res
 
-				if res_type == LDAPAgentCommand.DOMAININFO:
-					self.domaininfo_ctr += 1
-					await self.store_domain(res)
-				
-				elif res_type == LDAPAgentCommand.USER:
-					self.user_ctr += 1
-					await self.store_user(res)
-
-				elif res_type == LDAPAgentCommand.MACHINE:
-					self.machine_ctr += 1
-					await self.store_machine(res)
-
-				elif res_type == LDAPAgentCommand.GROUP:
-					self.group_ctr += 1
-					await self.store_group(res)
-
-				elif res_type == LDAPAgentCommand.OU:
-					self.ou_ctr += 1
-					await self.store_ous(res)
-
-				elif res_type == LDAPAgentCommand.GPO:
-					self.gpo_ctr += 1
-					await self.store_gpo(res)
-
-				elif res_type == LDAPAgentCommand.SPNSERVICE:
-					self.spn_ctr += 1
-					await self.store_spn(res)
-					
-				elif res_type == LDAPAgentCommand.SD:
-					self.sd_ctr += 1
-					await self.store_sd(res)
-					
-				elif res_type == LDAPAgentCommand.MEMBERSHIP:
-					self.member_ctr += 1
-					await self.store_membership(res)
-
-				elif res_type == LDAPAgentCommand.TRUSTS:
-					self.trust_ctr += 1
-					await self.store_trust(res)
-
-				elif res_type == LDAPAgentCommand.EXCEPTION:
-					logger.warning(str(res))
-					
-				elif res_type.name.endswith('FINISHED'):
-					t = await self.check_jobs(res_type)
-					if t is True:
-						break
-			except Exception as e:
-				logger.exception('ldap enumerator main!')
-				await self.stop_agents()
-				return None
+			if res_type == LDAPAgentCommand.DOMAININFO:
+				self.domaininfo_ctr += 1
+				self.store_domain(res)
 			
-		await self.stop_agents()
+			elif res_type == LDAPAgentCommand.USER:
+				self.user_ctr += 1
+				self.store_user(res)
+
+			elif res_type == LDAPAgentCommand.MACHINE:
+				self.machine_ctr += 1
+				self.store_machine(res)
+
+			elif res_type == LDAPAgentCommand.GROUP:
+				self.group_ctr += 1
+				self.store_group(res)
+
+			elif res_type == LDAPAgentCommand.OU:
+				self.ou_ctr += 1
+				self.store_ous(res)
+
+			elif res_type == LDAPAgentCommand.GPO:
+				self.gpo_ctr += 1
+				self.store_gpo(res)
+
+			elif res_type == LDAPAgentCommand.SPNSERVICE:
+				self.spn_ctr += 1
+				self.store_spn(res)
+				
+			elif res_type == LDAPAgentCommand.SD:
+				self.sd_ctr += 1
+				self.store_sd(res)
+				
+			elif res_type == LDAPAgentCommand.MEMBERSHIP:
+				self.member_ctr += 1
+				self.store_membership(res)
+
+			elif res_type == LDAPAgentCommand.TRUSTS:
+				self.trust_ctr += 1
+				self.store_trust(res)
+
+			elif res_type == LDAPAgentCommand.EXCEPTION:
+				logger.warning(str(res))
+				
+			elif res_type.name.endswith('FINISHED'):
+				if self.check_jobs(res_type) is True:
+					break
+		
+		self.stop_agents()
 		logger.info('[+] LDAP information acqusition finished!')
 		return self.ad_id
-			
+
 
 if __name__ == '__main__':
 	from msldap.commons.url import MSLDAPURLDecoder

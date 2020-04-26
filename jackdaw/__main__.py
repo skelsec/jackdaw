@@ -6,6 +6,7 @@
 
 import sys
 import logging
+import asyncio
 
 from sqlalchemy import exc
 
@@ -24,7 +25,7 @@ from aiosmb.commons.connection.url import SMBConnectionURL
 from msldap.commons.url import MSLDAPURLDecoder
 
 
-def run(args):
+async def run(args):
 	if args.verbose == 0:
 		logging.basicConfig(level=logging.INFO)
 		jdlogger.setLevel(logging.INFO)
@@ -54,14 +55,14 @@ def run(args):
 		ldap_mgr = construct_ldapdef(args)
 
 		mgr = LDAPEnumeratorManager(db_conn, ldap_mgr, agent_cnt=args.ldap_workers)
-		adifo_id = mgr.run()
+		adifo_id = await mgr.run()
 		jdlogger.info('ADInfo entry successfully created with ID %s' % adifo_id)
 		
 		mgr = SMBGathererManager(smb_mgr, worker_cnt=args.smb_workers, queue_size = args.smb_queue_size)
 		mgr.gathering_type = ['all']
 		mgr.db_conn = db_conn
 		mgr.target_ad = adifo_id
-		mgr.run()
+		await mgr.run()
 
 		if args.smb_share_enum is True:
 			settings_base = SMBShareGathererSettings(adifo_id, smb_mgr, None, None, None)
@@ -89,7 +90,7 @@ def run(args):
 		ldap_conn = ldap_mgr.get_client()
 	
 		mgr = LDAPEnumeratorManager(db_conn, ldap_mgr, agent_cnt=args.ldap_workers, queue_size=args.ldap_queue_size)
-		adifo_id = mgr.run()
+		adifo_id = await mgr.run()
 		jdlogger.info('ADInfo entry successfully created with ID %s' % adifo_id)
 		
 	elif args.command in ['shares', 'sessions', 'localgroups']:
@@ -110,7 +111,7 @@ def run(args):
 		if args.target_file:
 			mgr.targets_file = args.target_file
 		
-		mgr.run()
+		await mgr.run()
 
 	elif args.command == 'files':
 		if args.src == 'domain':
@@ -269,7 +270,7 @@ def main():
 	
 	args = parser.parse_args()
 
-	run(args)
+	asyncio.run(run(args))
 
 if __name__ == '__main__':
 	main()
