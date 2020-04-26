@@ -17,6 +17,7 @@ from jackdaw.dbmodel import create_db, get_session
 from jackdaw.gatherer.smb.smb import SMBGathererManager
 from jackdaw.gatherer.smb.smb_file import SMBShareGathererSettings, ShareGathererManager
 
+from jackdaw._version import __banner__
 from jackdaw import logger as jdlogger
 from jackdaw.gatherer.ldap.aioldap import LDAPEnumeratorManager
 from jackdaw.utils.argshelper import construct_ldapdef, construct_smbdef
@@ -26,6 +27,7 @@ from msldap.commons.url import MSLDAPURLDecoder
 
 
 async def run(args):
+	print(__banner__)
 	if args.verbose == 0:
 		logging.basicConfig(level=logging.INFO)
 		jdlogger.setLevel(logging.INFO)
