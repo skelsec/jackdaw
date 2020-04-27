@@ -475,6 +475,7 @@ class LDAPEnumeratorManager:
 		await self.agent_in_q.put(job)
 
 	async def store_domain(self, info):
+		info.ldap_enumeration_state = 'STARTED'
 		self.session.add(info)
 		self.session.commit()
 		self.session.refresh(info)
@@ -669,6 +670,9 @@ class LDAPEnumeratorManager:
 
 	async def stop_agents(self):
 		logger.debug('mgr stop')
+
+		info = self.session.query(JackDawADInfo).get(self.ad_id)
+		info.ldap_enumeration_state = 'FINISHED'
 		self.session.commit()
 		self.session.close()
 		for _ in range(self.agent_cnt):

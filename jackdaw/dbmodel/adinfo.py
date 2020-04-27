@@ -45,6 +45,8 @@ class JackDawADInfo(Basemodel):
 	whenChanged = Column(DateTime)
 	whenCreated = Column(DateTime)
 	jdversion = Column(String)
+	ldap_enumeration_state = Column(String)
+	smb_enumeration_state = Column(String)
 
 	users = relationship("JackDawADUser", back_populates="ad", lazy = True)
 	computers = relationship("JackDawADMachine", back_populates="ad", lazy = True)

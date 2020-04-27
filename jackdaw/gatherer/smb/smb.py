@@ -115,6 +115,9 @@ class SMBGathererManager:
 				yield (tid, entry['attributes']['sAMAccountName'][:-1])
 
 		if self.target_ad is not None:
+			info = session.query(JackDawADInfo).get(self.target_ad)
+			info.smb_enumeration_state = 'STARTED'
+			session.commit()
 			for target_id, target_name in session.query(JackDawADMachine).filter_by(ad_id = self.target_ad).with_entities(JackDawADMachine.id, JackDawADMachine.sAMAccountName):
 				yield (target_id, target_name[:-1])
 
@@ -233,6 +236,11 @@ class SMBGathererManager:
 			msg = SMBEnumeratorProgress()
 			msg.msg_type = 'FINISHED'
 			await self.progress_queue.put(msg)
+
+		if session is not None and self.target_ad is not None:
+			info = session.query(JackDawADInfo).get(self.target_ad)
+			info.smb_enumeration_state = 'FINISHED'
+			session.commit()
 
 
 class AIOSMBGatherer:
