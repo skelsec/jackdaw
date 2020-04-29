@@ -34,6 +34,8 @@ class SMBEnumeratorProgress:
 	def __init__(self):
 		self.type = 'SMB'
 		self.msg_type = 'PROGRESS'
+		self.adid = None
+		self.domain_name = None
 		self.errors = None
 		self.sessions = None
 		self.shares = None
@@ -42,8 +44,20 @@ class SMBEnumeratorProgress:
 
 	def __str__(self):
 		if self.msg_type == 'PROGRESS':
-			return '[%s][%s] HOSTS %s SHARES %s SESSIONS %s GROUPS %s ERRORS %s' % (self.type, self.msg_type, self.hosts, self.shares, self.sessions, self.groups, self.errors)
-		return '[%s][%s]' % (self.type, self.msg_type)
+			return '[%s][%s][%s][%s] HOSTS %s SHARES %s SESSIONS %s GROUPS %s ERRORS %s' % (
+				self.type, 
+				self.domain_name, 
+				self.adid,
+				self.msg_type,
+				self.hosts, 
+				self.shares, 
+				self.sessions, 
+				self.groups, 
+				self.errors
+			
+			)
+		
+		return '[%s][%s][%s][%s]' % (self.type, self.domain_name, self.adid, self.msg_type)
 
 class SMBGathererManager:
 	def __init__(self, smb_mgr, worker_cnt = 50, queue_size = 100000, progress_queue = None):
@@ -68,6 +82,7 @@ class SMBGathererManager:
 		self.gatherer = None
 		self.gatherer_task = None
 		self.job_generator_task = None
+		self.domain_name = None
 		
 		self.prg_hosts = None
 		self.prg_shares = None
@@ -117,6 +132,7 @@ class SMBGathererManager:
 		if self.target_ad is not None:
 			info = session.query(JackDawADInfo).get(self.target_ad)
 			info.smb_enumeration_state = 'STARTED'
+			self.domain_name = str(info.distinguishedName).replace(',','.').replace('DC=','')
 			session.commit()
 			for target_id, target_name in session.query(JackDawADMachine).filter_by(ad_id = self.target_ad).with_entities(JackDawADMachine.id, JackDawADMachine.sAMAccountName):
 				yield (target_id, target_name[:-1])
@@ -155,6 +171,8 @@ class SMBGathererManager:
 		else:
 			msg = SMBEnumeratorProgress()
 			msg.msg_type = 'STARTED'
+			msg.adid = self.target_ad
+			msg.domain_name = self.domain_name
 			await self.progress_queue.put(msg)
 
 		#self.results_thread = threading.Thread(target = self.get_results)
@@ -222,6 +240,8 @@ class SMBGathererManager:
 				else:
 					self.prg_hosts_cnt += 1
 					msg = SMBEnumeratorProgress()
+					msg.adid = self.target_ad
+					msg.domain_name = self.domain_name
 					msg.errors = self.prg_errors_cnt
 					msg.sessions = self.prg_sessions_cnt
 					msg.shares = self.prg_shares_cnt
@@ -235,6 +255,8 @@ class SMBGathererManager:
 		if self.progress_queue is not None:
 			msg = SMBEnumeratorProgress()
 			msg.msg_type = 'FINISHED'
+			msg.adid = self.target_ad
+			msg.domain_name = self.domain_name
 			await self.progress_queue.put(msg)
 
 		if session is not None and self.target_ad is not None:

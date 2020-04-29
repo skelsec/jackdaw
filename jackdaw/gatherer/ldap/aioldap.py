@@ -43,6 +43,8 @@ class LDAPEnumeratorProgress:
 	def __init__(self):
 		self.type = 'LDAP'
 		self.msg_type = 'PROGRESS'
+		self.adid = None
+		self.domain_name = None
 		self.finished = None
 		self.running = None
 		self.total_finished = None
@@ -50,8 +52,18 @@ class LDAPEnumeratorProgress:
 
 	def __str__(self):
 		if self.msg_type == 'PROGRESS':
-			return '[%s][%s] FINISHED %s RUNNING %s TOTAL %s SPEED %s' % (self.type, self.msg_type, ','.join(self.finished), ','.join(self.running), self.total_finished, self.speed)
-		return '[%s][%s]' % (self.type, self.msg_type)
+			return '[%s][%s][%s][%s] FINISHED %s RUNNING %s TOTAL %s SPEED %s' % (
+				self.type, 
+				self.domain_name, 
+				self.adid,
+				self.msg_type,
+				','.join(self.finished), 
+				','.join(self.running), 
+				self.total_finished, 
+				self.speed
+			
+			)
+		return '[%s][%s][%s][%s]' % (self.type, self.domain_name, self.adid, self.msg_type)
 
 class LDAPAgentCommand(enum.Enum):
 	SPNSERVICE = 0
@@ -311,6 +323,7 @@ class LDAPEnumeratorManager:
 			self.agent_cnt = min(multiprocessing.cpu_count(), 3)
 
 		self.ad_id = None
+		self.domain_name = None
 
 		self.user_ctr = 0
 		self.machine_ctr = 0
@@ -455,6 +468,8 @@ class LDAPEnumeratorManager:
 			msg = LDAPEnumeratorProgress()
 			msg.type = 'LDAP'
 			msg.msg_type = 'ABORTED'
+			msg.adid = self.ad_id
+			msg.domain_name = self.domain_name
 			await self.progress_queue.put(msg)
 
 		for task in self.agents:
@@ -476,6 +491,7 @@ class LDAPEnumeratorManager:
 
 	async def store_domain(self, info):
 		info.ldap_enumeration_state = 'STARTED'
+		self.domain_name = str(info.distinguishedName).replace(',','.').replace('DC=','')
 		self.session.add(info)
 		self.session.commit()
 		self.session.refresh(info)
@@ -661,6 +677,8 @@ class LDAPEnumeratorManager:
 				msg = LDAPEnumeratorProgress()
 				msg.type = 'LDAP'
 				msg.msg_type = 'PROGRESS'
+				msg.adid = self.ad_id
+				msg.domain_name = self.domain_name
 				msg.finished = self.finished_enums
 				msg.running = self.running_enums
 				msg.total_finished = self.total_counter
@@ -686,6 +704,8 @@ class LDAPEnumeratorManager:
 			msg = LDAPEnumeratorProgress()
 			msg.type = 'LDAP'
 			msg.msg_type = 'FINISHED'
+			msg.adid = self.ad_id
+			msg.domain_name = self.domain_name
 			await self.progress_queue.put(msg)
 
 		logger.debug('All agents finished!')
@@ -697,6 +717,8 @@ class LDAPEnumeratorManager:
 			msg = LDAPEnumeratorProgress()
 			msg.type = 'LDAP'
 			msg.msg_type = 'STARTED'
+			msg.adid = self.ad_id
+			msg.domain_name = self.domain_name
 			await self.progress_queue.put(msg)
 
 		await self.check_jobs(None)
