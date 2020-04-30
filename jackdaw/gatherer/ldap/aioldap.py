@@ -307,15 +307,15 @@ class LDAPEnumeratorAgent():
 		loop.run_until_complete(self.arun())
 
 class LDAPEnumeratorManager:
-	def __init__(self, db_conn, ldam_mgr, agent_cnt = None, queue_size = 10, progress_queue = None):
+	def __init__(self, db_conn, ldam_mgr, agent_cnt = None, queue_size = None, progress_queue = None):
 		self.db_conn = db_conn
 		self.ldam_mgr = ldam_mgr
 
 		self.session = None
 
 		self.queue_size = queue_size
-		self.agent_in_q = asyncio.Queue() #AsyncProcessQueue()
-		self.agent_out_q = asyncio.Queue(1000) #AsyncProcessQueue(1000)
+		self.agent_in_q = None
+		self.agent_out_q = None
 		self.agents = []
 
 		self.agent_cnt = agent_cnt
@@ -448,8 +448,15 @@ class LDAPEnumeratorManager:
 			'gpos' : self.gpo_ctr,
 		}
 
-	def setup(self):
+	async def setup(self):
 		logger.debug('mgr setup')
+
+		qs = self.queue_size
+		if qs is None:
+			qs = self.agent_cnt
+		self.agent_in_q = asyncio.Queue() #AsyncProcessQueue()
+		self.agent_out_q = asyncio.Queue(qs) #AsyncProcessQueue(1000)
+
 		if self.progress_queue is None:
 			self.total_progress = tqdm(desc='LDAP info entries', ascii = True)
 		
@@ -712,7 +719,10 @@ class LDAPEnumeratorManager:
 
 	async def run(self):
 		logger.info('[+] Starting LDAP information acqusition. This might take a while...')
-		self.setup()
+		
+		await self.setup()
+		
+
 		if self.progress_queue is not None:
 			msg = LDAPEnumeratorProgress()
 			msg.type = 'LDAP'
