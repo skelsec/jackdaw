@@ -127,7 +127,9 @@ class LDAPEnumeratorAgent():
 
 	async def get_all_effective_memberships(self):
 		try:
-			async for res in self.ldap.get_all_tokengroups():
+			async for res, err in self.ldap.get_all_tokengroups():
+				if err is not None:
+					raise err
 				s = JackDawTokenGroup()
 				s.cn = res['cn']
 				s.dn = res['dn']
@@ -151,7 +153,9 @@ class LDAPEnumeratorAgent():
 
 	async def get_all_trusts(self):
 		try:
-			async for entry in self.ldap.get_all_trusts():
+			async for entry, err in self.ldap.get_all_trusts():
+				if err is not None:
+					raise err
 				await self.agent_out_q.put((LDAPAgentCommand.TRUSTS, JackDawADTrust.from_ldapdict(entry.to_dict())))
 		except:
 			await self.agent_out_q.put((LDAPAgentCommand.EXCEPTION, str(traceback.format_exc())))
@@ -160,7 +164,9 @@ class LDAPEnumeratorAgent():
 
 	async def get_all_spnservices(self):
 		try:
-			async for entry in self.ldap.get_all_spn_entries():
+			async for entry, err in self.ldap.get_all_spn_entries():
+				if err is not None:
+					raise err
 				for spn in entry['attributes']['servicePrincipalName']:
 					port = None
 					service, t = spn.rsplit('/',1)
@@ -183,7 +189,9 @@ class LDAPEnumeratorAgent():
 
 	async def get_all_users(self):
 		try:
-			async for user_data in self.ldap.get_all_user_objects():
+			async for user_data, err in self.ldap.get_all_users():
+				if err is not None:
+					raise err
 				user = JackDawADUser.from_aduser(user_data)
 				await self.agent_out_q.put((LDAPAgentCommand.USER, user))
 		except:
@@ -193,7 +201,9 @@ class LDAPEnumeratorAgent():
 
 	async def get_all_groups(self):
 		try:
-			async for group in self.ldap.get_all_groups():
+			async for group, err in self.ldap.get_all_groups():
+				if err is not None:
+					raise err
 				g = JackDawADGroup.from_dict(group.to_dict())
 				await self.agent_out_q.put((LDAPAgentCommand.GROUP, g))
 				del g
@@ -204,7 +214,9 @@ class LDAPEnumeratorAgent():
 
 	async def get_all_gpos(self):
 		try:
-			async for gpo in self.ldap.get_all_gpos():
+			async for gpo, err in self.ldap.get_all_gpos():
+				if err is not None:
+					raise err
 				g = JackDawADGPO.from_adgpo(gpo)
 				await self.agent_out_q.put((LDAPAgentCommand.GPO, g))
 				del g
@@ -216,7 +228,9 @@ class LDAPEnumeratorAgent():
 
 	async def get_all_machines(self):
 		try:
-			async for machine_data in self.ldap.get_all_machine_objects():
+			async for machine_data, err in self.ldap.get_all_machines():
+				if err is not None:
+					raise err
 				machine = JackDawADMachine.from_adcomp(machine_data)
 				await self.agent_out_q.put((LDAPAgentCommand.MACHINE, machine))
 		except:
@@ -226,7 +240,9 @@ class LDAPEnumeratorAgent():
 
 	async def get_all_ous(self):
 		try:
-			async for ou in self.ldap.get_all_ous():
+			async for ou, err in self.ldap.get_all_ous():
+				if err is not None:
+					raise err
 				o = JackDawADOU.from_adou(ou)
 				await self.agent_out_q.put((LDAPAgentCommand.OU, o))
 				del o
@@ -237,7 +253,9 @@ class LDAPEnumeratorAgent():
 
 	async def get_domain_info(self):
 		try:
-			info = await self.ldap.get_ad_info()
+			info, err = await self.ldap.get_ad_info()
+			if err is not None:
+				raise err
 			adinfo = JackDawADInfo.from_dict(info.to_dict())
 			await self.agent_out_q.put((LDAPAgentCommand.DOMAININFO, adinfo))
 		except:
@@ -247,7 +265,9 @@ class LDAPEnumeratorAgent():
 
 	async def get_sds(self, data):
 		try:
-			async for adsec in self.ldap.get_all_objectacl():
+			async for adsec, err in self.ldap.get_all_objectacl():
+				if err is not None:
+					raise err
 				if not adsec.nTSecurityDescriptor:
 					continue
 				await self.agent_out_q.put((LDAPAgentCommand.SD, adsec ))
