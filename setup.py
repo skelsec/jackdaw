@@ -43,7 +43,7 @@ setup(
 		"Operating System :: OS Independent",
 	),
 	install_requires=[
-		'aiosmb>=0.2.13',
+		'aiosmb>=0.2.14',
 		'msldap>=0.3.1',
 		'sqlalchemy',
 		'dnspython',

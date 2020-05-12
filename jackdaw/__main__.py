@@ -95,7 +95,9 @@ async def run(args):
 		adifo_id = await mgr.run()
 		jdlogger.info('ADInfo entry successfully created with ID %s' % adifo_id)
 		
-	elif args.command in ['shares', 'sessions', 'localgroups']:
+	elif args.command in ['shares', 'sessions', 'localgroups', 'smball']:
+		if args.command == 'smball':
+			args.command = 'all'
 		smb_mgr = construct_smbdef(args)
 		mgr = SMBGathererManager(smb_mgr, worker_cnt=args.smb_workers, queue_size = args.smb_queue_size)
 		mgr.gathering_type = [args.command]
@@ -220,6 +222,17 @@ def main():
 	share_group.add_argument('-i', '--lookup-ad', help='ID of the domainfo to look up comupter names. Advisable to set for LDAP and file pbased targets')
 	share_group.add_argument('--smb-workers', type=int, default = 50, help='SMB worker count for parallelization')
 	
+	smball_group = subparsers.add_parser('smball', help='Enumerate shares on target')
+	smball_group.add_argument('smb_url',  help='Credential specitication in URL format')
+	smball_group.add_argument('--smb-queue-size', type=int, default = 100000, help='SMB worker queue max size.')
+	smball_group.add_argument('-t', '--target-file', help='taget file with hostnames. One per line.')
+	smball_group.add_argument('-l', '--ldap-url', help='ldap_connection_string. Use this to get targets from the domain controller')
+	smball_group.add_argument('-q', '--same-query', action='store_true', help='Use the same query for LDAP as for SMB. LDAP url must still be present, but without a query')
+	smball_group.add_argument('-d', '--ad-id', help='ID of the domainfo to poll targets rom the DB')
+	smball_group.add_argument('-i', '--lookup-ad', help='ID of the domainfo to look up comupter names. Advisable to set for LDAP and file pbased targets')
+	smball_group.add_argument('--smb-workers', type=int, default = 50, help='SMB worker count for parallelization')
+	
+
 	files_group = subparsers.add_parser('files', help='Enumerate files on targets')
 	#files_group.add_argument('src', choices=['file', 'ldap', 'domain', 'cmd'])
 	files_group.add_argument('src', choices=['domain'])

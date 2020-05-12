@@ -134,8 +134,8 @@ class SMBGathererManager:
 			info.smb_enumeration_state = 'STARTED'
 			self.domain_name = str(info.distinguishedName).replace(',','.').replace('DC=','')
 			session.commit()
-			for target_id, target_name in session.query(JackDawADMachine).filter_by(ad_id = self.target_ad).with_entities(JackDawADMachine.id, JackDawADMachine.sAMAccountName):
-				yield (target_id, target_name[:-1])
+			for target_id, dns in session.query(JackDawADMachine).filter_by(ad_id = self.target_ad).with_entities(JackDawADMachine.id, JackDawADMachine.dNSHostName):
+				yield (target_id, dns)
 
 		if self.db_conn is not None:
 			session.close()
@@ -251,7 +251,7 @@ class SMBGathererManager:
 					await self.progress_queue.put(msg)
 
 		
-		logger.info('[+] SMB information acqusition finished!')
+		logger.info('[+] SMB information acquisition finished!')
 		if self.progress_queue is not None:
 			msg = SMBEnumeratorProgress()
 			msg.msg_type = 'FINISHED'

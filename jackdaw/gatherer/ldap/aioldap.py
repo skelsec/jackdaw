@@ -7,6 +7,7 @@
 import os
 import re
 import enum
+import gzip
 import base64
 import asyncio
 import datetime
@@ -136,9 +137,7 @@ class LDAPEnumeratorAgent():
 				s.guid = res['guid']
 				s.sid = res['sid']
 				s.member_sid = res['token']
-				s.is_user = True if res['type'] == 'user' else False
-				s.is_group = True if res['type'] == 'group' else False
-				s.is_machine = True if res['type'] == 'computer' else False
+				s.objtype = res['type']
 				await self.agent_out_q.put((LDAPAgentCommand.MEMBERSHIP, s))
 		except:
 			await self.agent_out_q.put((LDAPAgentCommand.EXCEPTION, str(traceback.format_exc())))
@@ -376,6 +375,12 @@ class LDAPEnumeratorManager:
 		self.progress_last_counter = 0
 
 		self.enum_finished_evt = None #multiprocessing.Event()
+
+		self.sd_file_path = 'sd_' + datetime.datetime.utcnow().strftime("%Y%m%d_%H%M%S") + '.gzip'
+		self.sd_file = gzip.GzipFile(self.sd_file_path, 'w')
+
+		self.token_file_path = 'token_' + datetime.datetime.utcnow().strftime("%Y%m%d_%H%M%S") + '.gzip'
+		self.token_file = gzip.GzipFile(self.token_file_path, 'w')
 		
 		self.running_enums = {}
 		self.finished_enums = []
@@ -633,12 +638,15 @@ class LDAPEnumeratorManager:
 
 	async def store_membership(self, res):
 		res.ad_id = self.ad_id
-		self.session.add(res)
 		
-		if self.member_finish_ctr % 1000 == 0:
-			self.session.commit()
-		else:
-			self.session.flush()
+		self.token_file.write(res.to_json().encode() + b'\r\n')
+		
+		#self.session.add(res)
+		#
+		#if self.member_finish_ctr % 1000 == 0:
+		#	self.session.commit()
+		#else:
+		#	self.session.flush()
 
 	async def enum_sds(self):
 		logger.debug('Enumerating security descriptors')
@@ -666,14 +674,17 @@ class LDAPEnumeratorManager:
 		if sd.objectSid:
 			jdsd.sid = str(sd.objectSid)
 		jdsd.object_type = obj_type
-		jdsd.sd = base64.b64encode(sd.nTSecurityDescriptor)
+		jdsd.sd = base64.b64encode(sd.nTSecurityDescriptor).decode()
+
+
+		self.sd_file.write(jdsd.to_json().encode() + b'\r\n')
 		
-		self.session.add(jdsd)
-		
-		if self.sd_ctr % 1000 == 0:
-			self.session.commit()
-		else:
-			self.session.flush()
+		#self.session.add(jdsd)
+		#
+		#if self.sd_ctr % 1000 == 0:
+		#	self.session.commit()
+		#else:
+		#	self.session.flush()
 
 	async def update_progress(self):
 		self.total_counter += 1
@@ -719,13 +730,36 @@ class LDAPEnumeratorManager:
 		info = self.session.query(JackDawADInfo).get(self.ad_id)
 		info.ldap_enumeration_state = 'FINISHED'
 		self.session.commit()
-		self.session.close()
+		
 		for _ in range(self.agent_cnt):
 			await self.agent_in_q.put(None)
 
 		await asyncio.sleep(1)
 		for agent in self.agents:
 			agent.cancel()
+
+		self.sd_file.close()
+		self.token_file.close()
+
+		
+		with gzip.GzipFile(self.sd_file_path, 'r') as f:
+			for line in tqdm(f, desc='security descriptors', total=self.spn_finish_ctr):
+				sd = JackDawSD.from_json(line.strip())
+				self.session.add(sd)
+		
+		self.session.commit()
+
+		
+		with gzip.GzipFile(self.token_file_path, 'r') as f:
+			for line in tqdm(f, desc='memberships', total=self.member_finish_ctr):
+				sd = JackDawTokenGroup.from_json(line.strip())
+				self.session.add(sd)
+
+		self.session.commit()
+		self.session.close()
+
+		os.remove(self.sd_file_path)
+		os.remove(self.token_file_path)
 
 		if self.progress_queue is not None:
 			msg = LDAPEnumeratorProgress()

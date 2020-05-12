@@ -754,25 +754,31 @@ class DomainGraph:
 		#for tokengroup in adinfo.group_lookups:
 			self.add_sid_to_node(tokengroup.sid, 'unknown', construct)
 			self.add_sid_to_node(tokengroup.member_sid, 'unknown', construct)
+
+			try:
+				self.add_edge(tokengroup.sid, tokengroup.member_sid, construct, label='member')
+				cnt += 1
+			except AssertionError:
+				logger.exception()
 				
-			if tokengroup.is_user == True:
-				try:
-					self.add_edge(tokengroup.sid, tokengroup.member_sid, construct, label='member')
-					cnt += 1
-				except AssertionError:
-					logger.exception()
-			elif tokengroup.is_machine == True:
-				try:
-					self.add_edge(tokengroup.sid, tokengroup.member_sid, construct, label='member')
-					cnt += 1
-				except AssertionError:
-					logger.exception()
-			elif tokengroup.is_group == True:
-				try:
-					self.add_edge(tokengroup.sid, tokengroup.member_sid, construct, label='member')
-					cnt += 1
-				except AssertionError:
-					logger.exception()
+			#if tokengroup.is_user == True:
+			#	try:
+			#		self.add_edge(tokengroup.sid, tokengroup.member_sid, construct, label='member')
+			#		cnt += 1
+			#	except AssertionError:
+			#		logger.exception()
+			#elif tokengroup.is_machine == True:
+			#	try:
+			#		self.add_edge(tokengroup.sid, tokengroup.member_sid, construct, label='member')
+			#		cnt += 1
+			#	except AssertionError:
+			#		logger.exception()
+			#elif tokengroup.is_group == True:
+			#	try:
+			#		self.add_edge(tokengroup.sid, tokengroup.member_sid, construct, label='member')
+			#		cnt += 1
+			#	except AssertionError:
+			#		logger.exception()
 		
 		logger.debug('Added %s membership edges' % cnt)
 		
