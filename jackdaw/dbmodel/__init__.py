@@ -93,6 +93,7 @@ from .netdir import *
 from .adsd import *
 from .adtrust import *
 from .lsasecrets import *
+from .adspn import *
 
 
 

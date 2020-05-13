@@ -11,6 +11,8 @@ class JackDawSPNService(Basemodel):
 	ad = relationship("JackDawADInfo", back_populates="spnservices", lazy = True)
 	fetched_at = Column(DateTime, default=datetime.datetime.utcnow)
 	owner_sid = Column(String, index=True)
+	service_class = Column(String, index=True)
 	computername = Column(String, index=True)
-	service = Column(String, index=True)
 	port = Column(Integer, index=True)
+	service_name = Column(String, index=True)
+	

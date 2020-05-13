@@ -27,10 +27,12 @@ from jackdaw.dbmodel.adcomp import JackDawADMachine
 from jackdaw.dbmodel.adou import JackDawADOU
 from jackdaw.dbmodel.usergroup import JackDawGroupUser
 from jackdaw.dbmodel.adinfo import JackDawADInfo
+from jackdaw.dbmodel.adtrust import JackDawADTrust
 from jackdaw.dbmodel.tokengroup import JackDawTokenGroup
 from jackdaw.dbmodel.adgpo import JackDawADGPO
 from jackdaw.dbmodel.constrained import JackDawMachineConstrainedDelegation, JackDawUserConstrainedDelegation
 from jackdaw.dbmodel.adgplink import JackDawADGplink
+from jackdaw.dbmodel.adspn import JackDawSPN
 from jackdaw.dbmodel.netsession import NetSession
 from jackdaw.dbmodel.localgroup import LocalGroup
 from jackdaw.dbmodel.credential import Credential
@@ -695,6 +697,34 @@ class DomainGraph:
 			self.add_sid_to_node(user.objectSid, 'machine', construct, name=user.sAMAccountName)
 			cnt += 1
 		logger.debug('Added %s machine nodes' % cnt)
+
+		logger.debug('Adding trusts edges')
+		cnt = 0
+		for trust in session.query(JackDawADTrust).filter_by(ad_id = adinfo.id):
+			if trust.trustDirection == 'INBOUND':
+				self.add_edge(adinfo.objectSid, trust.securityIdentifier, construct, label='trustedBy')
+				cnt += 1
+			elif trust.trustDirection == 'OUTBOUND':
+				self.add_edge(trust.securityIdentifier, adinfo.objectSid, construct, label='trustedBy')
+				cnt += 1
+			elif trust.trustDirection == 'BIDIRECTIONAL':
+				self.add_edge(adinfo.objectSid, trust.securityIdentifier, construct, label='trustedBy')
+				self.add_edge(trust.securityIdentifier, adinfo.objectSid, construct, label='trustedBy')
+				cnt += 2
+		logger.debug('Added %s trusts edges' % cnt)
+
+		logger.debug('Adding sqladmin edges')
+		cnt = 0
+		for user_sid, machine_sid in session.query(JackDawSPN.owner_sid, JackDawADMachine.objectSid)\
+				.filter(JackDawSPN.ad_id == adinfo.id)\
+				.filter(JackDawADMachine.ad_id == adinfo.id)\
+				.filter(JackDawADUser.ad_id == adinfo.id)\
+				.filter(JackDawSPN.owner_sid == JackDawADUser.objectSid)\
+				.filter(JackDawSPN.service_class == 'MSSQLSvc')\
+				.filter(JackDawSPN.computername == JackDawADMachine.dNSHostName):
+			self.add_edge(user_sid, machine_sid, construct, label='sqladmin')
+			cnt += 1
+		logger.debug('Added %s sqladmin edges' % cnt)
 
 		logger.debug('Adding hassession edges')
 		cnt = 0

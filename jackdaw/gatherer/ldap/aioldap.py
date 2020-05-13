@@ -30,6 +30,7 @@ from jackdaw.dbmodel.constrained import JackDawMachineConstrainedDelegation, Jac
 from jackdaw.dbmodel.adgplink import JackDawADGplink
 from jackdaw.dbmodel.adsd import JackDawSD
 from jackdaw.dbmodel.adtrust import JackDawADTrust
+from jackdaw.dbmodel.adspn import JackDawSPN
 from jackdaw.dbmodel import get_session
 from jackdaw.wintypes.lookup_tables import *
 from jackdaw import logger
@@ -144,12 +145,6 @@ class LDAPEnumeratorAgent():
 		finally:
 			await self.agent_out_q.put((LDAPAgentCommand.MEMBERSHIPS_FINISHED, None))
 
-	async def enumerate_spnservices(self):
-		pass
-
-	async def enumerate_machine(self, machine):
-		pass
-
 	async def get_all_trusts(self):
 		try:
 			async for entry, err in self.ldap.get_all_trusts():
@@ -166,19 +161,28 @@ class LDAPEnumeratorAgent():
 			async for entry, err in self.ldap.get_all_spn_entries():
 				if err is not None:
 					raise err
+				if 'servicePrincipalName' not in entry['attributes']:
+					continue
+				
 				for spn in entry['attributes']['servicePrincipalName']:
 					port = None
-					service, t = spn.rsplit('/',1)
+					service_name = None
+					service_class, t = spn.split('/',1)
 					m = t.find(':')
 					if m != -1:
-						computername, port = spn.rsplit(':',1)
+						computername, port = t.rsplit(':',1)
+						if port.find('/') != -1:
+							port, service_name = port.rsplit('/',1)
 					else:
 						computername = t
+						if computername.find('/') != -1:
+							computername, service_name = computername.rsplit('/',1)
 
 					s = JackDawSPNService()
 					s.owner_sid = str(entry['attributes']['objectSid'])
 					s.computername = computername
-					s.service = service
+					s.service_class = service_class
+					s.service_name = service_name
 					s.port = port
 					await self.agent_out_q.put((LDAPAgentCommand.SPNSERVICE, s))
 		except:
@@ -192,7 +196,12 @@ class LDAPEnumeratorAgent():
 				if err is not None:
 					raise err
 				user = JackDawADUser.from_aduser(user_data)
-				await self.agent_out_q.put((LDAPAgentCommand.USER, user))
+				spns = []
+				if user_data.servicePrincipalName is not None:
+					for spn in user_data.servicePrincipalName:
+						spns.append(JackDawSPN.from_spn_str(spn, user.objectSid))
+
+				await self.agent_out_q.put((LDAPAgentCommand.USER, {'user':user, 'spns':spns}))
 		except:
 			await self.agent_out_q.put((LDAPAgentCommand.EXCEPTION, str(traceback.format_exc())))
 		finally:
@@ -231,7 +240,12 @@ class LDAPEnumeratorAgent():
 				if err is not None:
 					raise err
 				machine = JackDawADMachine.from_adcomp(machine_data)
-				await self.agent_out_q.put((LDAPAgentCommand.MACHINE, machine))
+				
+				delegations = []
+				if machine_data.allowedtodelegateto is not None:
+					for delegate_data in machine_data.allowedtodelegateto:
+						delegations.append(JackDawMachineConstrainedDelegation.from_spn_str(delegate_data))
+				await self.agent_out_q.put((LDAPAgentCommand.MACHINE, {'machine' : machine, 'delegations' : delegations}))
 		except:
 			await self.agent_out_q.put((LDAPAgentCommand.EXCEPTION, str(traceback.format_exc())))
 		finally:
@@ -545,19 +559,15 @@ class LDAPEnumeratorManager:
 		await self.agent_in_q.put(job)
 		
 
-	async def store_user(self, user):
+	async def store_user(self, user_and_spn):
+		user = user_and_spn['user']
+		spns = user_and_spn['spns']
 		user.ad_id = self.ad_id
-
-		#self.session.flush()
-		#self.session.refresh(user)
-
-		for spn in getattr(user,'allowedtodelegateto',[]):
-			con = JackDawUserConstrainedDelegation()
-			con.spn = spn
-			con.targetaccount = LDAPEnumeratorManager.spn_to_account(spn)
-			user.allowedtodelegateto.append(con)
-
 		self.session.add(user)
+		for spn in spns:
+			spn.ad_id = self.ad_id
+			self.session.add(spn)
+
 		self.session.flush()
 
 	async def enum_machines(self):
@@ -565,9 +575,16 @@ class LDAPEnumeratorManager:
 		job = LDAPAgentJob(LDAPAgentCommand.MACHINES, self.ad_id)
 		await self.agent_in_q.put(job)
 
-	async def store_machine(self, machine):
+	async def store_machine(self, machine_and_del):
+		machine = machine_and_del['machine']
+		delegations = machine_and_del['delegations']
 		machine.ad_id = self.ad_id
 		self.session.add(machine)
+		self.session.commit()
+		self.session.refresh(machine)
+		for d in delegations:
+			d.machine_id = machine.id
+			self.session.add(d)
 		#self.session.commit()
 		self.session.flush()
 	
@@ -741,19 +758,25 @@ class LDAPEnumeratorManager:
 		self.sd_file.close()
 		self.token_file.close()
 
-		
+		cnt = 0
 		with gzip.GzipFile(self.sd_file_path, 'r') as f:
-			for line in tqdm(f, desc='security descriptors', total=self.spn_finish_ctr):
+			for line in tqdm(f, desc='Uploading security descriptors to DB', total=self.spn_finish_ctr):
 				sd = JackDawSD.from_json(line.strip())
 				self.session.add(sd)
+				cnt += 1
+				if cnt % 10000 == 0:
+					self.session.commit()
 		
 		self.session.commit()
 
-		
+		cnt = 0
 		with gzip.GzipFile(self.token_file_path, 'r') as f:
-			for line in tqdm(f, desc='memberships', total=self.member_finish_ctr):
+			for line in tqdm(f, desc='Uploading memberships to DB', total=self.member_finish_ctr):
 				sd = JackDawTokenGroup.from_json(line.strip())
 				self.session.add(sd)
+				cnt += 1
+				if cnt % 10000 == 0:
+					self.session.commit()
 
 		self.session.commit()
 		self.session.close()
