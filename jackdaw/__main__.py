@@ -91,7 +91,7 @@ async def run(args):
 		ldap_mgr = construct_ldapdef(args)
 		ldap_conn = ldap_mgr.get_client()
 	
-		mgr = LDAPEnumeratorManager(db_conn, ldap_mgr, agent_cnt=args.ldap_workers, queue_size=args.ldap_queue_size)
+		mgr = LDAPEnumeratorManager(db_conn, ldap_mgr, agent_cnt=args.ldap_workers, queue_size=args.ldap_queue_size, ad_id = args.ad_id)
 		adifo_id = await mgr.run()
 		jdlogger.info('ADInfo entry successfully created with ID %s' % adifo_id)
 		
@@ -199,7 +199,8 @@ def main():
 	ldap_group = subparsers.add_parser('ldap', formatter_class=argparse.RawDescriptionHelpFormatter, help='Enumerate potentially vulnerable users via LDAP', epilog = MSLDAPURLDecoder.help_epilog)
 	ldap_group.add_argument('ldap_url',  help='Connection specitication in URL format')
 	ldap_group.add_argument('--ldap-workers', type=int, default = 4, help='LDAP worker count for parallelization')
-	ldap_group.add_argument('--ldap-queue-size', type=int, default = 100000, help='LDAP worker queue max size.')
+	ldap_group.add_argument('--ldap-queue-size', type=int, default = 4, help='LDAP worker queue max size.')
+	ldap_group.add_argument('-d', '--ad-id', help='AD id from DB. signals resumption task')
 	
 	enum_group = subparsers.add_parser('enum', formatter_class=argparse.RawDescriptionHelpFormatter, help='Enumerate all stuffs', epilog = MSLDAPURLDecoder.help_epilog)
 	enum_group.add_argument('ldap_url',  help='Connection specitication in URL format')

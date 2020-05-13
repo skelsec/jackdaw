@@ -24,7 +24,7 @@ class JackDawADUser(Basemodel):
 	name = Column(String)
 	objectCategory = Column(String)
 	objectClass = Column(String)
-	objectGUID = Column(String)
+	objectGUID = Column(String, index=True)
 	objectSid = Column(String, index=True)
 	primaryGroupID = Column(String)
 	sAMAccountName = Column(String, index=True)

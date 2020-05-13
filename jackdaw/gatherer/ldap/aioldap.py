@@ -15,6 +15,8 @@ import threading
 import traceback
 import multiprocessing
 
+from sqlalchemy import func
+
 from jackdaw.dbmodel.spnservice import JackDawSPNService
 from jackdaw.dbmodel.addacl import JackDawADDACL
 from jackdaw.dbmodel.adgroup import JackDawADGroup
@@ -40,6 +42,27 @@ from jackdaw.common.apq import AsyncProcessQueue
 from msldap.ldap_objects import *
 from winacl.dtyp.security_descriptor import SECURITY_DESCRIPTOR
 from tqdm import tqdm
+
+def windowed_query(q, column, windowsize, is_single_entity = True):
+	""""Break a Query into chunks on a given column."""
+
+	#single_entity = q.is_single_entity
+	q = q.add_column(column).order_by(column)
+	last_id = None
+
+	while True:
+		subq = q
+		if last_id is not None:
+			subq = subq.filter(column > last_id)
+		chunk = subq.limit(windowsize).all()
+		if not chunk:
+			break
+		last_id = chunk[-1][-1]
+		for row in chunk:
+			if is_single_entity is True:
+				yield row[0]
+			else:
+				yield row[0:-1]
 
 class LDAPEnumeratorProgress:
 	def __init__(self):
@@ -98,6 +121,7 @@ class LDAPAgentCommand(enum.Enum):
 	DOMAININFO_FINISHED = 38
 	GPOS_FINISHED = 39
 	TRUSTS_FINISHED = 40
+	MEMBERSHIP_FINISHED = 41
 
 MSLDAP_JOB_TYPES = {
 	'users' : LDAPAgentCommand.USERS_FINISHED ,
@@ -127,6 +151,24 @@ class LDAPEnumeratorAgent():
 		self.ldap = None
 		self.test_ctr = 0
 
+	async def get_sds(self, data):
+		try:
+			#print(data)
+			if data is None:
+				await self.agent_out_q.put((LDAPAgentCommand.SDS_FINISHED, None))
+				return
+
+			dn = data['dn']
+			
+			adsec, err = await self.ldap.get_objectacl_by_dn(dn)
+			if err is not None:
+				raise err
+			data['adsec'] = adsec
+			await self.agent_out_q.put((LDAPAgentCommand.SD, data ))
+
+		except:
+			await self.agent_out_q.put((LDAPAgentCommand.EXCEPTION, str(traceback.format_exc())))
+
 	async def get_all_effective_memberships(self):
 		try:
 			async for res, err in self.ldap.get_all_tokengroups():
@@ -144,6 +186,26 @@ class LDAPEnumeratorAgent():
 			await self.agent_out_q.put((LDAPAgentCommand.EXCEPTION, str(traceback.format_exc())))
 		finally:
 			await self.agent_out_q.put((LDAPAgentCommand.MEMBERSHIPS_FINISHED, None))
+
+	async def get_effective_memberships(self, data):
+		try:
+			if data is None:
+				await self.agent_out_q.put((LDAPAgentCommand.MEMBERSHIPS_FINISHED, None))
+				return
+			async for res, err in self.ldap.get_tokengroups(data['dn']):
+				if err is not None:
+					raise err
+				s = JackDawTokenGroup()
+				s.guid = data['guid']
+				s.sid = data['sid']
+				s.member_sid = res
+				s.object_type = data['object_type']
+				await self.agent_out_q.put((LDAPAgentCommand.MEMBERSHIP, s))
+		except:
+			await self.agent_out_q.put((LDAPAgentCommand.EXCEPTION, str(traceback.format_exc())))
+		finally:
+			await self.agent_out_q.put((LDAPAgentCommand.MEMBERSHIP_FINISHED, None))
+			
 
 	async def get_all_trusts(self):
 		try:
@@ -276,20 +338,6 @@ class LDAPEnumeratorAgent():
 		finally:
 			await self.agent_out_q.put((LDAPAgentCommand.DOMAININFO_FINISHED, None))
 
-	async def get_sds(self, data):
-		try:
-			async for adsec, err in self.ldap.get_all_objectacl():
-				if err is not None:
-					raise err
-				if not adsec.nTSecurityDescriptor:
-					continue
-				await self.agent_out_q.put((LDAPAgentCommand.SD, adsec ))
-
-		except:
-			await self.agent_out_q.put((LDAPAgentCommand.EXCEPTION, str(traceback.format_exc())))
-		finally:
-			await self.agent_out_q.put((LDAPAgentCommand.SDS_FINISHED, None))
-
 	async def setup(self):
 		try:
 			self.ldap = self.ldap_mgr.get_client()
@@ -324,8 +372,10 @@ class LDAPEnumeratorAgent():
 				await self.get_all_gpos()
 			elif res.command == LDAPAgentCommand.SPNSERVICES:
 				await self.get_all_spnservices()
+			#elif res.command == LDAPAgentCommand.MEMBERSHIPS:
+			#	await self.get_all_effective_memberships()
 			elif res.command == LDAPAgentCommand.MEMBERSHIPS:
-				await self.get_all_effective_memberships()
+				await self.get_effective_memberships(res.data)
 			elif res.command == LDAPAgentCommand.SDS:
 				await self.get_sds(res.data)
 			elif res.command == LDAPAgentCommand.TRUSTS:
@@ -340,7 +390,7 @@ class LDAPEnumeratorAgent():
 		loop.run_until_complete(self.arun())
 
 class LDAPEnumeratorManager:
-	def __init__(self, db_conn, ldam_mgr, agent_cnt = None, queue_size = None, progress_queue = None):
+	def __init__(self, db_conn, ldam_mgr, agent_cnt = None, queue_size = None, progress_queue = None, ad_id = None):
 		self.db_conn = db_conn
 		self.ldam_mgr = ldam_mgr
 
@@ -355,7 +405,10 @@ class LDAPEnumeratorManager:
 		if agent_cnt is None:
 			self.agent_cnt = min(multiprocessing.cpu_count(), 3)
 
-		self.ad_id = None
+		self.resumption = False
+		self.ad_id = ad_id
+		if ad_id is not None:
+			self.resumption = True
 		self.domain_name = None
 
 		self.user_ctr = 0
@@ -404,11 +457,11 @@ class LDAPEnumeratorManager:
 			'users', 
 			'machines',
 			'groups',
-			'memberships', 
-			'sds', 
 			'ous', 
 			'gpos',
-			'spns'
+			'spns',
+			#'memberships', 
+			#'sds', 
 		]
 		self.enum_types_len = len(self.enum_types)
 
@@ -653,17 +706,12 @@ class LDAPEnumeratorManager:
 		await self.agent_in_q.put(job)
 
 
-	async def store_membership(self, res):
-		res.ad_id = self.ad_id
-		
-		self.token_file.write(res.to_json().encode() + b'\r\n')
-		
-		#self.session.add(res)
-		#
-		#if self.member_finish_ctr % 1000 == 0:
-		#	self.session.commit()
-		#else:
-		#	self.session.flush()
+	#async def store_membership(self, res):
+	#	try:
+	#		
+	#	except Exception as e:
+
+
 
 	async def enum_sds(self):
 		logger.debug('Enumerating security descriptors')
@@ -673,35 +721,93 @@ class LDAPEnumeratorManager:
 	async def store_sd(self, sd):
 		#secdesc = SECURITY_DESCRIPTOR.from_bytes(sd.nTSecurityDescriptor)
 		#
-		if sd.objectClass[-1] in ['user', 'group']:
-			obj_type = sd.objectClass[-1]
-		elif sd.objectClass[-1] == 'computer':
-			obj_type = 'machine'
-		elif sd.objectClass[-1] == 'groupPolicyContainer':
-			obj_type = 'gpo'
-		elif sd.objectClass[-1] == 'organizationalUnit':
-			obj_type = 'ou'
-		else:
-			obj_type = sd.objectClass[-1]
-
+		#print(str(sd))
+		if sd['adsec'] is None:
+			return
 		jdsd = JackDawSD()
 
 		jdsd.ad_id = self.ad_id
-		jdsd.guid =  str(sd.objectGUID)
-		if sd.objectSid:
-			jdsd.sid = str(sd.objectSid)
-		jdsd.object_type = obj_type
-		jdsd.sd = base64.b64encode(sd.nTSecurityDescriptor).decode()
+		jdsd.guid =  sd['guid']
+		jdsd.sid = sd['sid']
+		jdsd.object_type = sd['object_type']
+		jdsd.sd = base64.b64encode(sd['adsec']).decode()
 
 
 		self.sd_file.write(jdsd.to_json().encode() + b'\r\n')
-		
-		#self.session.add(jdsd)
-		#
-		#if self.sd_ctr % 1000 == 0:
-		#	self.session.commit()
-		#else:
-		#	self.session.flush()
+
+	async def resumption_target_gen(self,q, id_filed, obj_type, jobtype):
+		for dn, sid, guid in windowed_query(q, id_filed, 1000, is_single_entity = False):
+			#print(dn)
+			data = {
+				'dn' : dn,
+				'sid' : sid,
+				'guid' : guid,
+				'object_type' : obj_type
+			}
+			job = LDAPAgentJob(jobtype, data)
+			await self.agent_in_q.put(job)
+
+	async def resumption_target_gen_2(self,q, id_filed, obj_type, jobtype):
+		for dn, guid in windowed_query(q, id_filed, 1000, is_single_entity = False):
+			#print(dn)
+			data = {
+				'dn' : dn,
+				'sid' : None,
+				'guid' : guid,
+				'object_type' : obj_type
+			}
+			job = LDAPAgentJob(jobtype, data)
+			await self.agent_in_q.put(job)
+
+	async def resumption_target_gen_member(self,q, id_filed, obj_type, jobtype):
+		for dn, sid, guid in windowed_query(q, id_filed, 1000, is_single_entity = False):
+			#print(dn)
+			data = {
+				'dn' : dn,
+				'sid' : sid,
+				'guid' : guid,
+				'object_type' : obj_type
+			}
+			job = LDAPAgentJob(jobtype, data)
+			await self.agent_in_q.put(job)
+
+
+	async def generate_sd_targets(self):
+		try:
+			subq = self.session.query(JackDawSD.guid).filter(JackDawSD.ad_id == self.ad_id)
+			#total_sds_to_poll += self.session.query(func.count(JackDawADMachine.id)).filter_by(ad_id = self.ad_id).filter(~JackDawADMachine.objectGUID.in_(subq)).scalar()
+			#total_sds_to_poll += self.session.query(func.count(JackDawADGPO.id)).filter_by(ad_id = self.ad_id).filter(~JackDawADGPO.objectGUID.in_(subq)).scalar()
+			#total_sds_to_poll += self.session.query(func.count(JackDawADOU.id)).filter_by(ad_id = self.ad_id).filter(~JackDawADOU.objectGUID.in_(subq)).scalar()
+			#total_sds_to_poll += self.session.query(func.count(JackDawADGroup.id)).filter_by(ad_id = self.ad_id).filter(~JackDawADGroup.guid.in_(subq)).scalar()
+			
+			q = self.session.query(JackDawADUser.dn, JackDawADUser.objectSid, JackDawADUser.objectGUID).filter_by(ad_id = self.ad_id).filter(~JackDawADUser.objectGUID.in_(subq))
+			await self.resumption_target_gen(q, JackDawADUser.id, 'user', LDAPAgentCommand.SDS)
+			q = self.session.query(JackDawADMachine.dn, JackDawADMachine.objectSid, JackDawADMachine.objectGUID).filter_by(ad_id = self.ad_id).filter(~JackDawADMachine.objectGUID.in_(subq))
+			await self.resumption_target_gen(q, JackDawADMachine.id, 'machine', LDAPAgentCommand.SDS)
+			q = self.session.query(JackDawADGroup.dn, JackDawADGroup.sid, JackDawADGroup.guid).filter_by(ad_id = self.ad_id).filter(~JackDawADGroup.guid.in_(subq))
+			await self.resumption_target_gen(q, JackDawADGroup.id, 'group', LDAPAgentCommand.SDS)
+			q = self.session.query(JackDawADOU.dn, JackDawADOU.objectGUID).filter_by(ad_id = self.ad_id).filter(~JackDawADOU.objectGUID.in_(subq))
+			await self.resumption_target_gen_2(q, JackDawADOU.id, 'ou', LDAPAgentCommand.SDS)
+			q = self.session.query(JackDawADGPO.dn, JackDawADGPO.objectGUID).filter_by(ad_id = self.ad_id).filter(~JackDawADGPO.objectGUID.in_(subq))
+			await self.resumption_target_gen_2(q, JackDawADGPO.id, 'gpo', LDAPAgentCommand.SDS)
+
+			logger.debug('generate_sd_targets finished!')
+		except Exception as e:
+			logger.exception('generate_sd_targets')
+
+
+	async def generate_member_targets(self):
+		try:
+			subq = self.session.query(JackDawTokenGroup.guid).distinct(JackDawTokenGroup.guid).filter(JackDawTokenGroup.ad_id == self.ad_id)
+			q = self.session.query(JackDawADUser.dn, JackDawADUser.objectSid, JackDawADUser.objectGUID).filter_by(ad_id = self.ad_id).filter(~JackDawADUser.objectGUID.in_(subq))
+			await self.resumption_target_gen_member(q, JackDawADUser.id, 'user', LDAPAgentCommand.MEMBERSHIPS)
+			q = self.session.query(JackDawADMachine.dn, JackDawADMachine.objectSid, JackDawADMachine.objectGUID).filter_by(ad_id = self.ad_id).filter(~JackDawADMachine.objectGUID.in_(subq))
+			await self.resumption_target_gen_member(q, JackDawADMachine.id, 'machine', LDAPAgentCommand.MEMBERSHIPS)
+			q = self.session.query(JackDawADGroup.dn, JackDawADGroup.sid, JackDawADGroup.guid).filter_by(ad_id = self.ad_id).filter(~JackDawADGroup.guid.in_(subq))
+			await self.resumption_target_gen_member(q, JackDawADGroup.id, 'group', LDAPAgentCommand.MEMBERSHIPS)
+		except Exception as e:
+			logger.exception('generate_sd_targets')
+
 
 	async def update_progress(self):
 		self.total_counter += 1
@@ -755,34 +861,7 @@ class LDAPEnumeratorManager:
 		for agent in self.agents:
 			agent.cancel()
 
-		self.sd_file.close()
-		self.token_file.close()
-
-		cnt = 0
-		with gzip.GzipFile(self.sd_file_path, 'r') as f:
-			for line in tqdm(f, desc='Uploading security descriptors to DB', total=self.spn_finish_ctr):
-				sd = JackDawSD.from_json(line.strip())
-				self.session.add(sd)
-				cnt += 1
-				if cnt % 10000 == 0:
-					self.session.commit()
-		
-		self.session.commit()
-
-		cnt = 0
-		with gzip.GzipFile(self.token_file_path, 'r') as f:
-			for line in tqdm(f, desc='Uploading memberships to DB', total=self.member_finish_ctr):
-				sd = JackDawTokenGroup.from_json(line.strip())
-				self.session.add(sd)
-				cnt += 1
-				if cnt % 10000 == 0:
-					self.session.commit()
-
-		self.session.commit()
 		self.session.close()
-
-		os.remove(self.sd_file_path)
-		os.remove(self.token_file_path)
 
 		if self.progress_queue is not None:
 			msg = LDAPEnumeratorProgress()
@@ -794,12 +873,7 @@ class LDAPEnumeratorManager:
 
 		logger.debug('All agents finished!')
 
-	async def run(self):
-		logger.info('[+] Starting LDAP information acqusition. This might take a while...')
-		
-		await self.setup()
-		
-
+	async def run_init_gathering(self):
 		if self.progress_queue is not None:
 			msg = LDAPEnumeratorProgress()
 			msg.type = 'LDAP'
@@ -867,7 +941,138 @@ class LDAPEnumeratorManager:
 				logger.exception('ldap enumerator main!')
 				await self.stop_agents()
 				return None
+		
+		return True
+
+	
+	#data['guid']
+	#s.sid = data['sid']
+	#s.member_sid = res['token']
+	#s.object_type = data['object_type']
+
+	async def stop_sds_collection(self, sds_p):
+		sds_p.disable = True
+		try:
+			self.sd_file.close()
+			cnt = 0
+			with gzip.GzipFile(self.sd_file_path, 'r') as f:
+				for line in tqdm(f, desc='Uploading security descriptors to DB', total=self.spn_finish_ctr):
+					sd = JackDawSD.from_json(line.strip())
+					self.session.add(sd)
+					cnt += 1
+					if cnt % 10000 == 0:
+						self.session.commit()
 			
+			self.session.commit()
+			os.remove(self.sd_file_path)
+		except Exception as e:
+			logger.exception('Error while uploading sds from file to DB')
+
+	async def stop_memberships_collection(self, member_p):
+		member_p.disable = True
+
+		try:
+			self.token_file.close()
+			cnt = 0
+			with gzip.GzipFile(self.token_file_path, 'r') as f:
+				for line in tqdm(f, desc='Uploading memberships to DB', total=self.member_finish_ctr):
+					sd = JackDawTokenGroup.from_json(line.strip())
+					self.session.add(sd)
+					cnt += 1
+					if cnt % 10000 == 0:
+						self.session.commit()
+
+			self.session.commit()
+			os.remove(self.token_file_path)
+		except Exception as e:
+			logger.exception('Error while uploading memberships from file to DB')
+
+	async def run(self):
+		logger.info('[+] Starting LDAP information acqusition. This might take a while...')
+		
+		await self.setup()
+		
+		if self.resumption is False:
+			res = await self.run_init_gathering()
+			self.session.commit()
+			if res is None:
+				return False
+		
+		try:
+			logger.debug('Polling sds')
+			total_sds_to_poll = 0
+			subq = self.session.query(JackDawSD.guid).filter(JackDawSD.ad_id == self.ad_id)
+			total_sds_to_poll += self.session.query(func.count(JackDawADUser.id)).filter_by(ad_id = self.ad_id).filter(~JackDawADUser.objectGUID.in_(subq)).scalar()
+			total_sds_to_poll += self.session.query(func.count(JackDawADMachine.id)).filter_by(ad_id = self.ad_id).filter(~JackDawADMachine.objectGUID.in_(subq)).scalar()
+			total_sds_to_poll += self.session.query(func.count(JackDawADGPO.id)).filter_by(ad_id = self.ad_id).filter(~JackDawADGPO.objectGUID.in_(subq)).scalar()
+			total_sds_to_poll += self.session.query(func.count(JackDawADOU.id)).filter_by(ad_id = self.ad_id).filter(~JackDawADOU.objectGUID.in_(subq)).scalar()
+			total_sds_to_poll += self.session.query(func.count(JackDawADGroup.id)).filter_by(ad_id = self.ad_id).filter(~JackDawADGroup.guid.in_(subq)).scalar()
+			
+			asyncio.create_task(self.generate_sd_targets())
+			sds_p = tqdm(desc='Collecting SDs', total=total_sds_to_poll)
+			logger.info(total_sds_to_poll)
+			acnt = total_sds_to_poll
+			while acnt > 0:
+				try:
+					res = await self.agent_out_q.get()
+					res_type, res = res
+					
+					if res_type == LDAPAgentCommand.SD:
+						sds_p.update()
+						await self.store_sd(res)
+
+					elif res_type == LDAPAgentCommand.EXCEPTION:
+						logger.warning(str(res))
+					
+					acnt -= 1
+				except Exception as e:
+					logger.exception('SDs enumeration error!')
+					raise e
+					
+		except Exception as e:
+			logger.exception('SDs enumeration main error')
+			await self.stop_sds_collection(sds_p)
+			return None
+		
+		await self.stop_sds_collection(sds_p)
+
+		try:
+			logger.debug('Polling members')
+			total_members_to_poll = 0
+			subq = self.session.query(JackDawTokenGroup.guid).distinct(JackDawTokenGroup.guid).filter(JackDawTokenGroup.ad_id == self.ad_id)
+			total_members_to_poll += self.session.query(func.count(JackDawADUser.id)).filter_by(ad_id = self.ad_id).filter(~JackDawADUser.objectGUID.in_(subq)).scalar()
+			total_members_to_poll += self.session.query(func.count(JackDawADMachine.id)).filter_by(ad_id = self.ad_id).filter(~JackDawADMachine.objectGUID.in_(subq)).scalar()
+			total_members_to_poll += self.session.query(func.count(JackDawADGroup.id)).filter_by(ad_id = self.ad_id).filter(~JackDawADGroup.guid.in_(subq)).scalar()
+			
+			asyncio.create_task(self.generate_member_targets())
+			member_p = tqdm(desc='Collecting members', total=total_members_to_poll)
+			acnt = total_members_to_poll
+			while acnt > 0:
+				try:
+					res = await self.agent_out_q.get()
+					res_type, res = res
+						
+					if res_type == LDAPAgentCommand.MEMBERSHIP:
+						res.ad_id = self.ad_id		
+						self.token_file.write(res.to_json().encode() + b'\r\n')
+					
+					elif res_type == LDAPAgentCommand.MEMBERSHIP_FINISHED:
+						member_p.update()
+						acnt -= 1
+
+					elif res_type == LDAPAgentCommand.EXCEPTION:
+						logger.warning(str(res))
+						
+				except Exception as e:
+					logger.exception('Members enumeration error!')
+					raise e
+		except Exception as e:
+			logger.exception('Members enumeration error main!')
+			await self.stop_memberships_collection(member_p)
+			return None
+		
+		await self.stop_memberships_collection(member_p)
+
 		await self.stop_agents()
 		logger.info('[+] LDAP information acqusition finished!')
 		return self.ad_id

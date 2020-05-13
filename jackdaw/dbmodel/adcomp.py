@@ -35,7 +35,7 @@ class JackDawADMachine(Basemodel):
 	nTSecurityDescriptor = Column(String)
 	objectCategory = Column(String)
 	objectClass = Column(String)
-	objectGUID = Column(String)
+	objectGUID = Column(String, index=True)
 	objectSid = Column(String)
 	operatingSystem = Column(String)
 	operatingSystemVersion = Column(String)
