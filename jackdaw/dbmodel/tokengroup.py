@@ -10,22 +10,16 @@ class JackDawTokenGroup(Basemodel):
 	id = Column(Integer, primary_key=True)
 	ad_id = Column(Integer, ForeignKey('ads.id'))
 	ad = relationship("JackDawADInfo", back_populates="group_lookups", lazy = True)
-	#fetched_at = Column(DateTime, default=datetime.datetime.utcnow)
-	#cn = Column(String, index=True)
-	#dn = Column(String, index=True)
 	guid = Column(String, index=True)
 	sid = Column(String, index=True)
 	member_sid = Column(String, index=True)
-	object_type = Column(String)
+	object_type = Column(String, index=True)
 	
 
 	@staticmethod
 	def from_dict(d):
 		t = JackDawTokenGroup()
 		t.ad_id = d['ad_id']
-		#t.fetched_at = datetime.datetime.fromisoformat(d['fetched_at'])
-		#t.cn = d['cn']
-		#t.dn = d['dn']
 		t.guid = d['guid']
 		t.sid = d['sid']
 		t.member_sid = d['member_sid']

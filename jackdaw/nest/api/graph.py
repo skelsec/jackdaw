@@ -51,7 +51,7 @@ def save(graphid):
 	with tempfile.NamedTemporaryFile(delete=False) as tmpfile:
 		temp_file_name = tmpfile.name
 
-	logger.warining('Temp file created, but will not be removed! %s' % temp_file_name)
+	#logger.debug('Temp file created, but will not be removed! %s' % temp_file_name)
 	graphs[graphid].to_gzip(temp_file_name)
 
 	attachment_name = 'graph_%s_%s.gzip' % (graphid, datetime.datetime.now().isoformat())

@@ -121,7 +121,7 @@ class SMBGathererManager:
 				if self.lookup_ad is not None:
 					res = session.query(JackDawADMachine)\
 							.filter_by(ad_id = self.lookup_ad)\
-							.with_entities(JackDawADMachine.id)\
+							.with_entities(JackDawADMachine.objectSid)\
 							.filter(JackDawADMachine.sAMAccountName == entry['attributes']['sAMAccountName'])\
 							.first()
 					if res is not None:
@@ -305,7 +305,7 @@ class AIOSMBGatherer:
 							await self.out_q.put((tid, connection.target, None, 'Failed to list shares. Reason: %s' % format_exc(err)))
 							continue
 						share = NetShare()
-						share.machine_id = tid
+						share.machine_sid = tid
 						share.ip = connection.target.get_ip()
 						share.netname = smbshare.name
 						share.type = smbshare.type
@@ -321,7 +321,7 @@ class AIOSMBGatherer:
 							continue
 
 						sess = NetSession()
-						sess.machine_id = tid
+						sess.machine_sid = tid
 						sess.source = connection.target.get_ip()
 						sess.ip = session.ip_addr.replace('\\','').strip()
 						sess.username = session.username
@@ -336,7 +336,7 @@ class AIOSMBGatherer:
 								continue
 
 							lg = LocalGroup()
-							lg.machine_id = tid
+							lg.machine_sid = tid
 							lg.ip = connection.target.get_ip()
 							lg.hostname = connection.target.get_hostname()
 							lg.sid = sid

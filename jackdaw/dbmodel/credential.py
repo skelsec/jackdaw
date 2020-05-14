@@ -19,7 +19,7 @@ class Credential(Basemodel):
 
 	id = Column(Integer, primary_key=True)
 	ad_id = Column(Integer)
-	machine_id = Column(Integer, nullable= False, default = -1)
+	machine_sid = Column(String, index=True)
 	domain = Column(String, index=True, nullable= False)
 	username = Column(String, index=True, nullable= False)
 	nt_hash = Column(String, index=True, nullable= False)
@@ -30,8 +30,8 @@ class Credential(Basemodel):
 	krb_rc4_hmac = Column(String, index=True, nullable= True)
 	history_no = Column(Integer, index=True, nullable= False)
 	cred_type = Column(String, index=True, nullable= False)
-	object_sid = Column(String, index=True, nullable= False)
-	object_rid = Column(String, index=True, nullable= False)
+	object_sid = Column(String, index=True)
+	object_rid = Column(String, index=True)
 	pwd_last_set = Column(DateTime, index = True)
 	
 	def __init__(self, domain = None, username = None, nt_hash = None, lm_hash = None, history_no = None, ad_id = -1):
@@ -43,10 +43,10 @@ class Credential(Basemodel):
 		self.ad_id = ad_id
 
 	@staticmethod
-	def from_samsecret(samsecret, ad_id = -1, machine_id = -1):
+	def from_samsecret(samsecret, ad_id = -1, machine_sid = -1):
 		cred = Credential()
 		cred.ad_id = ad_id
-		cred.machine_id = machine_id
+		cred.machine_sid = machine_sid
 		cred.domain = 'LOCAL'
 		cred.username = samsecret.username
 		cred.nt_hash = samsecret.nt_hash.hex() if samsecret.nt_hash is not None else None

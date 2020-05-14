@@ -16,19 +16,19 @@ Basemodel = declarative_base()
 
 
 
-@event.listens_for(Engine, "connect")
-def set_sqlite_pragma(dbapi_connection, connection_record):
-	##
-	## This function runs after the sqlite connection is made, and speeds up the insert operations considerably
-	## Sadly I could not find a way to limit the execution to sqlite so other DBs will trow an error :(
-	## TODO: fix this
-	##
-	cursor = dbapi_connection.cursor()
-	cursor.execute("PRAGMA journal_mode = MEMORY")
-	cursor.execute("PRAGMA synchronous = OFF")
-	cursor.execute("PRAGMA temp_store = MEMORY")
-	cursor.execute("PRAGMA cache_size = 500000")
-	cursor.close()
+#@event.listens_for(Engine, "connect")
+#def set_sqlite_pragma(dbapi_connection, connection_record):
+#	##
+#	## This function runs after the sqlite connection is made, and speeds up the insert operations considerably
+#	## Sadly I could not find a way to limit the execution to sqlite so other DBs will trow an error :(
+#	## TODO: fix this
+#	##
+#	cursor = dbapi_connection.cursor()
+#	cursor.execute("PRAGMA journal_mode = MEMORY")
+#	cursor.execute("PRAGMA synchronous = OFF")
+#	cursor.execute("PRAGMA temp_store = MEMORY")
+#	cursor.execute("PRAGMA cache_size = 500000")
+#	cursor.close()
 
 def lf(x, sep = ','):
 	"""
@@ -81,7 +81,6 @@ from .netsession import *
 from .netshare import *
 from .spnservice import *
 from .tokengroup import *
-from .usergroup import *
 from .localgroup import *
 from .constrained import *
 from .customrelations import *

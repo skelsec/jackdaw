@@ -7,7 +7,6 @@ from jackdaw.dbmodel.adinfo import JackDawADInfo
 from jackdaw.dbmodel.aduser import JackDawADUser
 from jackdaw.dbmodel.adcomp import JackDawADMachine
 from jackdaw.dbmodel.adou import JackDawADOU
-from jackdaw.dbmodel.usergroup import JackDawGroupUser
 from jackdaw.dbmodel.adinfo import JackDawADInfo
 from jackdaw.dbmodel.tokengroup import JackDawTokenGroup
 from jackdaw.dbmodel import *
@@ -44,7 +43,7 @@ class LDAPEnumerator:
 			
 	def get_domain_info(self):
 		info = self.ldap.get_ad_info()
-		return JackDawADInfo.from_dict(info.to_dict())
+		return JackDawADInfo.from_msldap(info)
 		
 	def get_all_machines(self):
 		for machine in self.ldap.get_all_machine_objects():

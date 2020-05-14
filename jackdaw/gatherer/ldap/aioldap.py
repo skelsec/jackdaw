@@ -14,6 +14,7 @@ import datetime
 import threading
 import traceback
 import multiprocessing
+from hashlib import sha1
 
 from sqlalchemy import func
 
@@ -24,7 +25,6 @@ from jackdaw.dbmodel.adinfo import JackDawADInfo
 from jackdaw.dbmodel.aduser import JackDawADUser
 from jackdaw.dbmodel.adcomp import JackDawADMachine
 from jackdaw.dbmodel.adou import JackDawADOU
-from jackdaw.dbmodel.usergroup import JackDawGroupUser
 from jackdaw.dbmodel.adinfo import JackDawADInfo
 from jackdaw.dbmodel.tokengroup import JackDawTokenGroup
 from jackdaw.dbmodel.adgpo import JackDawADGPO
@@ -331,7 +331,7 @@ class LDAPEnumeratorAgent():
 			info, err = await self.ldap.get_ad_info()
 			if err is not None:
 				raise err
-			adinfo = JackDawADInfo.from_dict(info.to_dict())
+			adinfo = JackDawADInfo.from_msldap(info)
 			await self.agent_out_q.put((LDAPAgentCommand.DOMAININFO, adinfo))
 		except:
 			await self.agent_out_q.put((LDAPAgentCommand.EXCEPTION, str(traceback.format_exc())))
@@ -636,7 +636,7 @@ class LDAPEnumeratorManager:
 		self.session.commit()
 		self.session.refresh(machine)
 		for d in delegations:
-			d.machine_id = machine.id
+			d.machine_sid = machine.objectSid
 			self.session.add(d)
 		#self.session.commit()
 		self.session.flush()
@@ -674,7 +674,8 @@ class LDAPEnumeratorManager:
 				gp = '{' + gp + '}'
 
 				link = JackDawADGplink()
-				link.ent_id = ou.id
+				link.ad_id = self.ad_id
+				link.ou_guid = ou.objectGUID
 				link.gpo_dn = gp
 				link.order = order
 				self.session.add(link)
@@ -731,6 +732,8 @@ class LDAPEnumeratorManager:
 		jdsd.sid = sd['sid']
 		jdsd.object_type = sd['object_type']
 		jdsd.sd = base64.b64encode(sd['adsec']).decode()
+
+		jdsd.sd_hash = sha1(sd['adsec']).hexdigest()
 
 
 		self.sd_file.write(jdsd.to_json().encode() + b'\r\n')
@@ -922,9 +925,9 @@ class LDAPEnumeratorManager:
 					self.sd_ctr += 1
 					await self.store_sd(res)
 					
-				elif res_type == LDAPAgentCommand.MEMBERSHIP:
-					self.member_ctr += 1
-					await self.store_membership(res)
+				#elif res_type == LDAPAgentCommand.MEMBERSHIP:
+				#	self.member_ctr += 1
+				#	await self.store_membership(res)
 
 				elif res_type == LDAPAgentCommand.TRUSTS:
 					self.trust_ctr += 1

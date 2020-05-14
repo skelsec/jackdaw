@@ -44,7 +44,7 @@ setup(
 	),
 	install_requires=[
 		'aiosmb>=0.2.14',
-		'msldap>=0.3.2',
+		'msldap>=0.3.3',
 		'sqlalchemy',
 		'dnspython',
 		'tqdm',

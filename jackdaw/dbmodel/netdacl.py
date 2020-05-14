@@ -43,7 +43,6 @@ class NetDACL(Basemodel):
 	__tablename__ = 'netdacl'
 	
 	id = Column(Integer, primary_key=True)	
-	fetched_at = Column(DateTime, default=datetime.datetime.utcnow)
 	
 	object_id = Column(String, index=True)
 	object_type = Column(String, index=True)

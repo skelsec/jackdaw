@@ -11,7 +11,6 @@ class JackDawADMachine(Basemodel):
 	id = Column(Integer, primary_key=True)
 	ad_id = Column(Integer, ForeignKey('ads.id'))
 	ad = relationship("JackDawADInfo", back_populates="computers", lazy = True)
-	fetched_at = Column(DateTime, default=datetime.datetime.utcnow)
 	sn = Column(String)
 	cn = Column(String)
 	dn = Column(String)
@@ -48,8 +47,7 @@ class JackDawADMachine(Basemodel):
 	whenCreated = Column(DateTime)
 	servicePrincipalName = Column(String)
 	
-	allowedtodelegateto = relationship("JackDawMachineConstrainedDelegation", back_populates="machine", lazy = True)
-	
+
 	UAC_SCRIPT = Column(Boolean)
 	UAC_ACCOUNTDISABLE = Column(Boolean)
 	UAC_HOMEDIR_REQUIRED = Column(Boolean)
@@ -131,41 +129,41 @@ class JackDawADMachine(Basemodel):
 	@staticmethod
 	def from_adcomp(u):
 		machine = JackDawADMachine()
-		machine.sn = lf(getattr(u,'sn'))
-		machine.cn = lf(getattr(u,'cn'))
-		machine.dn = lf(getattr(u,'distinguishedName'))
-		machine.description = lf(getattr(u,'description'))
-		machine.accountExpires = dt(lf(getattr(u,'accountExpires')))
-		machine.badPasswordTime = dt(lf(getattr(u,'badPasswordTime')))
-		machine.badPwdCount = lf(getattr(u,'badPwdCount'))
-		machine.codePage = lf(getattr(u,'codePage'))
-		machine.countryCode = lf(getattr(u,'countryCode'))
-		machine.displayName = lf(getattr(u,'displayName'))
-		machine.dNSHostName = lf(getattr(u,'dNSHostName'))
-		machine.instanceType = lf(getattr(u,'instanceType'))
-		machine.isCriticalSystemObject = lf(getattr(u,'isCriticalSystemObject'))
-		machine.lastLogoff = dt(lf(getattr(u,'lastLogoff')))
-		machine.lastLogon = dt(lf(getattr(u,'lastLogon')))
-		machine.lastLogonTimestamp = dt(lf(getattr(u,'lastLogonTimestamp')))
-		machine.logonCount = lf(getattr(u,'logonCount'))
-		machine.localPolicyFlags = lf(getattr(u,'localPolicyFlags'))
-		machine.supported_enc_types = lf(getattr(u,'supported_enc_types'))
-		machine.name = lf(getattr(u,'name'))
-		machine.nTSecurityDescriptor = lf(getattr(u,'nTSecurityDescriptor'))
-		machine.objectCategory = lf(getattr(u,'objectCategory'))
-		machine.objectClass = lf(getattr(u,'objectClass'))
-		machine.objectGUID = lf(getattr(u,'objectGUID'))
-		machine.objectSid = lf(getattr(u,'objectSid'))
-		machine.operatingSystem = lf(getattr(u,'operatingSystem'))
-		machine.operatingSystemVersion = lf(getattr(u,'operatingSystemVersion'))
-		machine.primaryGroupID = lf(getattr(u,'primaryGroupID'))
-		machine.pwdLastSet = dt(lf(getattr(u,'pwdLastSet')))
-		machine.sAMAccountName = lf(getattr(u,'sAMAccountName'))
-		machine.sAMAccountType = lf(getattr(u,'sAMAccountType'))
+		machine.sn = u.sn
+		machine.cn = u.cn
+		machine.dn = u.distinguishedName
+		machine.description = u.description
+		machine.accountExpires = dt(u.accountExpires)
+		machine.badPasswordTime = dt(u.badPasswordTime)
+		machine.badPwdCount = u.badPwdCount
+		machine.codePage = u.codePage
+		machine.countryCode = u.countryCode
+		machine.displayName = u.displayName
+		machine.dNSHostName = u.dNSHostName
+		machine.instanceType = u.instanceType
+		machine.isCriticalSystemObject = u.isCriticalSystemObject
+		machine.lastLogoff = dt(u.lastLogoff)
+		machine.lastLogon = dt(u.lastLogon)
+		machine.lastLogonTimestamp = dt(u.lastLogonTimestamp)
+		machine.logonCount = u.logonCount
+		machine.localPolicyFlags = u.localPolicyFlags
+		machine.supported_enc_types = u.supported_enc_types
+		machine.name = u.name
+		machine.nTSecurityDescriptor = u.nTSecurityDescriptor
+		machine.objectCategory = u.objectCategory
+		machine.objectClass = lf(u.objectClass)
+		machine.objectGUID = u.objectGUID
+		machine.objectSid = u.objectSid
+		machine.operatingSystem = u.operatingSystem
+		machine.operatingSystemVersion = u.operatingSystemVersion
+		machine.primaryGroupID = u.primaryGroupID
+		machine.pwdLastSet = dt(u.pwdLastSet)
+		machine.sAMAccountName = u.sAMAccountName
+		machine.sAMAccountType = u.sAMAccountType
 		machine.userAccountControl = lf(int(getattr(u,'userAccountControl', 0)))
-		machine.whenChanged = dt(lf(getattr(u,'whenChanged')))
-		machine.whenCreated = dt(lf(getattr(u,'whenCreated')))
-		machine.servicePrincipalName = lf(getattr(u,'servicePrincipalName'))
+		machine.whenChanged = dt(u.whenChanged)
+		machine.whenCreated = dt(u.whenCreated)
+		machine.servicePrincipalName = lf(u.servicePrincipalName)
 		calc_uac_flags(machine)
 		
 		return machine

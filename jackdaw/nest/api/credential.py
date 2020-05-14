@@ -12,6 +12,7 @@ from flask import current_app
 
 from pypykatz.utils.crypto.winhash import LM, NT
 
+
 def impacket_upload(domainid):
 	db = current_app.db
 	file_to_upload = connexion.request.files['file_to_upload']
@@ -20,11 +21,11 @@ def impacket_upload(domainid):
 	fail = 0
 	for cred in Credential.from_impacket_stream(file_to_upload.stream, domainid):
 		try:
-			print(cred)
 			db.session.add(cred)
 			db.session.commit()
 			ctr += 1
-		except IntegrityError:
+		except Exception as e:
+			print(e)
 			db.session.rollback()
 			fail += 1
 

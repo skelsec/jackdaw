@@ -7,16 +7,16 @@ class JackDawMachineConstrainedDelegation(Basemodel):
 	__tablename__ = 'constrainedmachine'
 
 	id = Column(Integer, primary_key=True)
-	machine_id = Column(Integer, ForeignKey('machines.id'))
-	machine = relationship("JackDawADMachine", back_populates="allowedtodelegateto", lazy = True)
+	ad_id = Column(Integer, ForeignKey('ads.id'))
+	machine_sid = Column(String, index=True)
 	target_service = Column(String, index=True)
 	target_server = Column(String, index=True)
 	target_port = Column(String, index=True)
 
 	@staticmethod
-	def from_spn_str(s, machine_id = None):
+	def from_spn_str(s, machine_sid = None):
 		d = JackDawMachineConstrainedDelegation()
-		d.machine_id = machine_id
+		d.machine_sid = machine_sid
 		if s.find('/') != -1:
 			d.target_service, d.target_server = s.split('/')
 		else:

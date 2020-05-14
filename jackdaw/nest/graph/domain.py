@@ -25,7 +25,6 @@ from jackdaw.dbmodel.adinfo import JackDawADInfo
 from jackdaw.dbmodel.aduser import JackDawADUser
 from jackdaw.dbmodel.adcomp import JackDawADMachine
 from jackdaw.dbmodel.adou import JackDawADOU
-from jackdaw.dbmodel.usergroup import JackDawGroupUser
 from jackdaw.dbmodel.adinfo import JackDawADInfo
 from jackdaw.dbmodel.adtrust import JackDawADTrust
 from jackdaw.dbmodel.tokengroup import JackDawTokenGroup
@@ -144,6 +143,23 @@ def acl_calc_gen(session, adid, inqueue, procno):
 	q = session.query(JackDawSD).filter_by(ad_id = adid)
 
 	for adsd in tqdm(windowed_query(q, JackDawSD.id, 1000), total=total):
+		inqueue.put(adsd)
+	#adinfo = session.query(JackDawADInfo).get(adid)
+	#for acl in adinfo.objectacls:
+	#	inqueue.put(acl)
+
+	for _ in range(procno):
+		inqueue.put(None)
+	logger.debug('Gen done!')
+
+def acl_calc_mp(inqueue, outqueue, construct):
+	while True:
+		adsd = inqueue.get()
+
+		if adsd is None:
+			outqueue.put(None)
+			return
+		
 		sd = SECURITY_DESCRIPTOR.from_bytes(base64.b64decode(adsd.sd))
 		
 		order_ctr = 0
@@ -191,98 +207,84 @@ def acl_calc_gen(session, adid, inqueue, procno):
 				setattr(acl, attr, False)
 			
 			acl.ace_sid = str(ace.Sid)
-		
-			inqueue.put(acl)
-	#adinfo = session.query(JackDawADInfo).get(adid)
-	#for acl in adinfo.objectacls:
-	#	inqueue.put(acl)
 
-	for _ in range(procno):
-		inqueue.put(None)
 
-def acl_calc_mp(inqueue, outqueue, construct):
-	while True:
-		acl = inqueue.get()
-		if acl is None:
-			outqueue.put(None)
-			return
-		
-		if acl.owner_sid not in construct.ignoresids:
-			outqueue.put((acl.owner_sid, acl.sid, 'Owner'))
-				
-		if acl.ace_sid in construct.ignoresids:
-			continue
-			
-		if acl.ace_type not in ['ACCESS_ALLOWED_ACE_TYPE','ACCESS_ALLOWED_OBJECT_ACE_TYPE']:
-			continue
+			if acl.owner_sid not in construct.ignoresids:
+				outqueue.put((acl.owner_sid, acl.sid, 'Owner'))
 
-		if acl.ace_type == 'ACCESS_ALLOWED_ACE_TYPE':
-			if acl.ace_mask_generic_all == True:
-				outqueue.put((acl.ace_sid, acl.sid, 'GenericALL'))
-			
-			if acl.ace_mask_generic_write == True:
-				outqueue.put((acl.ace_sid, acl.sid, 'GenericWrite'))
-				
-			if acl.ace_mask_write_owner == True:
-				outqueue.put((acl.ace_sid, acl.sid, 'WriteOwner'))
-				
-			if acl.ace_mask_write_dacl == True:
-				outqueue.put((acl.ace_sid, acl.sid, 'WriteDacl'))
-				
-			if acl.object_type in ['user', 'domain'] and acl.ace_mask_control_access == True:
-				outqueue.put((acl.ace_sid, acl.sid, 'ExtendedRightALL'))
-		
-		if acl.ace_type == 'ACCESS_ALLOWED_OBJECT_ACE_TYPE':
-			if acl.ace_hdr_flag_inherited == True and acl.ace_hdr_flag_inherit_only == True:
+			if acl.ace_sid in construct.ignoresids:
 				continue
-			
-			if acl.ace_hdr_flag_inherited == True and acl.ace_inheritedobjecttype is not None:
-				if not ace_applies(acl.ace_inheritedobjecttype, acl.object_type):
-					continue
-			
-			if any([acl.ace_mask_generic_all, acl.ace_mask_write_dacl, acl.ace_mask_write_owner, acl.ace_mask_generic_write]):
-				if acl.ace_objecttype is not None and not ace_applies(acl.ace_objecttype, acl.object_type):
-					continue
-				
+
+			if acl.ace_type not in ['ACCESS_ALLOWED_ACE_TYPE','ACCESS_ALLOWED_OBJECT_ACE_TYPE']:
+				continue
+
+			if acl.ace_type == 'ACCESS_ALLOWED_ACE_TYPE':
 				if acl.ace_mask_generic_all == True:
 					outqueue.put((acl.ace_sid, acl.sid, 'GenericALL'))
-					continue
-		
+
 				if acl.ace_mask_generic_write == True:
 					outqueue.put((acl.ace_sid, acl.sid, 'GenericWrite'))
-					if acl.object_type != 'domain':
-						continue
-					
-				if acl.ace_mask_write_dacl == True:
-					outqueue.put((acl.ace_sid, acl.sid, 'WriteDacl'))
-					
+
 				if acl.ace_mask_write_owner == True:
 					outqueue.put((acl.ace_sid, acl.sid, 'WriteOwner'))
-					
-			if acl.ace_mask_write_prop == True:
-				if acl.object_type in ['user','group'] and acl.ace_objecttype is None:
-					outqueue.put((acl.ace_sid, acl.sid, 'GenericWrite'))
-					
-				if acl.object_type == 'group' and acl.ace_objecttype == 'bf9679c0-0de6-11d0-a285-00aa003049e2':
-					outqueue.put((acl.ace_sid, acl.sid, 'AddMember'))
-					
+
+				if acl.ace_mask_write_dacl == True:
+					outqueue.put((acl.ace_sid, acl.sid, 'WriteDacl'))
+
+				if acl.object_type in ['user', 'domain'] and acl.ace_mask_control_access == True:
+					outqueue.put((acl.ace_sid, acl.sid, 'ExtendedRightALL'))
+
+			if acl.ace_type == 'ACCESS_ALLOWED_OBJECT_ACE_TYPE':
+				if acl.ace_hdr_flag_inherited == True and acl.ace_hdr_flag_inherit_only == True:
+					continue
 				
-		
-			if acl.ace_mask_control_access == True:
-				if acl.object_type in ['user','group'] and acl.ace_objecttype is None:
-					outqueue.put((acl.ace_sid, acl.sid, 'ExtendedAll'))
-				
-				if acl.object_type == 'domain' and acl.ace_objecttype == '1131f6ad-9c07-11d1-f79f-00c04fc2dcd2':
-					# 'Replicating Directory Changes All'
-					outqueue.put((acl.ace_sid, acl.sid, 'GetChangesALL'))
+				if acl.ace_hdr_flag_inherited == True and acl.ace_inheritedobjecttype is not None:
+					if not ace_applies(acl.ace_inheritedobjecttype, acl.object_type):
+						continue
+					
+				if any([acl.ace_mask_generic_all, acl.ace_mask_write_dacl, acl.ace_mask_write_owner, acl.ace_mask_generic_write]):
+					if acl.ace_objecttype is not None and not ace_applies(acl.ace_objecttype, acl.object_type):
+						continue
+					
+					if acl.ace_mask_generic_all == True:
+						outqueue.put((acl.ace_sid, acl.sid, 'GenericALL'))
+						continue
+					
+					if acl.ace_mask_generic_write == True:
+						outqueue.put((acl.ace_sid, acl.sid, 'GenericWrite'))
+						if acl.object_type != 'domain':
+							continue
 						
-				if acl.object_type == 'domain' and acl.ace_objecttype == '1131f6aa-9c07-11d1-f79f-00c04fc2dcd2':
-					# 'Replicating Directory Changes'
-					outqueue.put((acl.ace_sid, acl.sid, 'GetChanges'))
-						
-				if acl.object_type == 'user' and acl.ace_objecttype == '00299570-246d-11d0-a768-00aa006e0529':
-					# 'Replicating Directory Changes'
-					outqueue.put((acl.ace_sid, acl.sid, 'User-Force-Change-Password'))
+					if acl.ace_mask_write_dacl == True:
+						outqueue.put((acl.ace_sid, acl.sid, 'WriteDacl'))
+
+					if acl.ace_mask_write_owner == True:
+						outqueue.put((acl.ace_sid, acl.sid, 'WriteOwner'))
+
+				if acl.ace_mask_write_prop == True:
+					if acl.object_type in ['user','group'] and acl.ace_objecttype is None:
+						outqueue.put((acl.ace_sid, acl.sid, 'GenericWrite'))
+
+					if acl.object_type == 'group' and acl.ace_objecttype == 'bf9679c0-0de6-11d0-a285-00aa003049e2':
+						outqueue.put((acl.ace_sid, acl.sid, 'AddMember'))
+
+
+
+				if acl.ace_mask_control_access == True:
+					if acl.object_type in ['user','group'] and acl.ace_objecttype is None:
+						outqueue.put((acl.ace_sid, acl.sid, 'ExtendedAll'))
+
+					if acl.object_type == 'domain' and acl.ace_objecttype == '1131f6ad-9c07-11d1-f79f-00c04fc2dcd2':
+						# 'Replicating Directory Changes All'
+						outqueue.put((acl.ace_sid, acl.sid, 'GetChangesALL'))
+
+					if acl.object_type == 'domain' and acl.ace_objecttype == '1131f6aa-9c07-11d1-f79f-00c04fc2dcd2':
+						# 'Replicating Directory Changes'
+						outqueue.put((acl.ace_sid, acl.sid, 'GetChanges'))
+
+					if acl.object_type == 'user' and acl.ace_objecttype == '00299570-246d-11d0-a768-00aa006e0529':
+						# 'Replicating Directory Changes'
+						outqueue.put((acl.ace_sid, acl.sid, 'User-Force-Change-Password'))
 		
 
 class DomainGraph:
@@ -327,26 +329,51 @@ class DomainGraph:
 			
 	def sid2cn(self, sid, throw = False):
 		session = self.get_session()
-		tsid = session.query(JackDawTokenGroup.cn).filter(JackDawTokenGroup.sid == sid).first()
-		#print('sid2cn: %s' % tsid)
-		if not tsid:
-			t = str(get_name_or_sid(str(sid)))
-			if t == sid and throw == True:
-				raise Exception('No CN found for SID = %s' % repr(sid))
-			return t
-		return tsid[0]
+		tsid = session.query(JackDawADGroup.cn).filter(JackDawADGroup.sid == sid).first()
+		if tsid is not None:
+			return tsid[0]
+		
+		tsid = session.query(JackDawADUser.cn).filter(JackDawADUser.objectSid == sid).first()
+		if tsid is not None:
+			return tsid[0]
+		
+		tsid = session.query(JackDawADMachine.cn).filter(JackDawADMachine.objectSid == sid).first()
+		if tsid is not None:
+			return tsid[0]
+
+		tsid = session.query(JackDawADTrust.cn).filter(JackDawADTrust.securityIdentifier == sid).first()
+		if tsid is not None:
+			return tsid[0]
+
+		
+		t = str(get_name_or_sid(str(sid)))
+		if t == sid and throw == True:
+			raise Exception('No CN found for SID = %s' % repr(sid))
+		return t
 	
 	def cn2sid(self, cn, throw = False, domain_sid = None):
 		sid = get_sid_for_name(cn, domain_sid)
 		
 		session = self.get_session()
-		tsid = session.query(JackDawTokenGroup.sid).filter(JackDawTokenGroup.cn == cn).first()
-		#print(tsid)
-		if not tsid:
-			if throw == True:
-				raise Exception('No SID found for CN = %s' % repr(cn))
-			return cn
-		return tsid[0]
+		tsid = session.query(JackDawADGroup.objectSid).filter(JackDawADMachine.cn == cn).first()
+		if tsid is not None:
+			return tsid[0]
+		
+		tsid = session.query(JackDawADUser.objectSid).filter(JackDawADUser.cn == cn).first()
+		if tsid is not None:
+			return tsid[0]
+		
+		tsid = session.query(JackDawADMachine.objectSid).filter(JackDawADMachine.cn == cn).first()
+		if tsid is not None:
+			return tsid[0]
+
+		tsid = session.query(JackDawADTrust.securityIdentifier).filter(JackDawADTrust.cn == cn).first()
+		if tsid is not None:
+			return tsid[0]
+		
+		if throw == True:
+			raise Exception('No SID found for CN = %s' % repr(cn))
+		return cn
 			
 	def show_all(self):
 		"""
@@ -513,7 +540,7 @@ class DomainGraph:
 	def calc_acl_edges_mp(self, session, adid, construct):
 		try:
 			#ACE edges calc with multiprocessing
-			inqueue = mp.Queue()
+			inqueue = mp.Queue(10000)
 			outqueue = mp.Queue()
 			procno = mp.cpu_count()
 			logger.debug('[ACL] Starting processes')
@@ -772,7 +799,13 @@ class DomainGraph:
 		#for relation in construct.custom_relations:
 		#	relation.calc()
 		#	self.add_edge(res.sid, res.target_sid)
-			
+
+
+		#adding ACL edges
+		#self.calc_acl_edges(session, construct)
+		#self.calc_acl_edges(adinfo, construct)
+		self.calc_acl_edges_mp(session, construct.ad_id, construct)
+
 		#print('adding membership edges')
 		#adding membership edges
 		logger.debug('Adding membership edges')
@@ -790,32 +823,9 @@ class DomainGraph:
 				cnt += 1
 			except AssertionError:
 				logger.exception()
-				
-			#if tokengroup.is_user == True:
-			#	try:
-			#		self.add_edge(tokengroup.sid, tokengroup.member_sid, construct, label='member')
-			#		cnt += 1
-			#	except AssertionError:
-			#		logger.exception()
-			#elif tokengroup.is_machine == True:
-			#	try:
-			#		self.add_edge(tokengroup.sid, tokengroup.member_sid, construct, label='member')
-			#		cnt += 1
-			#	except AssertionError:
-			#		logger.exception()
-			#elif tokengroup.is_group == True:
-			#	try:
-			#		self.add_edge(tokengroup.sid, tokengroup.member_sid, construct, label='member')
-			#		cnt += 1
-			#	except AssertionError:
-			#		logger.exception()
 		
 		logger.debug('Added %s membership edges' % cnt)
 		
-		#adding ACL edges
-		#self.calc_acl_edges(session, construct)
-		#self.calc_acl_edges(adinfo, construct)
-		self.calc_acl_edges_mp(session, construct.ad_id, construct)
 
 		logger.info('Adding password sharing edges')
 		cnt = 0

@@ -6,8 +6,7 @@ class NetShare(Basemodel):
 	__tablename__ = 'netshare'
 	
 	id = Column(Integer, primary_key=True)
-	fetched_at = Column(DateTime, default=datetime.datetime.utcnow)
-	machine_id = Column(Integer)
+	machine_sid = Column(String, index=True)
 	ip = Column(String, index=True)
 	rdns = Column(String, index=True)
 	netname = Column(String, index=True)
@@ -18,7 +17,6 @@ class NetShare(Basemodel):
 	def to_dict(self):
 		return {
 			'id' : self.id , 
-			'fetched_at' : self.fetched_at , 
 			'machine_id' : self.machine_id , 
 			'ip' : self.ip , 
 			'rdns' : self.rdns , 

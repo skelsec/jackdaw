@@ -20,7 +20,6 @@ from jackdaw.dbmodel.adinfo import JackDawADInfo
 from jackdaw.dbmodel.aduser import JackDawADUser
 from jackdaw.dbmodel.adcomp import JackDawADMachine
 from jackdaw.dbmodel.adou import JackDawADOU
-from jackdaw.dbmodel.usergroup import JackDawGroupUser
 from jackdaw.dbmodel.adinfo import JackDawADInfo
 from jackdaw.dbmodel.tokengroup import JackDawTokenGroup
 from jackdaw.dbmodel.adgpo import JackDawADGPO

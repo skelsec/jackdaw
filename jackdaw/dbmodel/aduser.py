@@ -13,7 +13,6 @@ class JackDawADUser(Basemodel):
 	id = Column(Integer, primary_key=True)
 	ad_id = Column(Integer, ForeignKey('ads.id'))
 	ad = relationship("JackDawADInfo", back_populates="users", lazy = True)
-	fetched_at = Column(DateTime, default=datetime.datetime.utcnow)
 	sn = Column(String)
 	cn = Column(String)
 	dn = Column(String)
@@ -147,45 +146,45 @@ class JackDawADUser(Basemodel):
 	@staticmethod
 	def from_aduser(u):
 		user = JackDawADUser()
-		user.sn = lf(getattr(u,'sn'))
-		user.cn = lf(getattr(u,'cn'))
-		user.dn = lf(getattr(u,'distinguishedName'))
-		user.description = lf(getattr(u,'description'))
-		user.initials = lf(getattr(u,'initials'))
-		user.givenName = lf(getattr(u,'givenName'))
-		user.displayName = lf(getattr(u,'displayName'))
-		user.name = lf(getattr(u,'name'))
-		user.objectCategory = lf(getattr(u,'objectCategory'))
-		user.objectClass = lf(getattr(u,'objectClass'))
-		user.objectGUID = lf(getattr(u,'objectGUID'))
-		user.objectSid = lf(getattr(u,'objectSid'))
-		user.primaryGroupID = lf(getattr(u,'primaryGroupID'))
-		user.sAMAccountName = lf(getattr(u,'sAMAccountName'))
-		user.userPrincipalName = lf(getattr(u,'userPrincipalName'))
-		user.servicePrincipalName = lf(getattr(u,'servicePrincipalName'))
+		user.sn = u.sn
+		user.cn = u.cn
+		user.dn = u.distinguishedName
+		user.description = u.description
+		user.initials = u.initials
+		user.givenName = u.givenName
+		user.displayName = u.displayName
+		user.name = u.name
+		user.objectCategory = u.objectCategory
+		user.objectClass = lf(u.objectClass)
+		user.objectGUID = u.objectGUID
+		user.objectSid = u.objectSid
+		user.primaryGroupID = u.primaryGroupID
+		user.sAMAccountName = u.sAMAccountName
+		user.userPrincipalName = lf(u.userPrincipalName)
+		user.servicePrincipalName = lf(u.servicePrincipalName)
 	
-		user.memberOf = lf(getattr(u,'memberOf'))
-		user.member = lf(getattr(u,'member'))
-		user.accountExpires = dt(lf(getattr(u,'accountExpires')))
-		user.badPasswordTime = dt(lf(getattr(u,'badPasswordTime')))
-		user.lastLogoff = dt(lf(getattr(u,'lastLogoff')))
-		user.lastLogon = dt(lf(getattr(u,'lastLogon')))
-		user.lastLogonTimestamp = dt(lf(getattr(u,'lastLogonTimestamp')))
-		user.pwdLastSet = dt(lf(getattr(u,'pwdLastSet')))
-		user.whenChanged = dt(lf(getattr(u,'whenChanged')))
-		user.whenCreated = dt(lf(getattr(u,'whenCreated')))
-		user.badPwdCount = lf(getattr(u,'badPwdCount'))
-		user.logonCount = lf(getattr(u,'logonCount'))
-		user.sAMAccountType = lf(getattr(u,'sAMAccountType'))
-		user.userAccountControl = lf(getattr(u,'userAccountControl'))
+		user.memberOf = lf(u.memberOf)
+		user.member = lf(u.member)
+		user.accountExpires = dt(u.accountExpires)
+		user.badPasswordTime = dt(u.badPasswordTime)
+		user.lastLogoff = dt(u.lastLogoff)
+		user.lastLogon = dt(u.lastLogon)
+		user.lastLogonTimestamp = dt(u.lastLogonTimestamp)
+		user.pwdLastSet = dt(u.pwdLastSet)
+		user.whenChanged = dt(u.whenChanged)
+		user.whenCreated = dt(u.whenCreated)
+		user.badPwdCount = u.badPwdCount
+		user.logonCount = u.logonCount
+		user.sAMAccountType = u.sAMAccountType
+		user.userAccountControl = int(u.userAccountControl)
 	
-		user.codePage = lf(getattr(u,'codePage'))
-		user.countryCode = lf(getattr(u,'countryCode'))
-		user.when_pw_change = dt(lf(getattr(u,'when_pw_change')))
-		user.when_pw_expires = dt(lf(getattr(u,'when_pw_expires')))
-		user.must_change_pw = dt(lf(getattr(u,'must_change_pw')))
-		user.canLogon = bc(lf(getattr(u,'canLogon')))
-		user.isAdmin = bc(lf(getattr(u,'isAdmin', None)))
+		user.codePage = u.codePage
+		user.countryCode = u.countryCode
+		user.when_pw_change = dt(u.when_pw_change)
+		user.when_pw_expires = dt(u.when_pw_expires)
+		user.must_change_pw = dt(u.must_change_pw)
+		user.canLogon = bc(u.canLogon)
+		user.isAdmin = bc(getattr(u,'isAdmin', None))
 		calc_uac_flags(user)
 			
 		return user

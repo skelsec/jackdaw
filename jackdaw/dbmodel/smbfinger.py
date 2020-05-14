@@ -6,8 +6,7 @@ class SMBFinger(Basemodel):
 	__tablename__ = 'smbfinger'
 	
 	id = Column(Integer, primary_key=True)
-	fetched_at = Column(DateTime, default=datetime.datetime.utcnow)
-	machine_id = Column(Integer)
+	machine_sid = Column(String, index=True)
 	signing_enabled = Column(Boolean, index=True)
 	signing_required = Column(Boolean, index=True)
 	domainname = Column(String, index=True)
@@ -25,8 +24,10 @@ class SMBFinger(Basemodel):
 	def from_extra_info(machine_id, extra_info):
 		f = SMBFinger()
 		f.machine_id = machine_id
-		f.signing_enabled = extra_info['signing_enabled']
-		f.signing_required = extra_info['signing_required']
+		if 'signing_enabled' in extra_info:
+			f.signing_enabled = extra_info['signing_enabled']
+		if 'signing_required' in extra_info:
+			f.signing_required = extra_info['signing_required']
 		if 'ntlm_data' in extra_info:
 			f.domainname = extra_info['ntlm_data']['domainname']
 			f.computername = extra_info['ntlm_data']['computername']

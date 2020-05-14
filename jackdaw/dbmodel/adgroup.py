@@ -9,7 +9,6 @@ class JackDawADGroup(Basemodel):
 	id = Column(Integer, primary_key=True)
 	ad_id = Column(Integer, ForeignKey('ads.id'))
 	ad = relationship("JackDawADInfo", back_populates="groups", lazy = True)
-	fetched_at = Column(DateTime, default=datetime.datetime.utcnow)
 	cn = Column(String, index=True)
 	dn = Column(String, index=True)
 	
@@ -24,8 +23,8 @@ class JackDawADGroup(Basemodel):
 	sAMAccountName = Column(String, index=True)	
 	sAMAccountType = Column(String, index=True)	
 	systemFlags = Column(String, index=True)	
-	whenChanged = Column(String, index=True)	
-	whenCreated = Column(String, index=True)
+	whenChanged = Column(DateTime, index=True)	
+	whenCreated = Column(DateTime, index=True)
 
 	def to_dict(self):
 		return {
@@ -45,18 +44,18 @@ class JackDawADGroup(Basemodel):
 	@staticmethod
 	def from_dict(d):
 		group = JackDawADGroup()
-		group.cn = lf(d.get('cn'))
-		group.dn = lf(d.get('distinguishedName'))
-		group.guid = lf(d.get('objectGUID'))
-		group.sid = lf(d.get('objectSid'))
-		group.description = lf(d.get('description'))
-		group.grouptype = lf(d.get('groupType'))
-		group.instanceType = lf(d.get('instanceType'))
-		group.name = lf(d.get('name'))
+		group.cn = d.get('cn')
+		group.dn = d.get('distinguishedName')
+		group.guid = d.get('objectGUID')
+		group.sid = d.get('objectSid')
+		group.description = d.get('description')
+		group.grouptype = d.get('groupType')
+		group.instanceType = d.get('instanceType')
+		group.name = d.get('name')
 		group.member = lf(d.get('member'))
-		group.sAMAccountName = lf(d.get('sAMAccountName'))
-		group.sAMAccountType = lf(d.get('sAMAccountType'))
-		group.systemFlags = lf(d.get('systemFlags'))
-		group.whenChanged = lf(d.get('whenChanged'))
-		group.whenCreated = lf(d.get('whenCreated'))
+		group.sAMAccountName = d.get('sAMAccountName')
+		group.sAMAccountType = d.get('sAMAccountType')
+		group.systemFlags = d.get('systemFlags')
+		group.whenChanged = d.get('whenChanged')
+		group.whenCreated = d.get('whenCreated')
 		return group

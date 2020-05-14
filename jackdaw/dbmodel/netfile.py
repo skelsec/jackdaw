@@ -6,7 +6,6 @@ class NetFile(Basemodel):
 	__tablename__ = 'netfile'
 	
 	id = Column(Integer, primary_key=True)
-	fetched_at = Column(DateTime, default=datetime.datetime.utcnow)
 	folder_id = Column(Integer, index=True)
 	creation_time = Column(DateTime)
 	last_access_time = Column(DateTime)
@@ -20,7 +19,6 @@ class NetFile(Basemodel):
 	def to_dict(self):
 		return {
 			'id' : self.id , 
-			'fetched_at' : self.fetched_at , 
 			'share_id' : self.share_id , 
 			'parent_id' : self.parent_id , 
 			'creation_time' : self.creation_time , 

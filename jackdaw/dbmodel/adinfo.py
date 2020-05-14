@@ -7,7 +7,7 @@
 from . import Basemodel, lf
 import datetime
 from sqlalchemy.orm import relationship
-from sqlalchemy import Column, Integer, String, DateTime, ForeignKey
+from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, BigInteger
 from jackdaw._version import __version__
 
 class JackDawADInfo(Basemodel):
@@ -19,29 +19,28 @@ class JackDawADInfo(Basemodel):
 	creationTime = Column(DateTime)
 	dc = Column(String)
 	distinguishedName = Column(String)
-	forceLogoff = Column(Integer)
+	forceLogoff = Column(BigInteger)
 	instanceType = Column(Integer)
-	lockoutDuration = Column(Integer)
-	lockOutObservationWindow = Column(Integer)
+	lockoutDuration = Column(BigInteger)
+	lockOutObservationWindow = Column(BigInteger)
 	lockoutThreshold = Column(Integer)
 	masteredBy = Column(String)
-	maxPwdAge = Column(Integer)
-	minPwdAge = Column(Integer)
+	maxPwdAge = Column(BigInteger)
+	minPwdAge = Column(BigInteger)
 	minPwdLength = Column(Integer)
 	name = Column(String)
 	nextRid = Column(Integer)
-	nTSecurityDescriptor = Column(String)
 	objectCategory = Column(String)
 	objectClass = Column(String)
 	objectGUID = Column(String)
 	objectSid = Column(String)
 	pwdHistoryLength = Column(Integer)
 	pwdProperties = Column(Integer)
-	serverState = Column(Integer)
-	systemFlags = Column(Integer)
-	uASCompat = Column(Integer)
-	uSNChanged = Column(Integer)
-	uSNCreated = Column(Integer)
+	serverState = Column(BigInteger)
+	systemFlags = Column(BigInteger)
+	uASCompat = Column(BigInteger)
+	uSNChanged = Column(BigInteger)
+	uSNCreated = Column(BigInteger)
 	whenChanged = Column(DateTime)
 	whenCreated = Column(DateTime)
 	jdversion = Column(String)
@@ -63,58 +62,110 @@ class JackDawADInfo(Basemodel):
 	
 	def to_dict(self):
 		return {
-			'id' : self.id ,
-			'fetched_at' : self.fetched_at ,
-			'creationTime' : self.creationTime ,
-			'distinguishedName' : self.distinguishedName ,
-			'forceLogoff' : self.forceLogoff ,
-			'lockoutDuration' : self.lockoutDuration ,
-			'lockOutObservationWindow' : self.lockOutObservationWindow ,
-			'lockoutThreshold' : self.lockoutThreshold ,
-			'masteredBy' : self.masteredBy ,
-			'maxPwdAge' : self.maxPwdAge ,
-			'minPwdAge' : self.minPwdAge ,
-			'minPwdLength' : self.minPwdLength ,
-			'name' : self.name ,
-			'pwdHistoryLength' : self.pwdHistoryLength ,
-			'pwdProperties' : self.pwdProperties ,
-			'whenChanged' : self.whenChanged ,
-			'whenCreated' : self.whenCreated ,
+			'id' : self.id,
+			'fetched_at' : self.fetched_at,
+			'auditingPolicy' : self.auditingPolicy,
+			'creationTime' : self.creationTime,
+			'dc' : self.dc,
+			'distinguishedName' : self.distinguishedName,
+			'forceLogoff' : self.forceLogoff,
+			'instanceType' : self.instanceType,
+			'lockoutDuration' : self.lockoutDuration,
+			'lockOutObservationWindow' : self.lockOutObservationWindow,
+			'lockoutThreshold' : self.lockoutThreshold,
+			'masteredBy' : self.masteredBy,
+			'maxPwdAge' : self.maxPwdAge,
+			'minPwdAge' : self.minPwdAge,
+			'minPwdLength' : self.minPwdLength,
+			'name' : self.name,
+			'nextRid' : self.nextRid,
+			'objectCategory' : self.objectCategory,
+			'objectClass' : self.objectClass,
+			'objectGUID' : self.objectGUID,
+			'objectSid' : self.objectSid,
+			'pwdHistoryLength' : self.pwdHistoryLength,
+			'pwdProperties' : self.pwdProperties,
+			'serverState' : self.serverState,
+			'systemFlags' : self.systemFlags,
+			'uASCompat' : self.uASCompat,
+			'uSNChanged' : self.uSNChanged,
+			'uSNCreated' : self.uSNCreated,
+			'whenChanged' : self.whenChanged,
+			'whenCreated' : self.whenCreated,
 			'jdversion' : self.jdversion,
+			'ldap_enumeration_state' : self.ldap_enumeration_state,
+			'smb_enumeration_state' : self.smb_enumeration_state,
 		}
 
 	@staticmethod
 	def from_dict(d):
 		adinfo = JackDawADInfo()
-		adinfo.auditingPolicy = lf(d.get('auditingPolicy'))
-		adinfo.creationTime = lf(d.get('creationTime'))
-		adinfo.dc = lf(d.get('dc'))
-		adinfo.distinguishedName = lf(d.get('distinguishedName'))
-		adinfo.forceLogoff = lf(d.get('forceLogoff'))
-		adinfo.instanceType = lf(d.get('instanceType'))
-		adinfo.lockoutDuration = lf(d.get('lockoutDuration'))
-		adinfo.lockOutObservationWindow = lf(d.get('lockOutObservationWindow'))
-		adinfo.lockoutThreshold = lf(d.get('lockoutThreshold'))
-		adinfo.masteredBy = lf(d.get('masteredBy'))
-		adinfo.maxPwdAge = lf(d.get('maxPwdAge'))
-		adinfo.minPwdAge = lf(d.get('minPwdAge'))
-		adinfo.minPwdLength = lf(d.get('minPwdLength'))
-		adinfo.name = lf(d.get('name'))
-		adinfo.nextRid = lf(d.get('nextRid'))
-		adinfo.nTSecurityDescriptor = lf(d.get('nTSecurityDescriptor'))
-		adinfo.objectCategory = lf(d.get('objectCategory'))
-		adinfo.objectClass = lf(d.get('objectClass'))
-		adinfo.objectGUID = lf(d.get('objectGUID'))
-		adinfo.objectSid = lf(d.get('objectSid'))
-		adinfo.pwdHistoryLength = lf(d.get('pwdHistoryLength'))
-		adinfo.pwdProperties = lf(d.get('pwdProperties'))
-		adinfo.serverState = lf(d.get('serverState'))
-		adinfo.systemFlags = lf(d.get('systemFlags'))
-		adinfo.uASCompat = lf(d.get('uASCompat'))
-		adinfo.uSNChanged = lf(d.get('uSNChanged'))
-		adinfo.uSNCreated = lf(d.get('uSNCreated'))
-		adinfo.whenChanged = lf(d.get('whenChanged'))
-		adinfo.whenCreated = lf(d.get('whenCreated'))
-		if d.get('jdversion') is None:
-			adinfo.jdversion = __version__
+		adinfo.id = d.get('id')
+		adinfo.fetched_at = d.get('fetched_at')
+		adinfo.auditingPolicy = d.get('auditingPolicy')
+		adinfo.creationTime = d.get('creationTime')
+		adinfo.dc = d.get('dc')
+		adinfo.distinguishedName = d.get('distinguishedName')
+		adinfo.forceLogoff = d.get('forceLogoff')
+		adinfo.instanceType = d.get('instanceType')
+		adinfo.lockoutDuration = d.get('lockoutDuration')
+		adinfo.lockOutObservationWindow = d.get('lockOutObservationWindow')
+		adinfo.lockoutThreshold = d.get('lockoutThreshold')
+		adinfo.masteredBy = d.get('masteredBy')
+		adinfo.maxPwdAge = d.get('maxPwdAge')
+		adinfo.minPwdAge = d.get('minPwdAge')
+		adinfo.minPwdLength = d.get('minPwdLength')
+		adinfo.name = d.get('name')
+		adinfo.nextRid = d.get('nextRid')
+		adinfo.objectCategory = d.get('objectCategory')
+		adinfo.objectClass = d.get('objectClass')
+		adinfo.objectGUID = d.get('objectGUID')
+		adinfo.objectSid = d.get('objectSid')
+		adinfo.pwdHistoryLength = d.get('pwdHistoryLength')
+		adinfo.pwdProperties = d.get('pwdProperties')
+		adinfo.serverState = d.get('serverState')
+		adinfo.systemFlags = d.get('systemFlags')
+		adinfo.uASCompat = d.get('uASCompat')
+		adinfo.uSNChanged = d.get('uSNChanged')
+		adinfo.uSNCreated = d.get('uSNCreated')
+		adinfo.whenChanged = d.get('whenChanged')
+		adinfo.whenCreated = d.get('whenCreated')
+		adinfo.jdversion = d.get('jdversion')
+		adinfo.ldap_enumeration_state = d.get('ldap_enumeration_state')
+		adinfo.smb_enumeration_state = d.get('smb_enumeration_state')
+		return adinfo
+
+
+	@staticmethod
+	def from_msldap(d):
+		adinfo = JackDawADInfo()
+		adinfo.auditingPolicy = d.auditingPolicy
+		adinfo.creationTime = d.creationTime
+		adinfo.dc = d.dc
+		adinfo.distinguishedName = d.distinguishedName
+		adinfo.forceLogoff = d.forceLogoff.total_seconds()
+		adinfo.instanceType = d.instanceType
+		adinfo.lockoutDuration = d.lockoutDuration
+		adinfo.lockOutObservationWindow = d.lockOutObservationWindow
+		adinfo.lockoutThreshold = d.lockoutThreshold
+		adinfo.masteredBy = d.masteredBy
+		adinfo.maxPwdAge = d.maxPwdAge.total_seconds()
+		adinfo.minPwdAge = d.minPwdAge.total_seconds()
+		adinfo.minPwdLength = d.minPwdLength
+		adinfo.name = d.name
+		adinfo.nextRid = d.nextRid
+		adinfo.objectCategory =d.objectCategory
+		adinfo.objectClass =  lf(d.objectClass)
+		adinfo.objectGUID = d.objectGUID
+		adinfo.objectSid = d.objectSid
+		adinfo.pwdHistoryLength = d.pwdHistoryLength
+		adinfo.pwdProperties = d.pwdProperties
+		adinfo.serverState = d.serverState
+		adinfo.systemFlags = d.systemFlags
+		adinfo.uASCompat = d.uASCompat
+		adinfo.uSNChanged = d.uSNChanged
+		adinfo.uSNCreated = d.uSNCreated
+		adinfo.whenChanged = d.whenChanged
+		adinfo.whenCreated = d.whenCreated
+		adinfo.jdversion = __version__
 		return adinfo
