@@ -22,9 +22,9 @@ class SMBFinger(Basemodel):
 	os_guess = Column(String, index=True)
 	
 	@staticmethod
-	def from_extra_info(machine_id, extra_info):
+	def from_extra_info(machine_sid, extra_info):
 		f = SMBFinger()
-		f.machine_id = machine_id
+		f.machine_sid = machine_sid
 		if 'signing_enabled' in extra_info:
 			f.signing_enabled = extra_info['signing_enabled']
 		if 'signing_required' in extra_info:
