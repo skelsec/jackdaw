@@ -27,6 +27,7 @@ from .adspn import *
 
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
+from sqlalchemy.orm.session import make_transient
 
 objs_to_migrate = {
 	JackDawADMachine : 1,
@@ -41,7 +42,6 @@ objs_to_migrate = {
 	JackDawMachineConstrainedDelegation : 1,
 	Credential : 1,
 	JackDawCustomRelations : 1,
-	HashEntry : 1,
 	LocalGroup : 1,
 	LSASecret : 1,
 	LocalGroup : 1,
@@ -49,8 +49,33 @@ objs_to_migrate = {
 	NetShare : 1,
 	SMBFinger : 1,
 	JackDawSPNService : 1,
-	JackDawTokenGroup : 1,	
 }
+special_obj_to_migrate = {
+		HashEntry : 1,
+		
+
+}
+
+def windowed_query(q, column, windowsize, is_single_entity = True):
+	""""Break a Query into chunks on a given column."""
+
+	#single_entity = q.is_single_entity
+	q = q.add_column(column).order_by(column)
+	last_id = None
+
+	while True:
+		subq = q
+		if last_id is not None:
+			subq = subq.filter(column > last_id)
+		chunk = subq.limit(windowsize).all()
+		if not chunk:
+			break
+		last_id = chunk[-1][-1]
+		for row in chunk:
+			if is_single_entity is True:
+				yield row[0]
+			else:
+				yield row[0:-1]
 
 def get_session(connection, verbosity = 0):
 	engine = create_engine(connection, echo=True if verbosity > 1 else False) #'sqlite:///dump.db'	
@@ -71,9 +96,22 @@ def migrate_adifo(session_old, session_new, adifo):
 def migrate_obj(session_old, session_new, ad_id, obj):
 	session_old.query(obj).update({obj.ad_id : ad_id})
 	session_old.commit()
-	for res in session_old.query(obj).all():
+	for i, res in enumerate(session_old.query(obj).all()):
 		session_old.expunge(res)
+		make_transient(res)
 		session_new.add(res)
+		if i % 10000 == 0:
+			session_new.commit()
+	session_new.commit()
+
+def migrate_tokengroups(session_old, session_new, ad_id):
+	q = session_old.query(JackDawTokenGroup)
+	
+	for i, res in enumerate(windowed_query(q, JackDawTokenGroup.id, windowsize = 10000)):
+		n = JackDawTokenGroup.from_dict(res.to_dict())
+		session_new.add(n)
+		if i % 10000 == 0:
+			session_new.commit()
 	session_new.commit()
 
 def migrate(args):
@@ -85,6 +123,8 @@ def migrate(args):
 		for obj in objs_to_migrate:
 			print(type(obj))
 			migrate_obj(session_old, session_new, ad_id, obj)
+
+		migrate_tokengroups(session_old, session_new, ad_id)
 
 
 

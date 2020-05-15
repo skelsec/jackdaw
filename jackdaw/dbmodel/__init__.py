@@ -38,6 +38,8 @@ def lf(x, sep = ','):
 	"""
 	flattens objects
 	"""
+	if x is None:
+		return x
 	if isinstance(x, list):
 		return sep.join(x)
 	elif isinstance(x, (datetime.datetime, int, enum.IntFlag)):
