@@ -313,7 +313,12 @@ class AIOSMBGatherer:
 						share.ip = connection.target.get_ip()
 						share.netname = smbshare.name
 						share.type = smbshare.type
-						share.remark = smbshare.remark
+						r = None
+						try:
+							r = smbshare.remark.decode()
+						except:
+							r = smbshare.remark
+						share.remark = r
 
 						await self.out_q.put((tid, connection.target, share, None))
 					
