@@ -6,6 +6,7 @@ class SMBFinger(Basemodel):
 	__tablename__ = 'smbfinger'
 	
 	id = Column(Integer, primary_key=True)
+	ad_id = Column(Integer, index=True)
 	machine_sid = Column(String, index=True)
 	signing_enabled = Column(Boolean, index=True)
 	signing_required = Column(Boolean, index=True)

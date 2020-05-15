@@ -83,7 +83,8 @@ class SMBGathererManager:
 		self.gatherer_task = None
 		self.job_generator_task = None
 		self.domain_name = None
-		
+		self.ad_id = None
+
 		self.prg_hosts = None
 		self.prg_shares = None
 		self.prg_sessions = None
@@ -119,6 +120,7 @@ class SMBGathererManager:
 			for entry in self.ldap_conn.pagedsearch(ldap_filter, attributes):
 				tid = -1
 				if self.lookup_ad is not None:
+					self.ad_id = self.lookup_ad
 					res = session.query(JackDawADMachine)\
 							.filter_by(ad_id = self.lookup_ad)\
 							.with_entities(JackDawADMachine.objectSid)\
@@ -130,11 +132,12 @@ class SMBGathererManager:
 				yield (tid, entry['attributes']['sAMAccountName'][:-1])
 
 		if self.target_ad is not None:
+			self.ad_id = self.target_ad
 			info = session.query(JackDawADInfo).get(self.target_ad)
 			info.smb_enumeration_state = 'STARTED'
 			self.domain_name = str(info.distinguishedName).replace(',','.').replace('DC=','')
 			session.commit()
-			for target_id, dns in session.query(JackDawADMachine).filter_by(ad_id = self.target_ad).with_entities(JackDawADMachine.id, JackDawADMachine.dNSHostName):
+			for target_id, dns in session.query(JackDawADMachine).filter_by(ad_id = self.target_ad).with_entities(JackDawADMachine.objectSid, JackDawADMachine.dNSHostName):
 				yield (target_id, dns)
 
 		if self.db_conn is not None:
@@ -230,6 +233,7 @@ class SMBGathererManager:
 				if session is None:
 					logger.debug(target, str(result), error)
 				else:
+					result.ad_id = self.ad_id
 					session.add(result)
 					session.commit()
 

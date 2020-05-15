@@ -6,6 +6,7 @@ class LocalGroup(Basemodel):
 	__tablename__ = 'localgroup'
 	
 	id = Column(Integer, primary_key=True)
+	ad_id = Column(Integer, index=True)
 	machine_sid = Column(String, index=True)
 	ip = Column(String, index=True)
 	rdns = Column(String, index=True)

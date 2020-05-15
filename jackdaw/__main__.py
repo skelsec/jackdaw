@@ -4,6 +4,7 @@
 #  Tamas Jos (@skelsec)
 #
 
+import os
 import sys
 import logging
 import asyncio
@@ -51,6 +52,8 @@ async def run(args):
 		sys.exit()
 	
 	db_conn = args.sql
+	if args.sql.lower().startswith('sqlite'):
+		os.environ['JACKDAW_SQLITE'] = '1'
 	
 	if args.command == 'enum':
 		smb_mgr = construct_smbdef(args)
