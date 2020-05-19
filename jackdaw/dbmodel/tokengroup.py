@@ -10,17 +10,15 @@ class JackDawTokenGroup(Basemodel):
 	id = Column(Integer, primary_key=True)
 	ad_id = Column(Integer, ForeignKey('ads.id'))
 	ad = relationship("JackDawADInfo", back_populates="group_lookups", lazy = True)
-	guid = Column(String, index=True)
-	sid = Column(String, index=True)
-	member_sid = Column(String, index=True)
-	object_type = Column(String, index=True)
+	sid = Column(String)
+	member_sid = Column(String)
+	object_type = Column(String)
 	
 
 	@staticmethod
 	def from_dict(d):
 		t = JackDawTokenGroup()
 		t.ad_id = d['ad_id']
-		t.guid = d['guid']
 		t.sid = d['sid']
 		t.member_sid = d['member_sid']
 		t.object_type = d['object_type']
@@ -33,7 +31,6 @@ class JackDawTokenGroup(Basemodel):
 	def to_dict(self):
 		return {
 			'ad_id' : self.ad_id,
-			'guid' : self.guid,
 			'sid' : self.sid,
 			'member_sid' : self.member_sid,
 			'object_type' : self.object_type
@@ -41,3 +38,7 @@ class JackDawTokenGroup(Basemodel):
 
 	def to_json(self):
 		return json.dumps(self.to_dict())
+
+
+	def to_graph_csv(self):
+		return '%s,%s,%s,%s' % (self.sid, self.member_sid, self.object_type, self.ad_id)

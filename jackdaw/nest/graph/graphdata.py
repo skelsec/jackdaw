@@ -89,9 +89,9 @@ class GraphData:
 	
 	def add_edge(self, src, dst, label = '', weight = 1, properties = {}):
 		if src not in self.nodes:
-			raise Exception('Node with id %s is not present' % src)
+			raise Exception('Node (src) with id %s is not present' % src)
 		if dst not in self.nodes:
-			raise Exception('Node with id %s is not present' % dst)
+			raise Exception('Node (dst) with id %s is not present' % dst)
 		
 		key = str(src) + str(dst) + str(label)
 

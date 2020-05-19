@@ -18,6 +18,7 @@ from hashlib import sha1
 
 from sqlalchemy import func
 
+from jackdaw.dbmodel.graphinfo import JackDawGraphInfo
 from jackdaw.dbmodel.spnservice import JackDawSPNService
 from jackdaw.dbmodel.addacl import JackDawADDACL
 from jackdaw.dbmodel.adgroup import JackDawADGroup
@@ -34,6 +35,8 @@ from jackdaw.dbmodel.adsd import JackDawSD
 from jackdaw.dbmodel.adtrust import JackDawADTrust
 from jackdaw.dbmodel.adspn import JackDawSPN
 from jackdaw.dbmodel import get_session
+from jackdaw.dbmodel.edge import JackDawEdge
+from jackdaw.dbmodel.edgelookup import JackDawEdgeLookup
 from jackdaw.wintypes.lookup_tables import *
 from jackdaw import logger
 
@@ -245,7 +248,8 @@ class LDAPEnumeratorAgent():
 					s.computername = computername
 					s.service_class = service_class
 					s.service_name = service_name
-					s.port = port
+					if port is not None:
+						s.port = str(port)
 					await self.agent_out_q.put((LDAPAgentCommand.SPNSERVICE, s))
 		except:
 			await self.agent_out_q.put((LDAPAgentCommand.EXCEPTION, str(traceback.format_exc())))
@@ -390,7 +394,7 @@ class LDAPEnumeratorAgent():
 		loop.run_until_complete(self.arun())
 
 class LDAPEnumeratorManager:
-	def __init__(self, db_conn, ldam_mgr, agent_cnt = None, queue_size = None, progress_queue = None, ad_id = None):
+	def __init__(self, db_conn, ldam_mgr, agent_cnt = None, queue_size = None, progress_queue = None, ad_id = None, graph_id = None):
 		self.db_conn = db_conn
 		self.ldam_mgr = ldam_mgr
 
@@ -404,7 +408,8 @@ class LDAPEnumeratorManager:
 		self.agent_cnt = agent_cnt
 		if agent_cnt is None:
 			self.agent_cnt = min(multiprocessing.cpu_count(), 3)
-
+		
+		self.graph_id = graph_id
 		self.resumption = False
 		self.ad_id = ad_id
 		if ad_id is not None:
@@ -595,6 +600,17 @@ class LDAPEnumeratorManager:
 		self.session.commit()
 		self.session.refresh(info)
 		self.ad_id = info.id
+		
+		graph = JackDawGraphInfo()
+		self.session.add(graph)
+		self.session.commit()
+		self.session.refresh(graph)
+
+		self.graph_id = graph.id
+
+
+		t = JackDawEdgeLookup(self.ad_id, info.objectSid, 'domain')
+		self.session.add(t)
 
 	async def enum_trusts(self):
 		logger.debug('Enumerating trusts')
@@ -604,6 +620,8 @@ class LDAPEnumeratorManager:
 	async def store_trust(self, trust):
 		trust.ad_id = self.ad_id
 		self.session.add(trust)
+		t = JackDawEdgeLookup(self.ad_id, trust.securityIdentifier, 'trust')
+		self.session.add(t)
 		self.session.flush()
 
 	async def enum_users(self):
@@ -617,6 +635,8 @@ class LDAPEnumeratorManager:
 		spns = user_and_spn['spns']
 		user.ad_id = self.ad_id
 		self.session.add(user)
+		t = JackDawEdgeLookup(self.ad_id, user.objectSid, 'user')
+		self.session.add(t)
 		for spn in spns:
 			spn.ad_id = self.ad_id
 			self.session.add(spn)
@@ -632,6 +652,8 @@ class LDAPEnumeratorManager:
 		machine = machine_and_del['machine']
 		delegations = machine_and_del['delegations']
 		machine.ad_id = self.ad_id
+		t = JackDawEdgeLookup(self.ad_id, machine.objectSid, 'machine')
+		self.session.add(t)
 		self.session.add(machine)
 		self.session.commit()
 		self.session.refresh(machine)
@@ -648,6 +670,8 @@ class LDAPEnumeratorManager:
 
 	async def store_group(self, group):
 		group.ad_id = self.ad_id
+		t = JackDawEdgeLookup(self.ad_id, group.objectSid, 'group')
+		self.session.add(t)
 		self.session.add(group)
 		self.session.flush()
 
@@ -661,6 +685,8 @@ class LDAPEnumeratorManager:
 		self.session.add(ou)
 		self.session.commit()
 		self.session.refresh(ou)
+		t = JackDawEdgeLookup(self.ad_id, ou.objectGUID, 'ou')
+		self.session.add(t)
 
 		if ou.gPLink is not None and ou.gPLink != 'None':
 			for x in ou.gPLink.split(']'):
@@ -700,6 +726,8 @@ class LDAPEnumeratorManager:
 		gpo.ad_id = self.ad_id
 		self.session.add(gpo)
 		self.session.flush()
+		t = JackDawEdgeLookup(self.ad_id, gpo.objectGUID, 'gpo')
+		self.session.add(t)
 
 	async def enum_memberships(self):
 		logger.debug('Enumerating memberships')
@@ -735,8 +763,8 @@ class LDAPEnumeratorManager:
 
 		jdsd.sd_hash = sha1(sd['adsec']).hexdigest()
 
-
 		self.sd_file.write(jdsd.to_json().encode() + b'\r\n')
+
 
 	async def resumption_target_gen(self,q, id_filed, obj_type, jobtype):
 		for dn, sid, guid in windowed_query(q, id_filed, 1000, is_single_entity = False):
@@ -787,7 +815,7 @@ class LDAPEnumeratorManager:
 			await self.resumption_target_gen(q, JackDawADUser.id, 'user', LDAPAgentCommand.SDS)
 			q = self.session.query(JackDawADMachine.dn, JackDawADMachine.objectSid, JackDawADMachine.objectGUID).filter_by(ad_id = self.ad_id).filter(~JackDawADMachine.objectGUID.in_(subq))
 			await self.resumption_target_gen(q, JackDawADMachine.id, 'machine', LDAPAgentCommand.SDS)
-			q = self.session.query(JackDawADGroup.dn, JackDawADGroup.sid, JackDawADGroup.guid).filter_by(ad_id = self.ad_id).filter(~JackDawADGroup.guid.in_(subq))
+			q = self.session.query(JackDawADGroup.dn, JackDawADGroup.objectSid, JackDawADGroup.objectGUID).filter_by(ad_id = self.ad_id).filter(~JackDawADGroup.objectGUID.in_(subq))
 			await self.resumption_target_gen(q, JackDawADGroup.id, 'group', LDAPAgentCommand.SDS)
 			q = self.session.query(JackDawADOU.dn, JackDawADOU.objectGUID).filter_by(ad_id = self.ad_id).filter(~JackDawADOU.objectGUID.in_(subq))
 			await self.resumption_target_gen_2(q, JackDawADOU.id, 'ou', LDAPAgentCommand.SDS)
@@ -801,15 +829,22 @@ class LDAPEnumeratorManager:
 
 	async def generate_member_targets(self):
 		try:
-			subq = self.session.query(JackDawTokenGroup.guid).distinct(JackDawTokenGroup.guid).filter(JackDawTokenGroup.ad_id == self.ad_id)
-			q = self.session.query(JackDawADUser.dn, JackDawADUser.objectSid, JackDawADUser.objectGUID).filter_by(ad_id = self.ad_id).filter(~JackDawADUser.objectGUID.in_(subq))
+			subq = self.session.query(JackDawEdgeLookup.oid).filter_by(ad_id = self.ad_id).filter(JackDawEdgeLookup.id == JackDawEdge.src).filter(JackDawEdge.label == 'member').filter(JackDawEdge.ad_id == self.ad_id)
+			q = self.session.query(JackDawADUser.dn, JackDawADUser.objectSid, JackDawADUser.objectGUID)\
+				.filter_by(ad_id = self.ad_id)\
+				.filter(~JackDawADUser.objectSid.in_(subq))
 			await self.resumption_target_gen_member(q, JackDawADUser.id, 'user', LDAPAgentCommand.MEMBERSHIPS)
-			q = self.session.query(JackDawADMachine.dn, JackDawADMachine.objectSid, JackDawADMachine.objectGUID).filter_by(ad_id = self.ad_id).filter(~JackDawADMachine.objectGUID.in_(subq))
+			q = self.session.query(JackDawADMachine.dn, JackDawADMachine.objectSid, JackDawADMachine.objectGUID)\
+				.filter_by(ad_id = self.ad_id)\
+				.filter(~JackDawADMachine.objectSid.in_(subq))
 			await self.resumption_target_gen_member(q, JackDawADMachine.id, 'machine', LDAPAgentCommand.MEMBERSHIPS)
-			q = self.session.query(JackDawADGroup.dn, JackDawADGroup.sid, JackDawADGroup.guid).filter_by(ad_id = self.ad_id).filter(~JackDawADGroup.guid.in_(subq))
+			q = self.session.query(JackDawADGroup.dn, JackDawADGroup.objectSid, JackDawADGroup.objectGUID)\
+				.filter_by(ad_id = self.ad_id)\
+				.filter(~JackDawADGroup.objectSid.in_(subq))
 			await self.resumption_target_gen_member(q, JackDawADGroup.id, 'group', LDAPAgentCommand.MEMBERSHIPS)
+			
 		except Exception as e:
-			logger.exception('generate_sd_targets')
+			logger.exception('generate_member_targets')
 
 
 	async def update_progress(self):
@@ -900,14 +935,20 @@ class LDAPEnumeratorManager:
 				elif res_type == LDAPAgentCommand.USER:
 					self.user_ctr += 1
 					await self.store_user(res)
+					if self.user_ctr % 1000 == 0:
+						self.session.commit()
 
 				elif res_type == LDAPAgentCommand.MACHINE:
 					self.machine_ctr += 1
 					await self.store_machine(res)
+					if self.machine_ctr % 1000 == 0:
+						self.session.commit()
 
 				elif res_type == LDAPAgentCommand.GROUP:
 					self.group_ctr += 1
 					await self.store_group(res)
+					if self.group_ctr % 1000 == 0:
+						self.session.commit()
 
 				elif res_type == LDAPAgentCommand.OU:
 					self.ou_ctr += 1
@@ -943,9 +984,10 @@ class LDAPEnumeratorManager:
 			except Exception as e:
 				logger.exception('ldap enumerator main!')
 				await self.stop_agents()
-				return None
+				return False, e
 		
-		return True
+		self.total_progress.disable = True
+		return True, None
 
 	
 	#data['guid']
@@ -953,8 +995,11 @@ class LDAPEnumeratorManager:
 	#s.member_sid = res['token']
 	#s.object_type = data['object_type']
 
-	async def stop_sds_collection(self, sds_p):
-		sds_p.disable = True
+	async def stop_sds_collection(self):
+		if self.progress_queue is None:
+			self.sds_progress.refresh()
+			self.sds_progress.disable = True
+
 		try:
 			self.sd_file.close()
 			cnt = 0
@@ -971,8 +1016,11 @@ class LDAPEnumeratorManager:
 		except Exception as e:
 			logger.exception('Error while uploading sds from file to DB')
 
-	async def stop_memberships_collection(self, member_p):
-		member_p.disable = True
+	async def stop_memberships_collection(self):
+		if self.progress_queue is None:
+			self.member_progress.refresh()
+			self.member_progress.disable = True
+			
 
 		try:
 			self.token_file.close()
@@ -980,7 +1028,31 @@ class LDAPEnumeratorManager:
 			with gzip.GzipFile(self.token_file_path, 'r') as f:
 				for line in tqdm(f, desc='Uploading memberships to DB', total=self.member_finish_ctr):
 					sd = JackDawTokenGroup.from_json(line.strip())
-					self.session.add(sd)
+					
+					
+					src_id = self.session.query(JackDawEdgeLookup.id).filter_by(oid = sd.sid).filter(JackDawEdgeLookup.ad_id == sd.ad_id).first()
+					if src_id is None:
+						t = JackDawEdgeLookup(sd.ad_id, sd.sid, sd.object_type)
+						self.session.add(t)
+						self.session.commit()
+						self.session.refresh(t)
+						src_id = t.id
+					else:
+						src_id = src_id[0]
+					
+					dst_id = self.session.query(JackDawEdgeLookup.id).filter_by(oid = sd.member_sid).filter(JackDawEdgeLookup.ad_id == sd.ad_id).first()
+					if dst_id is None:
+						t = JackDawEdgeLookup(sd.ad_id, sd.member_sid, sd.object_type)
+						self.session.add(t)
+						self.session.commit()
+						self.session.refresh(t)
+						dst_id = t.id
+					else:
+						dst_id = dst_id[0]
+					
+					edge = JackDawEdge(sd.ad_id, self.graph_id, src_id, dst_id, 'member')
+
+					self.session.add(edge)
 					cnt += 1
 					if cnt % 10000 == 0:
 						self.session.commit()
@@ -996,10 +1068,10 @@ class LDAPEnumeratorManager:
 		await self.setup()
 		
 		if self.resumption is False:
-			res = await self.run_init_gathering()
+			res, e = await self.run_init_gathering()
 			self.session.commit()
-			if res is None:
-				return False
+			if res is False:
+				return None, None, e
 		
 		try:
 			logger.debug('Polling sds')
@@ -1009,10 +1081,20 @@ class LDAPEnumeratorManager:
 			total_sds_to_poll += self.session.query(func.count(JackDawADMachine.id)).filter_by(ad_id = self.ad_id).filter(~JackDawADMachine.objectGUID.in_(subq)).scalar()
 			total_sds_to_poll += self.session.query(func.count(JackDawADGPO.id)).filter_by(ad_id = self.ad_id).filter(~JackDawADGPO.objectGUID.in_(subq)).scalar()
 			total_sds_to_poll += self.session.query(func.count(JackDawADOU.id)).filter_by(ad_id = self.ad_id).filter(~JackDawADOU.objectGUID.in_(subq)).scalar()
-			total_sds_to_poll += self.session.query(func.count(JackDawADGroup.id)).filter_by(ad_id = self.ad_id).filter(~JackDawADGroup.guid.in_(subq)).scalar()
+			total_sds_to_poll += self.session.query(func.count(JackDawADGroup.id)).filter_by(ad_id = self.ad_id).filter(~JackDawADGroup.objectGUID.in_(subq)).scalar()
 			
 			asyncio.create_task(self.generate_sd_targets())
-			sds_p = tqdm(desc='Collecting SDs', total=total_sds_to_poll)
+			if self.progress_queue is None:
+				self.sds_progress = tqdm(desc='Collecting SDs', total=total_sds_to_poll, position=0, leave=True)
+			else:
+				msg = LDAPEnumeratorProgress()
+				msg.type = 'LDAP_SD'
+				msg.msg_type = 'STARTED'
+				msg.adid = self.ad_id
+				msg.domain_name = self.domain_name
+				await self.progress_queue.put(msg)
+			
+			
 			logger.info(total_sds_to_poll)
 			acnt = total_sds_to_poll
 			while acnt > 0:
@@ -1021,8 +1103,21 @@ class LDAPEnumeratorManager:
 					res_type, res = res
 					
 					if res_type == LDAPAgentCommand.SD:
-						sds_p.update()
 						await self.store_sd(res)
+						if self.progress_queue is None:
+							self.sds_progress.update()
+						else:
+							if acnt % 1000 == 0:
+								now = datetime.datetime.utcnow()
+								td = (now - self.progress_last_updated).total_seconds()
+								self.progress_last_updated = now
+								msg = LDAPEnumeratorProgress()
+								msg.type = 'LDAP_SD'
+								msg.msg_type = 'PROGRESS'
+								msg.adid = self.ad_id
+								msg.domain_name = self.domain_name
+								msg.speed = str(1000 // td)
+								await self.progress_queue.put(msg)
 
 					elif res_type == LDAPAgentCommand.EXCEPTION:
 						logger.warning(str(res))
@@ -1034,21 +1129,45 @@ class LDAPEnumeratorManager:
 					
 		except Exception as e:
 			logger.exception('SDs enumeration main error')
-			await self.stop_sds_collection(sds_p)
-			return None
+			await self.stop_sds_collection()
+			return None, None, e
 		
-		await self.stop_sds_collection(sds_p)
+		await self.stop_sds_collection()
 
 		try:
 			logger.debug('Polling members')
 			total_members_to_poll = 0
-			subq = self.session.query(JackDawTokenGroup.guid).distinct(JackDawTokenGroup.guid).filter(JackDawTokenGroup.ad_id == self.ad_id)
-			total_members_to_poll += self.session.query(func.count(JackDawADUser.id)).filter_by(ad_id = self.ad_id).filter(~JackDawADUser.objectGUID.in_(subq)).scalar()
-			total_members_to_poll += self.session.query(func.count(JackDawADMachine.id)).filter_by(ad_id = self.ad_id).filter(~JackDawADMachine.objectGUID.in_(subq)).scalar()
-			total_members_to_poll += self.session.query(func.count(JackDawADGroup.id)).filter_by(ad_id = self.ad_id).filter(~JackDawADGroup.guid.in_(subq)).scalar()
+
+			subq = self.session.query(JackDawEdgeLookup.oid).filter_by(ad_id = self.ad_id).filter(JackDawEdgeLookup.id == JackDawEdge.src).filter(JackDawEdge.label == 'member').filter(JackDawEdge.ad_id == self.ad_id)
+
+
+			total_members_to_poll = self.session.query(func.count(JackDawADUser.id))\
+				.filter_by(ad_id = self.ad_id)\
+				.filter(~JackDawADUser.objectSid.in_(subq))\
+				.scalar()
+
+			total_members_to_poll += self.session.query(func.count(JackDawADMachine.id))\
+				.filter_by(ad_id = self.ad_id)\
+				.filter(~JackDawADMachine.objectSid.in_(subq))\
+				.scalar()
+			
+			total_members_to_poll += self.session.query(func.count(JackDawADGroup.id))\
+				.filter_by(ad_id = self.ad_id)\
+				.filter(~JackDawADGroup.objectSid.in_(subq))\
+				.scalar()
+
 			
 			asyncio.create_task(self.generate_member_targets())
-			member_p = tqdm(desc='Collecting members', total=total_members_to_poll)
+			if self.progress_queue is None:
+				self.member_progress = tqdm(desc='Collecting members', total=total_members_to_poll, position=0, leave=True)
+			else:
+				msg = LDAPEnumeratorProgress()
+				msg.type = 'LDAP_TOKENGROUP'
+				msg.msg_type = 'STARTED'
+				msg.adid = self.ad_id
+				msg.domain_name = self.domain_name
+				await self.progress_queue.put(msg)
+
 			acnt = total_members_to_poll
 			while acnt > 0:
 				try:
@@ -1060,7 +1179,21 @@ class LDAPEnumeratorManager:
 						self.token_file.write(res.to_json().encode() + b'\r\n')
 					
 					elif res_type == LDAPAgentCommand.MEMBERSHIP_FINISHED:
-						member_p.update()
+						if self.progress_queue is None:
+							self.member_progress.update()
+						
+						else:
+							if acnt % 1000 == 0:
+								now = datetime.datetime.utcnow()
+								td = (now - self.progress_last_updated).total_seconds()
+								self.progress_last_updated = now
+								msg = LDAPEnumeratorProgress()
+								msg.type = 'LDAP_TOKENGROUP'
+								msg.msg_type = 'PROGRESS'
+								msg.adid = self.ad_id
+								msg.domain_name = self.domain_name
+								msg.speed = str(1000 // td)
+								await self.progress_queue.put(msg)
 						acnt -= 1
 
 					elif res_type == LDAPAgentCommand.EXCEPTION:
@@ -1071,14 +1204,14 @@ class LDAPEnumeratorManager:
 					raise e
 		except Exception as e:
 			logger.exception('Members enumeration error main!')
-			await self.stop_memberships_collection(member_p)
-			return None
+			await self.stop_memberships_collection()
+			return None, None, e
 		
-		await self.stop_memberships_collection(member_p)
+		await self.stop_memberships_collection()
 
 		await self.stop_agents()
 		logger.info('[+] LDAP information acqusition finished!')
-		return self.ad_id
+		return self.ad_id, self.graph_id, None
 			
 
 if __name__ == '__main__':

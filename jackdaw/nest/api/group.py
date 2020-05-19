@@ -13,7 +13,7 @@ def list_groups(domainid, page, maxcnt):
         ).filter_by(ad_id = domainid
         ).with_entities(
             JackDawADGroup.id, 
-            JackDawADGroup.sid, 
+            JackDawADGroup.objectSid, 
             JackDawADGroup.sAMAccountName
             )
         
@@ -48,5 +48,5 @@ def get(domainid, groupid):
 
 def get_sid(domainid, sid):
     db = current_app.db
-    for user in db.session.query(JackDawADGroup).filter_by(sid = sid).filter(JackDawADGroup.ad_id == domainid).all():
+    for user in db.session.query(JackDawADGroup).filter_by(objectSid = sid).filter(JackDawADGroup.ad_id == domainid).all():
         return user.to_dict()

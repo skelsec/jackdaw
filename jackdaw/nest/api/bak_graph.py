@@ -8,21 +8,18 @@
 import datetime
 import tempfile
 import os
-import pathlib
 
-from jackdaw.dbmodel.graphinfo import JackDawGraphInfo
 from jackdaw.nest.graph.domain import DomainGraph
 from jackdaw.nest.graph.graphdata import GraphData
 from jackdaw.nest.graph.construct import GraphConstruct
 from jackdaw.nest.graph.domaindiff import DomainDiff
-from jackdaw.dbmodel.adgroup import JackDawADGroup
 from jackdaw import logger
-from jackdaw.nest.graph.edgecalc import EdgeCalc
 import connexion
 
 
 # 3rd party modules
 from flask import make_response, abort, current_app, send_file, after_this_request
+
 
 
 graph_id_ctr = 1
@@ -31,26 +28,20 @@ graphs = {}
 diff_id_ctr = 1
 diffs = {}
 
-def list_offline():
-	t = []
-	for res in current_app.db.session.query(JackDawGraphInfo.id).all():
-		t.append(res)
-	return t
-
-def list_loaded():
+def list_all():
 	return list(graphs.keys())
 
 def create(adids):
-	raise Exception('Not yet implemented!')
-	#if len(adids) > 1:
-	#	raise Exception('Currently only one ID is supported!')
-	#for adid in adids:
-	#	try:
-	#		adid = str(int(adid))
-	#	except Exception as e:
-	#		raise e
-	#	
-	#return {'graphid' : graphid}
+	global graph_id_ctr
+	old_graph_id_ctr = graph_id_ctr
+	graph_id_ctr += 1
+	db = current_app.db
+	dg = DomainGraph(db = db, )
+	for adid in adids:
+		construct = GraphConstruct(adid)
+		dg.construct(construct)
+	graphs[old_graph_id_ctr] = dg
+	return {'graphid' : old_graph_id_ctr}
 
 def delete(graphid):
 	del graphs[graphid]
@@ -58,69 +49,30 @@ def delete(graphid):
 
 
 def save(graphid):
-	raise Exception('Not yet implemented!')
-	#with tempfile.NamedTemporaryFile(delete=False) as tmpfile:
-	#	temp_file_name = tmpfile.name
-	#
-	##logger.debug('Temp file created, but will not be removed! %s' % temp_file_name)
-	#graphs[graphid].to_gzip(temp_file_name)
-	#
-	#attachment_name = 'graph_%s_%s.gzip' % (graphid, datetime.datetime.now().isoformat())
-	#resp = send_file(temp_file_name,
-	#	as_attachment=True, 
-	#	mimetype='application/octet-stream',
-	#	attachment_filename=attachment_name
-	#)
-	#return resp
+	with tempfile.NamedTemporaryFile(delete=False) as tmpfile:
+		temp_file_name = tmpfile.name
 
-def upload(file_to_upload):
-	pass
-	#global graph_id_ctr
-	#old_graph_id_ctr = graph_id_ctr
-	#graph_id_ctr += 1
-	#
-	#file_to_upload = connexion.request.files['file_to_upload']
-	#graphs[old_graph_id_ctr] = DomainGraph.from_gzip_stream(file_to_upload.stream)
-	#graphs[old_graph_id_ctr].dbsession = current_app.db.session #need to restore db session
-	#
-	#return {'graphid' : old_graph_id_ctr}
+	#logger.debug('Temp file created, but will not be removed! %s' % temp_file_name)
+	graphs[graphid].to_gzip(temp_file_name)
 
-def load(graphid):
+	attachment_name = 'graph_%s_%s.gzip' % (graphid, datetime.datetime.now().isoformat())
+	resp = send_file(temp_file_name,
+		as_attachment=True, 
+		mimetype='application/octet-stream',
+		attachment_filename=attachment_name
+	)
+	return resp
+
+def load():	
 	global graph_id_ctr
-	if current_app.config.get('JACKDAW_GRAPH_BACKEND').upper() == 'networkx'.upper():
-		from jackdaw.nest.graph.backends.networkx.domaingraph import JackDawDomainGraphNetworkx
-		graph_type = JackDawDomainGraphNetworkx
-	elif current_app.config.get('JACKDAW_GRAPH_BACKEND').upper() == 'igraph'.upper():
-		from jackdaw.nest.graph.backends.igraph.domaingraph import JackDawDomainGraphIGraph
-		graph_type = JackDawDomainGraphIGraph
-	graph = graph_type(current_app.db.session, graphid)
-	graph.load()
 	old_graph_id_ctr = graph_id_ctr
 	graph_id_ctr += 1
-	graphs[old_graph_id_ctr] = graph
+
+	file_to_upload = connexion.request.files['file_to_upload']
+	graphs[old_graph_id_ctr] = DomainGraph.from_gzip_stream(file_to_upload.stream)
+	graphs[old_graph_id_ctr].dbsession = current_app.db.session #need to restore db session
+
 	return {'graphid' : old_graph_id_ctr}
-
-
-	#
-	#old_graph_id_ctr = graph_id_ctr
-	#graph_id_ctr += 1
-	#graphs[old_graph_id_ctr] = graph
-	#return {'graphid' : old_graph_id_ctr}
-
-
-
-	#if current_app.config.get('JACKDAW_GRAPH_BACKEND').upper() == 'networkx'.upper():
-	#	from jackdaw.nest.graph.backends.networkx.domaingraph import JackDawDomainGraphNetworkx
-	#	graph_type = JackDawDomainGraphNetworkx
-	#global graph_id_ctr
-	#graph = graph_type(current_app.db.session, current_app.config.get('JACKDAW_GRAPH_DIR'))
-	#graph.load(storedid)
-	#
-	#old_graph_id_ctr = graph_id_ctr
-	#graph_id_ctr += 1
-	#graphs[old_graph_id_ctr] = graph
-	#return {'graphid' : old_graph_id_ctr}
-
 
 def get(graphid):
 	if graphid not in graphs:
@@ -142,14 +94,9 @@ def query_path_da(graphid, format = 'vis'):
 	
 	da_sids = {}
 	#searching for domain admin SID
-	
-	#for node in graphs[graphid].get_node():
-	#	print(node)
-	#	if node.id == graphs[graphid].domain_sid + '-512':
-	#		da_sids[node.id] = 1
-	
-	for res in current_app.db.session.query(JackDawADGroup).filter_by(ad_id = graphs[graphid].domain_id).filter(JackDawADGroup.objectSid.like('%-512')).all():
-		da_sids[res.objectSid] = 0
+	for node in graphs[graphid].get_node():
+		if node.id == graphs[graphid].domain_sid + '-512':
+			da_sids[node.id] = 1
 	
 	if len(da_sids) == 0:
 		return 'No domain administrator group found', 404

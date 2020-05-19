@@ -15,7 +15,26 @@ from winacl.dtyp.ace import ADS_ACCESS_MASK, AceFlags
 
 Basemodel = declarative_base()
 
+def windowed_query(q, column, windowsize, is_single_entity = True):
+	""""Break a Query into chunks on a given column."""
 
+	#single_entity = q.is_single_entity
+	q = q.add_column(column).order_by(column)
+	last_id = None
+
+	while True:
+		subq = q
+		if last_id is not None:
+			subq = subq.filter(column > last_id)
+		chunk = subq.limit(windowsize).all()
+		if not chunk:
+			break
+		last_id = chunk[-1][-1]
+		for row in chunk:
+			if is_single_entity is True:
+				yield row[0]
+			else:
+				yield row[0:-1]
 
 @event.listens_for(Engine, "connect")
 def set_sqlite_pragma(dbapi_connection, connection_record):
@@ -76,6 +95,7 @@ def bc(x):
 	raise Exception('Cant convert this to bool: %s type: %s' % (x, type(x)))
 
 #from .addacl import *
+#from .tokengroup import *
 from .adgroup import *
 from .adcomp import *
 from .adinfo import *
@@ -86,7 +106,6 @@ from .hashentry import *
 from .netsession import *
 from .netshare import *
 from .spnservice import *
-from .tokengroup import *
 from .localgroup import *
 from .constrained import *
 from .customrelations import *
@@ -99,6 +118,9 @@ from .adsd import *
 from .adtrust import *
 from .lsasecrets import *
 from .adspn import *
+from .edge import JackDawEdge
+from .edgelookup import JackDawEdgeLookup
+from .graphinfo import JackDawGraphInfo
 
 
 

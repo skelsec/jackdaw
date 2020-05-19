@@ -21,7 +21,7 @@ class JackDawADMachine(Basemodel):
 	countryCode = Column(String)
 	description = Column(String)
 	displayName = Column(String)
-	dNSHostName = Column(String)
+	dNSHostName = Column(String, index=True)
 	instanceType = Column(String)
 	isCriticalSystemObject = Column(String)
 	lastLogoff =Column(DateTime)
@@ -72,6 +72,8 @@ class JackDawADMachine(Basemodel):
 	UAC_PASSWORD_EXPIRED = Column(Boolean)
 	UAC_TRUSTED_TO_AUTHENTICATE_FOR_DELEGATION = Column(Boolean)
 
+
+	#Index('dnslower', func.lower(mytable.c.somecol))
 
 	def to_dict(self):
 		return {

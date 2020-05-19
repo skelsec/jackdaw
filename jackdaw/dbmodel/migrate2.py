@@ -1,29 +1,29 @@
 
 
 #from .addacl import *
-from .adgroup import *
-from .adcomp import *
-from .adinfo import *
-from .aduser import *
-from .adou import *
-from .credential import *
-from .hashentry import *
-from .netsession import *
-from .netshare import *
-from .spnservice import *
-from .tokengroup import *
-from .localgroup import *
-from .constrained import *
-from .customrelations import *
-from .smbfinger import *
-from .adgplink import *
-from .adgpo import *
-from .netfile import *
-from .netdir import *
-from .adsd import *
-from .adtrust import *
-from .lsasecrets import *
-from .adspn import *
+from jackdaw.dbmodel.adgroup import *
+from jackdaw.dbmodel.adcomp import *
+from jackdaw.dbmodel.adinfo import *
+from jackdaw.dbmodel.aduser import *
+from jackdaw.dbmodel.adou import *
+from jackdaw.dbmodel.credential import *
+from jackdaw.dbmodel.hashentry import *
+from jackdaw.dbmodel.netsession import *
+from jackdaw.dbmodel.netshare import *
+from jackdaw.dbmodel.spnservice import *
+from jackdaw.dbmodel.tokengroup import *
+from jackdaw.dbmodel.localgroup import *
+from jackdaw.dbmodel.constrained import *
+from jackdaw.dbmodel.customrelations import *
+from jackdaw.dbmodel.smbfinger import *
+from jackdaw.dbmodel.adgplink import *
+from jackdaw.dbmodel.adgpo import *
+from jackdaw.dbmodel.netfile import *
+from jackdaw.dbmodel.netdir import *
+from jackdaw.dbmodel.adsd import *
+from jackdaw.dbmodel.adtrust import *
+from jackdaw.dbmodel.lsasecrets import *
+from jackdaw.dbmodel.adspn import *
 
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
@@ -32,7 +32,7 @@ from tqdm import tqdm
 from sqlalchemy import func
 
 objs_to_migrate = {
-	JackDawTokenGroup : 'tokengroup',
+	#JackDawTokenGroup : 'tokengroup',
 	JackDawADUser : 'user',
 	JackDawADMachine : 'machine',
 	JackDawADGroup : 'group',
@@ -120,12 +120,29 @@ def migrate_obj(session_old, session_new, ad_id_old, ad_id_new, obj, batch_size 
 	stat.disable = True
 
 
-def migrate(session_old, session_new):
-	for res in session_old.query(JackDawADInfo).all():
-		ad_id_old = res.id
-		ad_id_new = migrate_adifo(session_old, session_new, res)
-		for obj in objs_to_migrate:
-			migrate_obj(session_old, session_new, ad_id_old, ad_id_new, obj)
+def migrate(session_old, session_new, batch_size = 10000):
+	#for res in session_old.query(JackDawADInfo).all():
+	#	ad_id_old = res.id
+	#	ad_id_new = migrate_adifo(session_old, session_new, res)
+	#	for obj in objs_to_migrate:
+	#		migrate_obj(session_old, session_new, ad_id_old, ad_id_new, obj)
+	#
+
+	print('membership to csv')
+	with open('/home/devel/Desktop/jackdaw/tokengroup.csv','w', newline = '') as f:
+		total = session_old.query(func.count(JackDawTokenGroup.id)).filter_by(ad_id = 1).scalar()
+		desc = '[+] Migrating'
+		stat = tqdm(desc = desc,total=total)
+		q = session_old.query(JackDawTokenGroup).filter_by(ad_id = 1)
+		for i, res in enumerate(windowed_query(q, JackDawTokenGroup.id, windowsize = batch_size)):
+				session_old.expunge(res)
+				res.id = None
+				res.ad_id = 1
+				f.write(res.to_graph_csv() + '\r\n')
+				stat.update()
+	
+	print('Done!')
+				
 
 def migrate_partial(session_old, session_new, ad_id_old, ad_id_new, tables):
 	for table in tables:

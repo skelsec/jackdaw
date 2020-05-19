@@ -58,14 +58,14 @@ paths:
 
   /graph:
     get:
-      operationId: jackdaw.nest.api.graph.list_all
+      operationId: jackdaw.nest.api.graph.list_loaded
       tags:
         - Graph
-      summary: Returns all graph IDs
-      description: Returns all graph IDs
+      summary: Returns all loaded graph IDs
+      description: Returns all loaded graph IDs
       responses:
         200:
-          description: Returns list of graph IDs
+          description: Returns list of loaded graph IDs
           schema:
             type: array
     post:
@@ -468,9 +468,9 @@ paths:
           schema:
             type: file
 
-  /graph/load:
+  /graph/upload:
     put:
-      operationId: jackdaw.nest.api.graph.load
+      operationId: jackdaw.nest.api.graph.upload
       tags:
         - Graph
       summary: Loads the graph from the supplied file
@@ -490,8 +490,29 @@ paths:
               graph:
                 type: string
                 description: Placeholder TODO
-
-        
+  
+  /graph/load:
+    put:
+      operationId: jackdaw.nest.api.graph.load
+      tags:
+        - Graph
+      summary: Loads the graph from the disk
+      description: a
+      parameters:
+        - name: graphid
+          in: query
+          description: ID of the stored graph to be loaded in to memory
+          type: integer
+          required: True
+      responses:
+        200:
+          description: TODO
+          schema:
+            type: object
+            properties:
+              graph:
+                type: string
+                description: Placeholder TODO
 
   /domain/list:
     get:

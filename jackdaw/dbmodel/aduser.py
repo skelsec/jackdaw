@@ -80,11 +80,7 @@ class JackDawADUser(Basemodel):
 	UAC_USE_DES_KEY_ONLY = Column(Boolean)
 	UAC_DONT_REQUIRE_PREAUTH = Column(Boolean)
 	UAC_PASSWORD_EXPIRED = Column(Boolean)
-	UAC_TRUSTED_TO_AUTHENTICATE_FOR_DELEGATION = Column(Boolean)
-
-	#credential = relationship("Credential", back_populates="user", lazy = True)
-	allowedtodelegateto = relationship("JackDawUserConstrainedDelegation", back_populates="user", lazy = True)
-	
+	UAC_TRUSTED_TO_AUTHENTICATE_FOR_DELEGATION = Column(Boolean)	
 
 	def to_dict(self):
 		return {

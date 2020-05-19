@@ -25,6 +25,7 @@ from jackdaw.utils.argshelper import construct_ldapdef, construct_smbdef
 from jackdaw.credentials.credentials import JackDawCredentials
 from aiosmb.commons.connection.url import SMBConnectionURL
 from msldap.commons.url import MSLDAPURLDecoder
+from jackdaw.nest.graph.edgecalc import EdgeCalc
 
 
 async def run(args):
@@ -52,6 +53,7 @@ async def run(args):
 		sys.exit()
 	
 	db_conn = args.sql
+	os.environ['JACKDAW_SQLITE'] = '0'
 	if args.sql.lower().startswith('sqlite'):
 		os.environ['JACKDAW_SQLITE'] = '1'
 	
@@ -60,7 +62,9 @@ async def run(args):
 		ldap_mgr = construct_ldapdef(args)
 
 		mgr = LDAPEnumeratorManager(db_conn, ldap_mgr, agent_cnt=args.ldap_workers)
-		adifo_id = await mgr.run()
+		adifo_id, graph_id, err = await mgr.run()
+		if err is not None:
+			raise err
 		jdlogger.info('ADInfo entry successfully created with ID %s' % adifo_id)
 		
 		mgr = SMBGathererManager(smb_mgr, worker_cnt=args.smb_workers, queue_size = args.smb_queue_size)
@@ -74,6 +78,10 @@ async def run(args):
 			settings_base.dir_depth = args.smb_folder_depth
 			mgr = ShareGathererManager(settings_base, db_conn = db_conn, worker_cnt = args.smb_workers)
 			mgr.run()
+
+		session = get_session(db_conn)
+		ec = EdgeCalc(session, adifo_id, graph_id, buffer_size = 100, show_progress = True, progress_queue = None, worker_count = None)
+		ec.run()
 	
 	elif args.command == 'dbinit':
 		create_db(db_conn)
@@ -95,8 +103,11 @@ async def run(args):
 		ldap_conn = ldap_mgr.get_client()
 	
 		mgr = LDAPEnumeratorManager(db_conn, ldap_mgr, agent_cnt=args.ldap_workers, queue_size=args.ldap_queue_size, ad_id = args.ad_id)
-		adifo_id = await mgr.run()
+		adifo_id, graph_id, err = await mgr.run()
 		jdlogger.info('ADInfo entry successfully created with ID %s' % adifo_id)
+		session = get_session(db_conn)
+		ec = EdgeCalc(session, adifo_id, graph_id, buffer_size = 100, show_progress = True, progress_queue = None, worker_count = None)
+		ec.run()
 		
 	elif args.command in ['shares', 'sessions', 'localgroups', 'smball']:
 		if args.command == 'smball':

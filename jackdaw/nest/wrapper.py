@@ -1,5 +1,6 @@
 import os
 import connexion
+import pathlib
 #ORDER IS IMPORTANT!!
 from flask_sqlalchemy import SQLAlchemy
 #from flask_marshmallow import Marshmallow
@@ -28,7 +29,7 @@ def _get_connexion_args(kwargs):
 	return {k: v for k, v in kwargs.items() if not k.startswith('flask_')}
 
 class NestServer:
-	def __init__(self, db_conn, bind_ip = '127.0.0.1', bind_port = 5000, debug = True, basedir = None, swagger_config = "swagger.yaml"):
+	def __init__(self, db_conn, bind_ip = '127.0.0.1', bind_port = 5000, debug = True, basedir = None, swagger_config = "swagger.yaml", graph_backend = 'igraph', graph_dir = 'graphs'):
 		self.basedir = basedir
 		self.db_conn_string = db_conn #connection string
 		self.swagger_config = swagger_config
@@ -36,6 +37,8 @@ class NestServer:
 		self.bind_port = bind_port
 		self.debug = debug
 
+		self.graph_backend = graph_backend
+		self.graph_dir = graph_dir
 		self.connex_app = None
 
 	def setup(self):
@@ -55,15 +58,20 @@ class NestServer:
 		#set custom JSON encoder
 		app.json_encoder = UniversalFlaskEncoder
 
+		pathlib.Path(self.graph_dir).mkdir(parents=True, exist_ok=True)
+
 		app.config['SQLALCHEMY_ECHO'] = False 
 		app.config['SQLALCHEMY_DATABASE_URI'] = self.db_conn_string
 		app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+		app.config['JACKDAW_GRAPH_DIR'] = self.graph_dir
+		app.config['JACKDAW_GRAPH_BACKEND'] = self.graph_backend
 		#
 		## Create the SQLAlchemy db instance
 		db = SQLAlchemy(app)
 
 		with self.connex_app.app.app_context():
 			self.connex_app.app.db = db
+
 		#
 		## Initialize Marshmallow
 		#ma = Marshmallow(app)

@@ -12,6 +12,6 @@ class JackDawSPNService(Basemodel):
 	owner_sid = Column(String, index=True)
 	service_class = Column(String, index=True)
 	computername = Column(String, index=True)
-	port = Column(Integer, index=True)
+	port = Column(String, index=True)
 	service_name = Column(String, index=True)
 	
