@@ -44,7 +44,7 @@ class EdgeCalcProgress:
 		
 
 class EdgeCalc:
-	def __init__(self, session, ad_id, graph_id, buffer_size = 100, show_progress = False, progress_queue = None, worker_count = None):
+	def __init__(self, session, ad_id, graph_id, buffer_size = 100, show_progress = True, progress_queue = None, worker_count = None):
 		self.session = session
 		self.ad_id = ad_id
 		self.buffer_size = buffer_size
