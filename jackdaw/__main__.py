@@ -15,181 +15,188 @@ from aiosmb import logger as smblogger
 from msldap import logger as msldaplogger
 
 from jackdaw.dbmodel import create_db, get_session
-from jackdaw.gatherer.smb.smb import SMBGathererManager
-from jackdaw.gatherer.smb.smb_file import SMBShareGathererSettings, ShareGathererManager
+from jackdaw.gatherer.gatherer import Gatherer
 
 from jackdaw._version import __banner__
 from jackdaw import logger as jdlogger
-from jackdaw.gatherer.ldap.aioldap import LDAPEnumeratorManager
 from jackdaw.utils.argshelper import construct_ldapdef, construct_smbdef
 from jackdaw.credentials.credentials import JackDawCredentials
-from aiosmb.commons.connection.url import SMBConnectionURL
 from msldap.commons.url import MSLDAPURLDecoder
-from jackdaw.nest.graph.edgecalc import EdgeCalc
 
+import multiprocessing
 
 async def run(args):
-	print(__banner__)
-	if args.verbose == 0:
-		logging.basicConfig(level=logging.INFO)
-		jdlogger.setLevel(logging.INFO)
-		msldaplogger.setLevel(logging.WARNING)
-		smblogger.setLevel(logging.CRITICAL)
+	try:
 		
-	elif args.verbose == 1:
-		logging.basicConfig(level=logging.DEBUG)
-		jdlogger.setLevel(logging.DEBUG)
-		msldaplogger.setLevel(logging.INFO)
-		smblogger.setLevel(logging.INFO)
-		
-	elif args.verbose > 1:
-		logging.basicConfig(level=1)
-		msldaplogger.setLevel(logging.DEBUG)
-		jdlogger.setLevel(1)
-		smblogger.setLevel(1)
-	
-	if not args.sql:
-		print('SQL connection identification is missing! You need to provide the --sql parameter')
-		sys.exit()
-	
-	db_conn = args.sql
-	os.environ['JACKDAW_SQLITE'] = '0'
-	if args.sql.lower().startswith('sqlite'):
-		os.environ['JACKDAW_SQLITE'] = '1'
-	
-	if args.command == 'enum':
-		smb_mgr = construct_smbdef(args)
-		ldap_mgr = construct_ldapdef(args)
-
-		mgr = LDAPEnumeratorManager(db_conn, ldap_mgr, agent_cnt=args.ldap_workers)
-		adifo_id, graph_id, err = await mgr.run()
-		if err is not None:
-			raise err
-		jdlogger.info('ADInfo entry successfully created with ID %s' % adifo_id)
-		
-		mgr = SMBGathererManager(smb_mgr, worker_cnt=args.smb_workers, queue_size = args.smb_queue_size)
-		mgr.gathering_type = ['all']
-		mgr.db_conn = db_conn
-		mgr.target_ad = adifo_id
-		await mgr.run()
-
-		if args.smb_share_enum is True:
-			settings_base = SMBShareGathererSettings(adifo_id, smb_mgr, None, None, None)
-			settings_base.dir_depth = args.smb_folder_depth
-			mgr = ShareGathererManager(settings_base, db_conn = db_conn, worker_cnt = args.smb_workers)
-			mgr.run()
-
-		session = get_session(db_conn)
-		ec = EdgeCalc(session, adifo_id, graph_id, buffer_size = 100, show_progress = True, progress_queue = None, worker_count = None)
-		ec.run()
-	
-	elif args.command == 'dbinit':
-		create_db(db_conn)
-	
-	elif args.command == 'adinfo':
-		session = get_session(db_conn)
-		from jackdaw.dbmodel.adinfo import JackDawADInfo
-		from jackdaw.utils.table import print_table
-		
-		rows = [['Ad ID', 'domain name', 'scantime']]
-		for did, distinguishedName, creation in session.query(JackDawADInfo).with_entities(JackDawADInfo.id, JackDawADInfo.distinguishedName, JackDawADInfo.fetched_at).all():
-			name = distinguishedName.replace('DC=','')
-			name = name.replace(',','.')
-			rows.append([str(did), name, creation.isoformat()])
-		print_table(rows)
-		
-	elif args.command == 'ldap':
-		ldap_mgr = construct_ldapdef(args)
-		ldap_conn = ldap_mgr.get_client()
-	
-		mgr = LDAPEnumeratorManager(db_conn, ldap_mgr, agent_cnt=args.ldap_workers, queue_size=args.ldap_queue_size, ad_id = args.ad_id)
-		adifo_id, graph_id, err = await mgr.run()
-		jdlogger.info('ADInfo entry successfully created with ID %s' % adifo_id)
-		session = get_session(db_conn)
-		ec = EdgeCalc(session, adifo_id, graph_id, buffer_size = 100, show_progress = True, progress_queue = None, worker_count = None)
-		ec.run()
-		
-	elif args.command in ['shares', 'sessions', 'localgroups', 'smball']:
-		if args.command == 'smball':
-			args.command = 'all'
-		smb_mgr = construct_smbdef(args)
-		mgr = SMBGathererManager(smb_mgr, worker_cnt=args.smb_workers, queue_size = args.smb_queue_size)
-		mgr.gathering_type = [args.command]
-		mgr.db_conn = db_conn
-		mgr.lookup_ad = args.lookup_ad
-		
-		if args.ldap_url:
-			ldap_mgr = construct_ldapdef(args)
-			ldap_conn = ldap_mgr.get_client()
-			mgr.ldap_conn = ldap_conn
-		
-		if args.ad_id:
-			mgr.target_ad = args.ad_id
-		
-		if args.target_file:
-			mgr.targets_file = args.target_file
-		
-		await mgr.run()
-
-	elif args.command == 'files':
-		if args.src == 'domain':
-			if not args.ad_id:
-				raise Exception('ad-id parameter is mandatory in ldap mode')
+		print(__banner__)
+		if args.verbose == 0:
+			logging.basicConfig(level=logging.INFO)
+			jdlogger.setLevel(logging.INFO)
+			msldaplogger.setLevel(logging.WARNING)
+			smblogger.setLevel(logging.CRITICAL)
 			
-			mgr = SMBConnectionURL(args.smb_url)
-			settings_base = SMBShareGathererSettings(args.ad_id, mgr, None, None, None)
-			settings_base.dir_depth = args.smb_folder_depth
-			settings_base.dir_with_sd = args.with_sid
-			settings_base.file_with_sd = args.with_sid
-
-			mgr = ShareGathererManager(settings_base, db_conn = db_conn, worker_cnt = args.smb_workers)
-			mgr.run()
-
-	#	elif args.src == 'file':
-	#		if not args.target_file:
-	#			raise Exception('target-file parameter is mandatory in file mode')
-	#		
-	#		args.target_file
-	#		args.lookup_ad
-	#		args.with_sid
-	#		args.smb_workers
-	#
-	#	elif args.src == 'ldap':
-	#		if not args.ldap_url:
-	#			raise Exception('ldap-url parameter is mandatory in ldap mode')
-	#		args.lookup_ad
-	#		args.with_sid
-	#		args.smb_workers
-	#
-	#	
-	#
-	#	elif args.src == 'cmd':
+		elif args.verbose == 1:
+			logging.basicConfig(level=logging.DEBUG)
+			jdlogger.setLevel(logging.DEBUG)
+			msldaplogger.setLevel(logging.INFO)
+			smblogger.setLevel(logging.INFO)
 			
+		elif args.verbose > 1:
+			logging.basicConfig(level=1)
+			msldaplogger.setLevel(logging.DEBUG)
+			jdlogger.setLevel(1)
+			smblogger.setLevel(1)
 		
-	elif args.command == 'creds':
-		creds = JackDawCredentials(args.db_conn, args.domain_id)
-		creds.add_credentials_impacket(args.impacket_file)
-
+		if not args.sql:
+			print('SQL connection identification is missing! You need to provide the --sql parameter')
+			sys.exit()
 		
-	elif args.command == 'passwords':
-		creds = JackDawCredentials(args.db_conn)
-		creds.add_cracked_passwords(args.potfile, args.disable_usercheck, args.disable_passwordcheck)
+		work_dir = './workdir'
+		ldap_url = None
+		smb_url = None
+
+		if hasattr(args, 'ldap_url'):
+			ldap_url = args.ldap_url
+		if hasattr(args, 'smb_url'):
+			smb_url = args.smb_url
+		db_conn = args.sql
+		os.environ['JACKDAW_SQLITE'] = '0'
+		if args.sql.lower().startswith('sqlite'):
+			os.environ['JACKDAW_SQLITE'] = '1'
 		
-	elif args.command == 'uncracked':
-		creds = JackDawCredentials(args.db_conn, args.domain_id)
-		creds.get_uncracked_hashes(args.hash_type, args.history)
+		if args.command == 'enum':
+			with multiprocessing.Pool() as mp_pool:
+				gatherer = Gatherer(
+					db_conn, 
+					work_dir, 
+					ldap_url, 
+					smb_url, 
+					ldap_worker_cnt=4, 
+					smb_worker_cnt=4, 
+					mp_pool=mp_pool, 
+					smb_gather_types=['all'], 
+					progress_queue=None, 
+					show_progress=True
+				)
+				res, err = await gatherer.run()
+				if err is not None:
+					raise err
+
+
+		elif args.command == 'dbinit':
+			create_db(db_conn)
 		
-	elif args.command == 'cracked':
-		creds = JackDawCredentials(args.db_conn, args.domain_id)
-		creds.get_cracked_info()
+		elif args.command == 'adinfo':
+			session = get_session(db_conn)
+			from jackdaw.dbmodel.adinfo import JackDawADInfo
+			from jackdaw.utils.table import print_table
+			
+			rows = [['Ad ID', 'domain name', 'scantime']]
+			for did, distinguishedName, creation in session.query(JackDawADInfo).with_entities(JackDawADInfo.id, JackDawADInfo.distinguishedName, JackDawADInfo.fetched_at).all():
+				name = distinguishedName.replace('DC=','')
+				name = name.replace(',','.')
+				rows.append([str(did), name, creation.isoformat()])
+			print_table(rows)
+			
+		elif args.command == 'ldap':
+			with multiprocessing.Pool() as mp_pool:
+				gatherer = Gatherer(
+					db_conn, 
+					work_dir, 
+					ldap_url, 
+					smb_url, 
+					ldap_worker_cnt=4, 
+					smb_worker_cnt=4, 
+					mp_pool=mp_pool, 
+					smb_gather_types=['all'], 
+					progress_queue=None, 
+					show_progress=True
+				)
+				await gatherer.run()
+			
+		elif args.command in ['shares', 'sessions', 'localgroups', 'smball']:
+			if args.command == 'smball':
+				args.command = 'all'
+			smb_mgr = construct_smbdef(args)
+			mgr = SMBGathererManager(smb_mgr, worker_cnt=args.smb_workers, queue_size = args.smb_queue_size)
+			mgr.gathering_type = [args.command]
+			mgr.db_conn = db_conn
+			mgr.lookup_ad = args.lookup_ad
+			
+			if args.ldap_url:
+				ldap_mgr = construct_ldapdef(args)
+				ldap_conn = ldap_mgr.get_client()
+				mgr.ldap_conn = ldap_conn
+			
+			if args.ad_id:
+				mgr.target_ad = args.ad_id
+			
+			if args.target_file:
+				mgr.targets_file = args.target_file
+			
+			await mgr.run()
 
-	elif args.command == 'nest':
-		from jackdaw.nest.wrapper import NestServer
+		elif args.command == 'files':
+			if args.src == 'domain':
+				if not args.ad_id:
+					raise Exception('ad-id parameter is mandatory in ldap mode')
+				
+				mgr = SMBConnectionURL(args.smb_url)
+				settings_base = SMBShareGathererSettings(args.ad_id, mgr, None, None, None)
+				settings_base.dir_depth = args.smb_folder_depth
+				settings_base.dir_with_sd = args.with_sid
+				settings_base.file_with_sd = args.with_sid
 
-		debug = bool(args.verbose)
+				mgr = ShareGathererManager(settings_base, db_conn = db_conn, worker_cnt = args.smb_workers)
+				mgr.run()
 
-		server = NestServer(args.sql, bind_ip = args.ip, bind_port = args.port, debug = debug)
-		server.run()
+		#	elif args.src == 'file':
+		#		if not args.target_file:
+		#			raise Exception('target-file parameter is mandatory in file mode')
+		#		
+		#		args.target_file
+		#		args.lookup_ad
+		#		args.with_sid
+		#		args.smb_workers
+		#
+		#	elif args.src == 'ldap':
+		#		if not args.ldap_url:
+		#			raise Exception('ldap-url parameter is mandatory in ldap mode')
+		#		args.lookup_ad
+		#		args.with_sid
+		#		args.smb_workers
+		#
+		#	
+		#
+		#	elif args.src == 'cmd':
+				
+			
+		elif args.command == 'creds':
+			creds = JackDawCredentials(args.db_conn, args.domain_id)
+			creds.add_credentials_impacket(args.impacket_file)
+
+			
+		elif args.command == 'passwords':
+			creds = JackDawCredentials(args.db_conn)
+			creds.add_cracked_passwords(args.potfile, args.disable_usercheck, args.disable_passwordcheck)
+			
+		elif args.command == 'uncracked':
+			creds = JackDawCredentials(args.db_conn, args.domain_id)
+			creds.get_uncracked_hashes(args.hash_type, args.history)
+			
+		elif args.command == 'cracked':
+			creds = JackDawCredentials(args.db_conn, args.domain_id)
+			creds.get_cracked_info()
+
+		elif args.command == 'nest':
+			from jackdaw.nest.wrapper import NestServer
+
+			debug = bool(args.verbose)
+
+			server = NestServer(args.sql, bind_ip = args.ip, bind_port = args.port, debug = debug)
+			server.run()
+	except Exception as e:
+		jdlogger.exception('main')
 	
 def main():
 	import argparse

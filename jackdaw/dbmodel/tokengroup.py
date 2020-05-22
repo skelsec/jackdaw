@@ -9,7 +9,7 @@ class JackDawTokenGroup(Basemodel):
 	
 	id = Column(Integer, primary_key=True)
 	ad_id = Column(Integer, ForeignKey('ads.id'))
-	ad = relationship("JackDawADInfo", back_populates="group_lookups", lazy = True)
+	#ad = relationship("JackDawADInfo", back_populates="group_lookups", lazy = True)
 	sid = Column(String)
 	member_sid = Column(String)
 	object_type = Column(String)

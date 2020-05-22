@@ -1,0 +1,280 @@
+import traceback
+import asyncio
+
+from jackdaw.gatherer.ldap.agent.common import *
+from jackdaw import logger
+from jackdaw.dbmodel.graphinfo import JackDawGraphInfo
+from jackdaw.dbmodel.spnservice import JackDawSPNService
+from jackdaw.dbmodel.addacl import JackDawADDACL
+from jackdaw.dbmodel.adgroup import JackDawADGroup
+from jackdaw.dbmodel.adinfo import JackDawADInfo
+from jackdaw.dbmodel.aduser import JackDawADUser
+from jackdaw.dbmodel.adcomp import JackDawADMachine
+from jackdaw.dbmodel.adou import JackDawADOU
+from jackdaw.dbmodel.adinfo import JackDawADInfo
+from jackdaw.dbmodel.tokengroup import JackDawTokenGroup
+from jackdaw.dbmodel.adgpo import JackDawADGPO
+from jackdaw.dbmodel.constrained import JackDawMachineConstrainedDelegation, JackDawUserConstrainedDelegation
+from jackdaw.dbmodel.adgplink import JackDawADGplink
+from jackdaw.dbmodel.adsd import JackDawSD
+from jackdaw.dbmodel.adtrust import JackDawADTrust
+from jackdaw.dbmodel.adspn import JackDawSPN
+from jackdaw.dbmodel import get_session
+from jackdaw.dbmodel.edge import JackDawEdge
+from jackdaw.dbmodel.edgelookup import JackDawEdgeLookup
+
+
+class LDAPGathererAgent:
+	def __init__(self, ldap_mgr, agent_in_q, agent_out_q):
+		#multiprocessing.Process.__init__(self)
+		self.ldap_mgr = ldap_mgr
+		self.agent_in_q = agent_in_q
+		self.agent_out_q = agent_out_q
+		self.ldap = None
+		self.test_ctr = 0
+
+	async def get_sds(self, data):
+		try:
+			#print(data)
+			if data is None:
+				await self.agent_out_q.put((LDAPAgentCommand.SDS_FINISHED, None))
+				return
+
+			dn = data['dn']
+			
+			adsec, err = await self.ldap.get_objectacl_by_dn(dn)
+			if err is not None:
+				raise err
+			data['adsec'] = adsec
+			await self.agent_out_q.put((LDAPAgentCommand.SD, data ))
+
+		except:
+			await self.agent_out_q.put((LDAPAgentCommand.EXCEPTION, str(traceback.format_exc())))
+
+	async def get_all_effective_memberships(self):
+		try:
+			async for res, err in self.ldap.get_all_tokengroups():
+				if err is not None:
+					raise err
+				s = JackDawTokenGroup()
+				s.cn = res['cn']
+				s.dn = res['dn']
+				s.guid = res['guid']
+				s.sid = res['sid']
+				s.member_sid = res['token']
+				s.objtype = res['type']
+				await self.agent_out_q.put((LDAPAgentCommand.MEMBERSHIP, s))
+		except:
+			await self.agent_out_q.put((LDAPAgentCommand.EXCEPTION, str(traceback.format_exc())))
+		finally:
+			await self.agent_out_q.put((LDAPAgentCommand.MEMBERSHIPS_FINISHED, None))
+
+	async def get_effective_memberships(self, data):
+		try:
+			if data is None:
+				await self.agent_out_q.put((LDAPAgentCommand.MEMBERSHIPS_FINISHED, None))
+				return
+			async for res, err in self.ldap.get_tokengroups(data['dn']):
+				if err is not None:
+					raise err
+				s = JackDawTokenGroup()
+				s.guid = data['guid']
+				s.sid = data['sid']
+				s.member_sid = res
+				s.object_type = data['object_type']
+				await self.agent_out_q.put((LDAPAgentCommand.MEMBERSHIP, s))
+		except:
+			await self.agent_out_q.put((LDAPAgentCommand.EXCEPTION, str(traceback.format_exc())))
+		finally:
+			await self.agent_out_q.put((LDAPAgentCommand.MEMBERSHIP_FINISHED, None))
+			
+
+	async def get_all_trusts(self):
+		try:
+			async for entry, err in self.ldap.get_all_trusts():
+				if err is not None:
+					raise err
+				await self.agent_out_q.put((LDAPAgentCommand.TRUSTS, JackDawADTrust.from_ldapdict(entry.to_dict())))
+		except:
+			await self.agent_out_q.put((LDAPAgentCommand.EXCEPTION, str(traceback.format_exc())))
+		finally:
+			await self.agent_out_q.put((LDAPAgentCommand.TRUSTS_FINISHED, None))
+
+	async def get_all_spnservices(self):
+		try:
+			async for entry, err in self.ldap.get_all_spn_entries():
+				if err is not None:
+					raise err
+				if 'servicePrincipalName' not in entry['attributes']:
+					continue
+				
+				for spn in entry['attributes']['servicePrincipalName']:
+					port = None
+					service_name = None
+					service_class, t = spn.split('/',1)
+					m = t.find(':')
+					if m != -1:
+						computername, port = t.rsplit(':',1)
+						if port.find('/') != -1:
+							port, service_name = port.rsplit('/',1)
+					else:
+						computername = t
+						if computername.find('/') != -1:
+							computername, service_name = computername.rsplit('/',1)
+
+					s = JackDawSPNService()
+					s.owner_sid = str(entry['attributes']['objectSid'])
+					s.computername = computername
+					s.service_class = service_class
+					s.service_name = service_name
+					if port is not None:
+						s.port = str(port)
+					await self.agent_out_q.put((LDAPAgentCommand.SPNSERVICE, s))
+		except:
+			await self.agent_out_q.put((LDAPAgentCommand.EXCEPTION, str(traceback.format_exc())))
+		finally:
+			await self.agent_out_q.put((LDAPAgentCommand.SPNSERVICES_FINISHED, None))
+
+	async def get_all_users(self):
+		try:
+			async for user_data, err in self.ldap.get_all_users():
+				if err is not None:
+					raise err
+				user = JackDawADUser.from_aduser(user_data)
+				spns = []
+				if user_data.servicePrincipalName is not None:
+					for spn in user_data.servicePrincipalName:
+						spns.append(JackDawSPN.from_spn_str(spn, user.objectSid))
+
+				await self.agent_out_q.put((LDAPAgentCommand.USER, {'user':user, 'spns':spns}))
+		except:
+			await self.agent_out_q.put((LDAPAgentCommand.EXCEPTION, str(traceback.format_exc())))
+		finally:
+			await self.agent_out_q.put((LDAPAgentCommand.USERS_FINISHED, None))
+
+	async def get_all_groups(self):
+		try:
+			async for group, err in self.ldap.get_all_groups():
+				if err is not None:
+					raise err
+				g = JackDawADGroup.from_dict(group.to_dict())
+				await self.agent_out_q.put((LDAPAgentCommand.GROUP, g))
+				del g
+		except:
+			await self.agent_out_q.put((LDAPAgentCommand.EXCEPTION, str(traceback.format_exc())))
+		finally:
+			await self.agent_out_q.put((LDAPAgentCommand.GROUPS_FINISHED, None))
+
+	async def get_all_gpos(self):
+		try:
+			async for gpo, err in self.ldap.get_all_gpos():
+				if err is not None:
+					raise err
+				g = JackDawADGPO.from_adgpo(gpo)
+				await self.agent_out_q.put((LDAPAgentCommand.GPO, g))
+				del g
+		except:
+			await self.agent_out_q.put((LDAPAgentCommand.EXCEPTION, str(traceback.format_exc())))
+		finally:
+			await self.agent_out_q.put((LDAPAgentCommand.GPOS_FINISHED, None))
+
+
+	async def get_all_machines(self):
+		try:
+			async for machine_data, err in self.ldap.get_all_machines():
+				if err is not None:
+					raise err
+				machine = JackDawADMachine.from_adcomp(machine_data)
+				
+				delegations = []
+				if machine_data.allowedtodelegateto is not None:
+					for delegate_data in machine_data.allowedtodelegateto:
+						delegations.append(JackDawMachineConstrainedDelegation.from_spn_str(delegate_data))
+				await self.agent_out_q.put((LDAPAgentCommand.MACHINE, {'machine' : machine, 'delegations' : delegations}))
+		except:
+			await self.agent_out_q.put((LDAPAgentCommand.EXCEPTION, str(traceback.format_exc())))
+		finally:
+			await self.agent_out_q.put((LDAPAgentCommand.MACHINES_FINISHED, None))
+
+	async def get_all_ous(self):
+		try:
+			async for ou, err in self.ldap.get_all_ous():
+				if err is not None:
+					raise err
+				o = JackDawADOU.from_adou(ou)
+				await self.agent_out_q.put((LDAPAgentCommand.OU, o))
+				del o
+		except:
+			await self.agent_out_q.put((LDAPAgentCommand.EXCEPTION, str(traceback.format_exc())))
+		finally:
+			await self.agent_out_q.put((LDAPAgentCommand.OUS_FINISHED, None))
+
+	async def get_domain_info(self):
+		try:
+			info, err = await self.ldap.get_ad_info()
+			if err is not None:
+				raise err
+			adinfo = JackDawADInfo.from_msldap(info)
+			await self.agent_out_q.put((LDAPAgentCommand.DOMAININFO, adinfo))
+		except:
+			await self.agent_out_q.put((LDAPAgentCommand.EXCEPTION, str(traceback.format_exc())))
+		finally:
+			await self.agent_out_q.put((LDAPAgentCommand.DOMAININFO_FINISHED, None))
+
+	async def setup(self):
+		try:
+			self.ldap = self.ldap_mgr.get_client()
+			res, err = await self.ldap.connect()
+			if err is not None:
+				raise err
+			return res
+		except:
+			await self.agent_out_q.put((LDAPAgentCommand.EXCEPTION, str(traceback.format_exc())))
+			return False
+
+	async def arun(self):
+		try:
+			res = await self.setup()
+			if res is False:
+				return
+			while True:
+				res = await self.agent_in_q.get()
+				if res is None:
+					return
+
+				if res.command == LDAPAgentCommand.DOMAININFO:
+					await self.get_domain_info()
+				elif res.command == LDAPAgentCommand.USERS:
+					await self.get_all_users()
+				elif res.command == LDAPAgentCommand.MACHINES:
+					await self.get_all_machines()
+				elif res.command == LDAPAgentCommand.GROUPS:
+					await self.get_all_groups()
+				elif res.command == LDAPAgentCommand.OUS:
+					await self.get_all_ous()
+				elif res.command == LDAPAgentCommand.GPOS:
+					await self.get_all_gpos()
+				elif res.command == LDAPAgentCommand.SPNSERVICES:
+					await self.get_all_spnservices()
+				#elif res.command == LDAPAgentCommand.MEMBERSHIPS:
+				#	await self.get_all_effective_memberships()
+				elif res.command == LDAPAgentCommand.MEMBERSHIPS:
+					await self.get_effective_memberships(res.data)
+				elif res.command == LDAPAgentCommand.SDS:
+					await self.get_sds(res.data)
+				elif res.command == LDAPAgentCommand.TRUSTS:
+					await self.get_all_trusts()
+		except Exception as e:
+			logger.exception('Agent main!')
+		finally:
+			if self.ldap is not None:
+				await self.ldap._con.disconnect()
+			
+
+	def run(self):
+		try:
+			loop = asyncio.get_event_loop()
+		except:
+			loop = asyncio.new_event_loop()
+		#loop.set_debug(True)  # Enable debug
+		loop.run_until_complete(self.arun())

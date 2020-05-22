@@ -59,8 +59,8 @@ class SMBEnumeratorProgress:
 		
 		return '[%s][%s][%s][%s]' % (self.type, self.domain_name, self.adid, self.msg_type)
 
-class SMBGathererManager:
-	def __init__(self, smb_mgr, worker_cnt = 50, queue_size = 100000, progress_queue = None):
+class SMBGatherer:
+	def __init__(self, smb_mgr, worker_cnt = 50, queue_size = 100000, progress_queue = None, rdns_resolver = None):
 		self.queue_size = queue_size
 		self.in_q = None
 		self.out_q = None
@@ -70,6 +70,7 @@ class SMBGathererManager:
 		self.concurrent_connections = worker_cnt if worker_cnt is not None else multiprocessing.cpu_count()
 		self.db_conn = None
 		self.progress_queue = progress_queue
+		self.rdns_resolver = rdns_resolver
 
 		self.total_targets = 0
 		self.targets = []
@@ -182,7 +183,7 @@ class SMBGathererManager:
 		#self.results_thread.daemon = True
 		#self.results_thread.start()
 
-		self.gatherer = AIOSMBGatherer(
+		self.gatherer = AIOSMBGathererAgent(
 			self.in_q, 
 			self.out_q, 
 			self.smb_mgr, 
@@ -234,6 +235,8 @@ class SMBGathererManager:
 					logger.debug(target, str(result), error)
 				else:
 					result.ad_id = self.ad_id
+					if isinstance(result, NetSession) and self.rdns_resolver is not None:
+						result.rdns, err = await self.rdns_resolver.resolve(result.ip)
 					session.add(result)
 					session.commit()
 
@@ -269,7 +272,7 @@ class SMBGathererManager:
 			session.commit()
 
 
-class AIOSMBGatherer:
+class AIOSMBGathererAgent:
 	def __init__(self, in_q, out_q, smb_mgr, gather = ['all'], localgroups = [], concurrent_connections = 10, progress_queue = None):
 		#multiprocessing.Process.__init__(self)
 		self.in_q = in_q

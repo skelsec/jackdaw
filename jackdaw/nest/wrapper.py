@@ -29,7 +29,7 @@ def _get_connexion_args(kwargs):
 	return {k: v for k, v in kwargs.items() if not k.startswith('flask_')}
 
 class NestServer:
-	def __init__(self, db_conn, bind_ip = '127.0.0.1', bind_port = 5000, debug = True, basedir = None, swagger_config = "swagger.yaml", graph_backend = 'igraph', graph_dir = 'graphs'):
+	def __init__(self, db_conn, bind_ip = '127.0.0.1', bind_port = 5000, debug = True, basedir = None, swagger_config = "swagger.yaml", graph_backend = 'graphtools', graph_dir = 'graphs'):
 		self.basedir = basedir
 		self.db_conn_string = db_conn #connection string
 		self.swagger_config = swagger_config

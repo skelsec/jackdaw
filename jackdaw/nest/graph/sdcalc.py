@@ -107,67 +107,58 @@ def calc_sd_edges(adsd):
 				
 		true_attr, false_attr = JackDawADDACL.mask2attr(ace.Mask)
 		
-		for attr in true_attr:	
-			setattr(acl, attr, True)
-		for attr in false_attr:	
-			setattr(acl, attr, False)
-				
-		true_attr, false_attr = JackDawADDACL.hdrflag2attr(ace.AceFlags)
-			
-		for attr in true_attr:	
-			setattr(acl, attr, True)
-		for attr in false_attr:	
-			setattr(acl, attr, False)
-			
+		ace.Mask = ADS_ACCESS_MASK(ace.Mask)
 		acl.ace_sid = str(ace.Sid)
+
+		buffer.append(helper(acl.owner_sid, acl.sid, 'Owner'))
 
 		if acl.ace_type not in ['ACCESS_ALLOWED_ACE_TYPE','ACCESS_ALLOWED_OBJECT_ACE_TYPE']:
 			continue
 
 		if acl.ace_type == 'ACCESS_ALLOWED_ACE_TYPE':
-			if acl.ace_mask_generic_all == True:
+			if ADS_ACCESS_MASK.GENERIC_ALL in ace.Mask:
 				buffer.append(helper(acl.ace_sid, acl.sid, 'GenericALL'))
 
-			if acl.ace_mask_generic_write == True:
+			if ADS_ACCESS_MASK.GENERIC_WRITE in ace.Mask:
 				buffer.append(helper(acl.ace_sid, acl.sid, 'GenericWrite'))
 
-			if acl.ace_mask_write_owner == True:
+			if ADS_ACCESS_MASK.WRITE_OWNER in ace.Mask:
 				buffer.append(helper(acl.ace_sid, acl.sid, 'WriteOwner'))
 
-			if acl.ace_mask_write_dacl == True:
+			if ADS_ACCESS_MASK.WRITE_DACL in ace.Mask:
 				buffer.append(helper(acl.ace_sid, acl.sid, 'WriteDacl'))
 
-			if acl.object_type in ['user', 'domain'] and acl.ace_mask_control_access == True:
+			if acl.object_type in ['user', 'domain'] and ADS_ACCESS_MASK.CONTROL_ACCESS in ace.Mask: 
 				buffer.append(helper(acl.ace_sid, acl.sid, 'ExtendedRightALL'))
 
 		if acl.ace_type == 'ACCESS_ALLOWED_OBJECT_ACE_TYPE':
-			if acl.ace_hdr_flag_inherited == True and acl.ace_hdr_flag_inherit_only == True:
+			if AceFlags.INHERITED_ACE in ace.AceFlags and AceFlags.INHERIT_ONLY_ACE in ace.AceFlags:
 				continue
 				
-			if acl.ace_hdr_flag_inherited == True and acl.ace_inheritedobjecttype is not None:
+			if AceFlags.INHERITED_ACE in ace.AceFlags and acl.ace_inheritedobjecttype is not None:
 				if not ace_applies(acl.ace_inheritedobjecttype, acl.object_type):
 					continue
 					
-			if any([acl.ace_mask_generic_all, acl.ace_mask_write_dacl, acl.ace_mask_write_owner, acl.ace_mask_generic_write]):
+			if (ADS_ACCESS_MASK.GENERIC_ALL in ace.Mask) or (ADS_ACCESS_MASK.WRITE_DACL in ace.Mask) or (ADS_ACCESS_MASK.WRITE_OWNER in ace.Mask) or (ADS_ACCESS_MASK.GENERIC_WRITE in ace.Mask):
 				if acl.ace_objecttype is not None and not ace_applies(acl.ace_objecttype, acl.object_type):
 					continue
 					
-				if acl.ace_mask_generic_all == True:
+				if ADS_ACCESS_MASK.GENERIC_ALL in ace.Mask:
 					buffer.append(helper(acl.ace_sid, acl.sid, 'GenericALL'))
 					continue
 					
-				if acl.ace_mask_generic_write == True:
+				if ADS_ACCESS_MASK.GENERIC_WRITE in ace.Mask:
 					buffer.append(helper(acl.ace_sid, acl.sid, 'GenericWrite'))
 					if acl.object_type != 'domain':
 						continue
 						
-				if acl.ace_mask_write_dacl == True:
+				if ADS_ACCESS_MASK.WRITE_DACL in ace.Mask:
 					buffer.append(helper(acl.ace_sid, acl.sid, 'WriteDacl'))
 
-				if acl.ace_mask_write_owner == True:
+				if ADS_ACCESS_MASK.WRITE_OWNER in ace.Mask:
 					buffer.append(helper(acl.ace_sid, acl.sid, 'WriteOwner'))
 
-			if acl.ace_mask_write_prop == True:
+			if ADS_ACCESS_MASK.WRITE_PROP in ace.Mask:
 				if acl.object_type in ['user','group'] and acl.ace_objecttype is None:
 					buffer.append(helper(acl.ace_sid, acl.sid, 'GenericWrite'))
 
@@ -175,7 +166,7 @@ def calc_sd_edges(adsd):
 					buffer.append(helper(acl.ace_sid, acl.sid, 'AddMember'))
 
 
-			if acl.ace_mask_control_access == True:
+			if ADS_ACCESS_MASK.CONTROL_ACCESS in ace.Mask:
 				if acl.object_type in ['user','group'] and acl.ace_objecttype is None:
 					buffer.append(helper(acl.ace_sid, acl.sid, 'ExtendedAll'))
 

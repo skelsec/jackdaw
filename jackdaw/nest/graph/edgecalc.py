@@ -44,18 +44,23 @@ class EdgeCalcProgress:
 		
 
 class EdgeCalc:
-	def __init__(self, session, ad_id, graph_id, buffer_size = 100, show_progress = True, progress_queue = None, worker_count = None):
-		self.session = session
+	def __init__(self, db_conn, ad_id, graph_id, buffer_size = 100, show_progress = True, progress_queue = None, worker_count = None, mp_pool = None):
+		self.db_conn = db_conn
 		self.ad_id = ad_id
 		self.buffer_size = buffer_size
 		self.show_progress = show_progress
 		self.progress_queue = progress_queue
 		self.pbar = None
+		self.mp_pool = mp_pool
 		self.graph_id = graph_id
 
 		self.total_edges = 0
 		self.worker_count = worker_count
 		self.boost_dict = {}
+		self.session = None
+
+		if self.worker_count is None:
+			self.worker_count = 10
 
 	def get_id_for_sid(self, sid, otype = 'unknown', with_boost = False):
 		if sid in self.boost_dict:
@@ -81,10 +86,8 @@ class EdgeCalc:
 
 		edge = JackDawEdge(self.ad_id, self.graph_id, src_id, dst_id, label)
 		self.session.add(edge)
-		if self.total_edges % 1000 == 0:
+		if self.total_edges % 100 == 0:
 			self.session.commit()
-
-		#self.out_file.write( ('%s,%s,%s,%s\r\n' % (src_sid, dst_sid, label)).encode())
 
 	def trust_edges(self):
 		logger.debug('Adding trusts edges')
@@ -233,7 +236,10 @@ class EdgeCalc:
 
 		testfile = tempfile.TemporaryFile('w+', newline = '')
 		buffer = []
-		with mp.Pool() as p:
+		if self.mp_pool is None:
+			self.mp_pool = mp.Pool()
+
+		try:
 			for adsd in tqdm(windowed_query(q, JackDawSD.id, self.worker_count), desc ='Writing SD edges to file', total=total):
 				adsd = JackDawSD.from_dict(adsd.to_dict())
 				if adsd.sd is None:
@@ -241,7 +247,7 @@ class EdgeCalc:
 				buffer.append(adsd)
 				if len(buffer) > self.buffer_size:
 					
-					for res in p.imap_unordered(calc_sd_edges, buffer):
+					for res in self.mp_pool.imap_unordered(calc_sd_edges, buffer):
 						for r in res:
 							src,dst,label,ad_id = r
 							src = self.get_id_for_sid(src)
@@ -250,6 +256,11 @@ class EdgeCalc:
 							testfile.write('%s,%s,%s,%s\r\n' % (src, dst, label, ad_id))
 							#self.add_edge(src, dst, label, with_boost = True)
 					buffer = []
+
+		except Exception as e:
+			logger.exception('SD calc exception!')
+		finally:
+			self.mp_pool.close()
 
 		testfile.seek(0,0)
 		for i, line in enumerate(tqdm(testfile, desc = 'Writing SD edge file contents to DB', total = cnt)):
@@ -265,6 +276,8 @@ class EdgeCalc:
 
 	def run(self):
 		try:
+			self.session = get_session(self.db_conn)
+
 			self.gplink_edges()
 			self.groupmembership_edges()
 			self.trust_edges()
@@ -275,16 +288,12 @@ class EdgeCalc:
 			self.session.commit()
 			self.calc_sds_mp()
 
+			return True, None
+
 		except Exception as e:
 			logger.exception('edge calculation error!')
+			return False, e
 
-		finally:
-			try:
-				if self.out_file is not None:
-					self.out_file.close()
-			except:
-				pass
-		print('Done!')
 
 def main():
 	import argparse

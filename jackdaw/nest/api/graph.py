@@ -16,6 +16,9 @@ from jackdaw.nest.graph.graphdata import GraphData
 from jackdaw.nest.graph.construct import GraphConstruct
 from jackdaw.nest.graph.domaindiff import DomainDiff
 from jackdaw.dbmodel.adgroup import JackDawADGroup
+from jackdaw.dbmodel.edgelookup import JackDawEdgeLookup
+from jackdaw.dbmodel.edge import JackDawEdge
+from jackdaw.dbmodel.aduser import JackDawADUser
 from jackdaw import logger
 from jackdaw.nest.graph.edgecalc import EdgeCalc
 import connexion
@@ -93,7 +96,12 @@ def load(graphid):
 	elif current_app.config.get('JACKDAW_GRAPH_BACKEND').upper() == 'igraph'.upper():
 		from jackdaw.nest.graph.backends.igraph.domaingraph import JackDawDomainGraphIGraph
 		graph_type = JackDawDomainGraphIGraph
-	graph = graph_type(current_app.db.session, graphid)
+	elif current_app.config.get('JACKDAW_GRAPH_BACKEND').upper() == 'graphtools'.upper():
+		from jackdaw.nest.graph.backends.graphtools.domaingraph import JackDawDomainGraphGrapthTools
+		graph_type = JackDawDomainGraphGrapthTools
+
+		
+	graph = graph_type(current_app.db.session, graphid, work_dir = current_app.config['JACKDAW_GRAPH_DIR'])
 	graph.load()
 	old_graph_id_ctr = graph_id_ctr
 	graph_id_ctr += 1
@@ -133,7 +141,7 @@ def query_path(graphid, src = None, dst = None, format = 'd3'):
 		return 'Graph Not Found', 404
 	if src is None and dst is None:
 		return {}
-	res =  graphs[graphid].all_shortest_paths(src, dst)
+	res = graphs[graphid].all_shortest_paths(src, dst)
 	return res.to_dict(format = format)
 
 def query_path_da(graphid, format = 'vis'):
@@ -156,10 +164,59 @@ def query_path_da(graphid, format = 'vis'):
 	
 	res = GraphData()
 	for sid in da_sids:
-		res += graphs[graphid].all_shortest_paths(None, sid)
+		res += graphs[graphid].shortest_paths(None, sid)
 
 
 	#print(res)
+	return res.to_dict(format = format)
+
+def query_path_dcsync(graphid, format = 'vis'):
+	pass
+
+def query_path_kerberoast(graphid, format = 'vis'):
+	if graphid not in graphs:
+		return 'Graph Not Found', 404
+
+	target_sids = {}
+	da_sids = {}
+
+	for res in current_app.db.session.query(JackDawADGroup).filter_by(ad_id = graphs[graphid].domain_id).filter(JackDawADGroup.objectSid.like('%-512')).all():
+		da_sids[res.objectSid] = 0
+
+	for res in current_app.db.session.query(JackDawADUser.objectSid)\
+		.filter_by(ad_id = graphs[graphid].domain_id)\
+		.filter(JackDawADUser.servicePrincipalName != None).all():
+		
+		target_sids[res[0]] = 0
+
+	res = GraphData()
+	for dst_sid in da_sids:
+		for src_sid in target_sids:
+			res += graphs[graphid].shortest_paths(src_sid, dst_sid)
+
+	return res.to_dict(format = format)
+
+def query_path_asreproast(graphid, format = 'vis'):
+	if graphid not in graphs:
+		return 'Graph Not Found', 404
+
+	target_sids = {}
+	da_sids = {}
+
+	for res in current_app.db.session.query(JackDawADGroup).filter_by(ad_id = graphs[graphid].domain_id).filter(JackDawADGroup.objectSid.like('%-512')).all():
+		da_sids[res.objectSid] = 0
+
+	for res in current_app.db.session.query(JackDawADUser.objectSid)\
+		.filter_by(ad_id = graphs[graphid].domain_id)\
+		.filter(JackDawADUser.UAC_DONT_REQUIRE_PREAUTH == True).all():
+		
+		target_sids[res[0]] = 0
+
+	res = GraphData()
+	for dst_sid in da_sids:
+		for src_sid in target_sids:
+			res += graphs[graphid].shortest_paths(src_sid, dst_sid)
+
 	return res.to_dict(format = format)
 
 

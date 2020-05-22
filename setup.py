@@ -54,7 +54,8 @@ setup(
 		'connexion[swagger-ui]',
 		'pypykatz>=0.3.6',
         'swagger-ui-bundle>=0.0.2',
-		'werkzeug==0.16.1'
+		'werkzeug==0.16.1',
+		'bidict',
 	],
 	entry_points={
 		'console_scripts': [
