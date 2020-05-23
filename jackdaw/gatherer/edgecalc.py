@@ -1,8 +1,11 @@
 
-from jackdaw.dbmodel.tokengroup import JackDawTokenGroup
-from jackdaw.nest.graph.sdcalc import calc_sd_edges
+import asyncio
 import logging
+import datetime
+import tempfile
 import multiprocessing as mp
+from gzip import GzipFile
+
 from jackdaw import logger
 from jackdaw.dbmodel import get_session, windowed_query
 from jackdaw.dbmodel.spnservice import JackDawSPNService
@@ -26,11 +29,13 @@ from jackdaw.dbmodel.netsession import NetSession
 from jackdaw.dbmodel.localgroup import LocalGroup
 from jackdaw.dbmodel.credential import Credential
 from jackdaw.dbmodel.graphinfo import JackDawGraphInfo
+from jackdaw.dbmodel.tokengroup import JackDawTokenGroup
+from jackdaw.gatherer.sdcalc import calc_sd_edges
+
 from sqlalchemy.orm.session import make_transient
 from tqdm import tqdm
-import tempfile
+from jackdaw.gatherer.progress import *
 
-from gzip import GzipFile
 from sqlalchemy import func
 
 class EdgeCalcProgress:
@@ -50,14 +55,20 @@ class EdgeCalc:
 		self.buffer_size = buffer_size
 		self.show_progress = show_progress
 		self.progress_queue = progress_queue
+		self.progress_step_size = 1000
 		self.pbar = None
 		self.mp_pool = mp_pool
 		self.graph_id = graph_id
+		self.domain_name = None
+		self.progress_last_updated = datetime.datetime.utcnow()
 
 		self.total_edges = 0
 		self.worker_count = worker_count
 		self.boost_dict = {}
 		self.session = None
+		self.foreign_pool = False
+		if self.mp_pool is None:
+			self.foreign_pool = True
 
 		if self.worker_count is None:
 			self.worker_count = 10
@@ -173,7 +184,7 @@ class EdgeCalc:
 		logger.debug('Added %s localgroup edges' % cnt)
 
 	def passwordsharing_edges(self):
-		logger.info('Adding password sharing edges')
+		logger.debug('Adding password sharing edges')
 		cnt = 0
 		def get_sid_by_nthash(ad_id, nt_hash):
 			return self.session.query(JackDawADUser.objectSid, Credential.username
@@ -205,10 +216,10 @@ class EdgeCalc:
 					self.add_edge(sid1, sid2,label = 'pwsharing')
 					cnt += 1
 
-		logger.info('Added %s password sharing edges' % cnt)
+		logger.debug('Added %s password sharing edges' % cnt)
 
 	def gplink_edges(self):
-		logger.info('Adding gplink edges')
+		logger.debug('Adding gplink edges')
 		q = self.session.query(JackDawADOU.objectGUID, JackDawADGPO.objectGUID)\
 				.filter_by(ad_id = self.ad_id)\
 				.filter(JackDawADOU.objectGUID == JackDawADGplink.ou_guid)\
@@ -217,7 +228,7 @@ class EdgeCalc:
 		for res in q.all():
 				self.add_edge(res[0], res[1], 'gplink')
 				cnt += 1
-		logger.info('Added %s gplink edges' % cnt)
+		logger.debug('Added %s gplink edges' % cnt)
 
 	def groupmembership_edges(self):
 		return
@@ -229,52 +240,142 @@ class EdgeCalc:
 		#		cnt += 1
 		#logger.info('Added %s groupmembership edges' % cnt)
 
-	def calc_sds_mp(self):
-		cnt = 0
-		total = self.session.query(func.count(JackDawSD.id)).filter_by(ad_id = self.ad_id).scalar()
-		q = self.session.query(JackDawSD).filter_by(ad_id = self.ad_id)
-
-		testfile = tempfile.TemporaryFile('w+', newline = '')
-		buffer = []
-		if self.mp_pool is None:
-			self.mp_pool = mp.Pool()
-
+	async def calc_sds_mp(self):
 		try:
-			for adsd in tqdm(windowed_query(q, JackDawSD.id, self.worker_count), desc ='Writing SD edges to file', total=total):
-				adsd = JackDawSD.from_dict(adsd.to_dict())
-				if adsd.sd is None:
-					print(adsd.id)
-				buffer.append(adsd)
-				if len(buffer) > self.buffer_size:
-					
-					for res in self.mp_pool.imap_unordered(calc_sd_edges, buffer):
-						for r in res:
-							src,dst,label,ad_id = r
-							src = self.get_id_for_sid(src)
-							dst = self.get_id_for_sid(dst)
-							cnt += 1
-							testfile.write('%s,%s,%s,%s\r\n' % (src, dst, label, ad_id))
-							#self.add_edge(src, dst, label, with_boost = True)
-					buffer = []
+			cnt = 0
+			total = self.session.query(func.count(JackDawSD.id)).filter_by(ad_id = self.ad_id).scalar()
+			q = self.session.query(JackDawSD).filter_by(ad_id = self.ad_id)
 
-		except Exception as e:
-			logger.exception('SD calc exception!')
-		finally:
-			self.mp_pool.close()
+			if self.progress_queue is not None:
+				msg = GathererProgress()
+				msg.type = GathererProgressType.SDCALC
+				msg.msg_type = MSGTYPE.STARTED
+				msg.adid = self.ad_id
+				msg.domain_name = self.domain_name
+				await self.progress_queue.put(msg)
 
-		testfile.seek(0,0)
-		for i, line in enumerate(tqdm(testfile, desc = 'Writing SD edge file contents to DB', total = cnt)):
-			line = line.strip()
-			src_id, dst_id, label, _ = line.split(',')
-			edge = JackDawEdge(self.ad_id, self.graph_id, src_id, dst_id, label)
-			self.session.add(edge)
-			if i % 100 == 0:
-				self.session.commit()
+			sdcalc_pbar = None
+			if self.show_progress is True:
+				sdcalc_pbar = tqdm(desc ='Writing SD edges to file', total=total)
 
-		self.session.commit()
+			testfile = tempfile.TemporaryFile('w+', newline = '')
+			buffer = []
+			if self.mp_pool is None:
+				self.mp_pool = mp.Pool()
+
+			tf = 0
+			try:
+				for adsd in windowed_query(q, JackDawSD.id, self.buffer_size):
+					adsd = JackDawSD.from_dict(adsd.to_dict())
+					if adsd.sd is None:
+						print(adsd.id)
+					buffer.append(adsd)
+					if len(buffer) > self.buffer_size:
+						for res in self.mp_pool.imap_unordered(calc_sd_edges, buffer):
+							for r in res:
+								src,dst,label,ad_id = r
+								src = self.get_id_for_sid(src, with_boost=True)
+								dst = self.get_id_for_sid(dst, with_boost=True)
+								cnt += 1
+								testfile.write('%s,%s,%s,%s\r\n' % (src, dst, label, ad_id))
+
+						buffer = []
+						tf += self.buffer_size
+						if sdcalc_pbar is not None:
+							sdcalc_pbar.update(self.buffer_size)
+								
+						if self.progress_queue is not None:
+							now = datetime.datetime.utcnow()
+							td = (now - self.progress_last_updated).total_seconds()
+							self.progress_last_updated = now
+							msg = GathererProgress()
+							msg.type = GathererProgressType.SDCALC
+							msg.msg_type = MSGTYPE.PROGRESS
+							msg.adid = self.ad_id
+							msg.domain_name = self.domain_name
+							msg.total = total
+							msg.total_finished = tf
+							msg.speed = str(self.buffer_size // td)
+							msg.step_size = self.buffer_size
+							await self.progress_queue.put(msg)
+							await asyncio.sleep(0)
+
+				if self.progress_queue is not None:
+					msg = GathererProgress()
+					msg.type = GathererProgressType.SDCALC
+					msg.msg_type = MSGTYPE.FINISHED
+					msg.adid = self.ad_id
+					msg.domain_name = self.domain_name
+					await self.progress_queue.put(msg)
+
+				
+				if self.show_progress is True and sdcalc_pbar is not None:
+					sdcalc_pbar.refresh()
+					sdcalc_pbar.disable = True
+
+			except Exception as e:
+				logger.exception('SD calc exception!')
+			finally:
+				if self.foreign_pool is False:
+					self.mp_pool.close()
+
+			if self.progress_queue is not None:
+				msg = GathererProgress()
+				msg.type = GathererProgressType.SDCALCUPLOAD
+				msg.msg_type = MSGTYPE.STARTED
+				msg.adid = self.ad_id
+				msg.domain_name = self.domain_name
+				await self.progress_queue.put(msg)
 			
+			sdcalcupload_pbar = None
+			if self.show_progress is True:
+				sdcalcupload_pbar = tqdm(desc = 'Writing SD edge file contents to DB', total = cnt)
 
-	def run(self):
+			testfile.seek(0,0)
+			for i, line in enumerate(testfile):
+				line = line.strip()
+				src_id, dst_id, label, _ = line.split(',')
+				edge = JackDawEdge(self.ad_id, self.graph_id, src_id, dst_id, label)
+				self.session.add(edge)
+				if i % 100 == 0:
+					self.session.commit()
+
+				if self.show_progress is True:
+					sdcalcupload_pbar.update()
+
+				if i % self.progress_step_size == 0 and self.progress_queue is not None:
+					now = datetime.datetime.utcnow()
+					td = (now - self.progress_last_updated).total_seconds()
+					self.progress_last_updated = now
+					msg = GathererProgress()
+					msg.type = GathererProgressType.SDCALCUPLOAD
+					msg.msg_type = MSGTYPE.PROGRESS
+					msg.adid = self.ad_id
+					msg.domain_name = self.domain_name
+					msg.total = cnt
+					msg.total_finished = i
+					msg.speed = str(self.progress_step_size // td)
+					msg.step_size = self.progress_step_size
+					await self.progress_queue.put(msg)
+					await asyncio.sleep(0)
+
+			self.session.commit()
+
+			if self.progress_queue is not None:
+				msg = GathererProgress()
+				msg.type = GathererProgressType.SDCALCUPLOAD
+				msg.msg_type = MSGTYPE.FINISHED
+				msg.adid = self.ad_id
+				msg.domain_name = self.domain_name
+				await self.progress_queue.put(msg)
+
+			if self.show_progress is True and sdcalcupload_pbar is not None:
+				sdcalcupload_pbar.refresh()
+				sdcalcupload_pbar.disable = True
+		except Exception as e:
+			logger.exception('sdcalc!')
+
+	async def run(self):
 		try:
 			self.session = get_session(self.db_conn)
 
@@ -286,7 +387,7 @@ class EdgeCalc:
 			self.localgroup_edges()
 			self.passwordsharing_edges()
 			self.session.commit()
-			self.calc_sds_mp()
+			await self.calc_sds_mp()
 
 			return True, None
 

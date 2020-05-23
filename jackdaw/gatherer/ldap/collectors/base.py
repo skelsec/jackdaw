@@ -26,7 +26,7 @@ from jackdaw.dbmodel.edgelookup import JackDawEdgeLookup
 
 
 from jackdaw import logger
-from jackdaw.gatherer.ldap.progress import LDAPGathererProgress
+from jackdaw.gatherer.progress import *
 from jackdaw.gatherer.ldap.agent.common import *
 from jackdaw.gatherer.ldap.agent.agent import LDAPGathererAgent
 
@@ -50,6 +50,8 @@ class BaseCollector:
 
 		self.agent_in_q = None
 		self.agent_out_q = None
+		self.ad_id = None
+		self.domain_name = None
 
 		self.total_progress = None
 		self.total_counter = 0
@@ -110,14 +112,15 @@ class BaseCollector:
 				self.progress_last_updated = now
 				cd = self.total_counter - self.progress_last_counter
 				self.progress_last_counter = self.total_counter
-				msg = LDAPGathererProgress()
-				msg.type = 'LDAP'
-				msg.msg_type = 'PROGRESS'
+				msg = GathererProgress()
+				GathererProgressType.BASIC
+				msg.msg_type = MSGTYPE.PROGRESS
 				msg.adid = self.ad_id
 				msg.domain_name = self.domain_name
 				msg.finished = self.finished_enums
 				msg.running = self.running_enums
 				msg.total_finished = self.total_counter
+				msg.step_size = self.total_counter_steps
 				msg.speed = str(cd / td)
 
 				await self.progress_queue.put(msg)
@@ -150,12 +153,13 @@ class BaseCollector:
 			agent.cancel()
 
 		self.session.close()
-		self.total_progress.disable = True
+		if self.total_progress is not None:
+			self.total_progress.disable = True
 
 		if self.progress_queue is not None:
-			msg = LDAPGathererProgress()
-			msg.type = 'LDAP'
-			msg.msg_type = 'FINISHED'
+			msg = GathererProgress()
+			GathererProgressType.BASIC
+			msg.msg_type = MSGTYPE.FINISHED
 			msg.adid = self.ad_id
 			msg.domain_name = self.domain_name
 			await self.progress_queue.put(msg)
@@ -436,9 +440,9 @@ class BaseCollector:
 			self.agents.append(asyncio.create_task(agent.arun()))
 
 		if self.progress_queue is not None:
-			msg = LDAPGathererProgress()
-			msg.type = 'LDAP'
-			msg.msg_type = 'STARTED'
+			msg = GathererProgress()
+			GathererProgressType.BASIC
+			msg.msg_type = MSGTYPE.STARTED
 			msg.adid = self.ad_id
 			msg.domain_name = self.domain_name
 			await self.progress_queue.put(msg)

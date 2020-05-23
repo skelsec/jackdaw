@@ -5,7 +5,7 @@ import json
 import datetime
 import asyncio
 
-from jackdaw.gatherer.ldap.progress import LDAPGathererProgress
+from jackdaw.gatherer.progress import *
 from jackdaw.gatherer.ldap.agent.common import *
 from jackdaw.gatherer.ldap.agent.agent import LDAPGathererAgent
 from jackdaw.dbmodel.graphinfo import JackDawGraphInfo
@@ -49,8 +49,27 @@ class MembershipCollector:
 		self.agent_out_q = None
 		self.total_targets = 0
 		self.total_members_to_poll = 0
-		self.progress_last_updated = None
+		self.progress_last_updated = datetime.datetime.utcnow()
 		self.agents = []
+		self.progress_step_size = 1000
+		self.lookup = {}
+
+	def sid_to_id_lookup(self, sid, ad_id, object_type):
+		if sid in self.lookup:
+			return self.lookup[sid]
+
+		src_id = self.session.query(JackDawEdgeLookup.id).filter_by(oid = sid).filter(JackDawEdgeLookup.ad_id == ad_id).first()
+		if src_id is None:
+			t = JackDawEdgeLookup(ad_id, sid, object_type)
+			self.session.add(t)
+			self.session.commit()
+			self.session.refresh(t)
+			src_id = t.id
+			self.lookup[sid] = src_id
+		else:
+			src_id = src_id[0]
+			self.lookup[sid] = src_id
+		return src_id
 
 	async def resumption_target_gen_member(self,q, id_filed, obj_type, jobtype):
 		for dn, sid, guid in windowed_query(q, id_filed, 10, is_single_entity = False):
@@ -95,47 +114,85 @@ class MembershipCollector:
 		if self.show_progress is True:
 			self.member_progress.refresh()
 			self.member_progress.disable = True
+
+		if self.progress_queue is not None:
+			msg = GathererProgress()
+			msg.type = GathererProgressType.MEMBERS
+			msg.msg_type = MSGTYPE.FINISHED
+			msg.adid = self.ad_id
+			msg.domain_name = self.domain_name
+			await self.progress_queue.put(msg)
 		
 		try:
+			if self.progress_queue is not None:
+				msg = GathererProgress()
+				msg.type = GathererProgressType.MEMBERSUPLOAD
+				msg.msg_type = MSGTYPE.STARTED
+				msg.adid = self.ad_id
+				msg.domain_name = self.domain_name
+				await self.progress_queue.put(msg)
+
+			if self.show_progress is True:
+				self.upload_pbar = tqdm(desc='Uploading memberships to DB', total=self.member_finish_ctr)
+
 			self.token_file.close()
 			cnt = 0
 			with gzip.GzipFile(self.token_file_path, 'r') as f:
-				for line in tqdm(f, desc='Uploading memberships to DB', total=self.member_finish_ctr):
+				for line in f:
 					sd = JackDawTokenGroup.from_json(line.strip())
-					
-					
-					src_id = self.session.query(JackDawEdgeLookup.id).filter_by(oid = sd.sid).filter(JackDawEdgeLookup.ad_id == sd.ad_id).first()
-					if src_id is None:
-						t = JackDawEdgeLookup(sd.ad_id, sd.sid, sd.object_type)
-						self.session.add(t)
-						self.session.commit()
-						self.session.refresh(t)
-						src_id = t.id
-					else:
-						src_id = src_id[0]
-					
-					dst_id = self.session.query(JackDawEdgeLookup.id).filter_by(oid = sd.member_sid).filter(JackDawEdgeLookup.ad_id == sd.ad_id).first()
-					if dst_id is None:
-						t = JackDawEdgeLookup(sd.ad_id, sd.member_sid, sd.object_type)
-						self.session.add(t)
-						self.session.commit()
-						self.session.refresh(t)
-						dst_id = t.id
-					else:
-						dst_id = dst_id[0]
-					
+					src_id = self.sid_to_id_lookup(sd.sid, sd.ad_id, sd.object_type)
+					dst_id = self.sid_to_id_lookup(sd.member_sid, sd.ad_id, sd.object_type)
+
 					edge = JackDawEdge(sd.ad_id, self.graph_id, src_id, dst_id, 'member')
 
 					self.session.add(edge)
 					cnt += 1
-					if cnt % 10000 == 0:
+					if cnt % 1000 == 0:
 						self.session.commit()
 
+					if self.show_progress is True:
+						self.upload_pbar.update()
+					
+					if cnt % self.progress_step_size == 0 and self.progress_queue is not None:
+						now = datetime.datetime.utcnow()
+						td = (now - self.progress_last_updated).total_seconds()
+						self.progress_last_updated = now
+						msg = GathererProgress()
+						msg.type = GathererProgressType.MEMBERSUPLOAD
+						msg.msg_type = MSGTYPE.PROGRESS
+						msg.adid = self.ad_id
+						msg.domain_name = self.domain_name
+						msg.total = self.member_finish_ctr
+						msg.total_finished = cnt
+						msg.speed = str(self.progress_step_size // td)
+						msg.step_size = self.progress_step_size
+						await self.progress_queue.put(msg)
+						await asyncio.sleep(0)
+					
+
 			self.session.commit()
+			if self.progress_queue is not None:
+				msg = GathererProgress()
+				msg.type = GathererProgressType.MEMBERSUPLOAD
+				msg.msg_type = MSGTYPE.FINISHED
+				msg.adid = self.ad_id
+				msg.domain_name = self.domain_name
+				await self.progress_queue.put(msg)
+
+
 			return True, None
 			
 		except Exception as e:
 			logger.exception('Error while uploading memberships from file to DB')
+			if self.progress_queue is not None:
+				msg = GathererProgress()
+				msg.type = GathererProgressType.MEMBERSUPLOAD
+				msg.msg_type = MSGTYPE.ERROR
+				msg.adid = self.ad_id
+				msg.domain_name = self.domain_name
+				msg.error = e
+				await self.progress_queue.put(msg)
+
 			return None, e
 		finally:
 			if self.token_file_path is not None:
@@ -198,9 +255,9 @@ class MembershipCollector:
 			if self.progress_queue is None:
 				self.member_progress = tqdm(desc='Collecting members', total=self.total_members_to_poll, position=0, leave=True)
 			else:
-				msg = LDAPGathererProgress()
-				msg.type = 'LDAP_TOKENGROUP'
-				msg.msg_type = 'STARTED'
+				msg = GathererProgress()
+				msg.type = GathererProgressType.MEMBERS
+				msg.msg_type = MSGTYPE.STARTED
 				msg.adid = self.ad_id
 				msg.domain_name = self.domain_name
 				await self.progress_queue.put(msg)
@@ -221,16 +278,19 @@ class MembershipCollector:
 							self.member_progress.update()
 						
 						else:
-							if acnt % 1000 == 0:
+							if acnt % self.progress_step_size == 0:
 								now = datetime.datetime.utcnow()
 								td = (now - self.progress_last_updated).total_seconds()
 								self.progress_last_updated = now
-								msg = LDAPGathererProgress()
-								msg.type = 'LDAP_TOKENGROUP'
-								msg.msg_type = 'PROGRESS'
+								msg = GathererProgress()
+								msg.type = GathererProgressType.MEMBERS
+								msg.msg_type = MSGTYPE.PROGRESS
 								msg.adid = self.ad_id
 								msg.domain_name = self.domain_name
-								msg.speed = str(1000 // td)
+								msg.total = self.total_members_to_poll
+								msg.total_finished = self.total_members_to_poll - acnt
+								msg.speed = str(self.progress_step_size // td)
+								msg.step_size = self.progress_step_size
 								await self.progress_queue.put(msg)
 						acnt -= 1
 

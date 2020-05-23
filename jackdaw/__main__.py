@@ -76,7 +76,8 @@ async def run(args):
 					mp_pool=mp_pool, 
 					smb_gather_types=['all'], 
 					progress_queue=None, 
-					show_progress=True
+					show_progress=True,
+					calc_edges=True
 				)
 				res, err = await gatherer.run()
 				if err is not None:
@@ -110,31 +111,31 @@ async def run(args):
 					mp_pool=mp_pool, 
 					smb_gather_types=['all'], 
 					progress_queue=None, 
-					show_progress=True
+					show_progress=True,
+					calc_edges=args.calculate_edges
 				)
 				await gatherer.run()
 			
 		elif args.command in ['shares', 'sessions', 'localgroups', 'smball']:
 			if args.command == 'smball':
 				args.command = 'all'
-			smb_mgr = construct_smbdef(args)
-			mgr = SMBGathererManager(smb_mgr, worker_cnt=args.smb_workers, queue_size = args.smb_queue_size)
-			mgr.gathering_type = [args.command]
-			mgr.db_conn = db_conn
-			mgr.lookup_ad = args.lookup_ad
-			
-			if args.ldap_url:
-				ldap_mgr = construct_ldapdef(args)
-				ldap_conn = ldap_mgr.get_client()
-				mgr.ldap_conn = ldap_conn
-			
-			if args.ad_id:
-				mgr.target_ad = args.ad_id
-			
-			if args.target_file:
-				mgr.targets_file = args.target_file
-			
-			await mgr.run()
+
+			gatherer = Gatherer(
+				db_conn, 
+				work_dir, 
+				ldap_url, 
+				smb_url,
+				ad_id=args.ad_id,
+				ldap_worker_cnt=4, 
+				smb_worker_cnt=4, 
+				mp_pool=None, 
+				smb_gather_types=args.command, 
+				progress_queue=None, 
+				show_progress=True,
+				calc_edges=False,
+				dns=args.dns,
+			)
+			await gatherer.run()
 
 		elif args.command == 'files':
 			if args.src == 'domain':
@@ -222,6 +223,8 @@ def main():
 	ldap_group.add_argument('--ldap-workers', type=int, default = 4, help='LDAP worker count for parallelization')
 	ldap_group.add_argument('--ldap-queue-size', type=int, default = 4, help='LDAP worker queue max size.')
 	ldap_group.add_argument('-d', '--ad-id', help='AD id from DB. signals resumption task')
+	ldap_group.add_argument('-c', '--calculate-edges', action='store_true', help='Calculate edges after enumeration')
+	
 	
 	enum_group = subparsers.add_parser('enum', formatter_class=argparse.RawDescriptionHelpFormatter, help='Enumerate all stuffs', epilog = MSLDAPURLDecoder.help_epilog)
 	enum_group.add_argument('ldap_url',  help='Connection specitication in URL format')
@@ -235,24 +238,16 @@ def main():
 	enum_group.add_argument('--smb-share-enum', action='store_true', help='Enables file enumeration in shares')
 	
 	share_group = subparsers.add_parser('shares', help='Enumerate shares on target')
+	share_group.add_argument('ad_id', help='ID of the domainfo to poll targets rom the DB')
 	share_group.add_argument('smb_url',  help='Credential specitication in URL format')
-	share_group.add_argument('--smb-queue-size', type=int, default = 100000, help='SMB worker queue max size.')
-	share_group.add_argument('-t', '--target-file', help='taget file with hostnames. One per line.')
-	share_group.add_argument('-l', '--ldap-url', help='ldap_connection_string. Use this to get targets from the domain controller')
-	share_group.add_argument('-q', '--same-query', action='store_true', help='Use the same query for LDAP as for SMB. LDAP url must still be present, but without a query')
-	share_group.add_argument('-d', '--ad-id', help='ID of the domainfo to poll targets rom the DB')
-	share_group.add_argument('-i', '--lookup-ad', help='ID of the domainfo to look up comupter names. Advisable to set for LDAP and file pbased targets')
 	share_group.add_argument('--smb-workers', type=int, default = 50, help='SMB worker count for parallelization')
+	share_group.add_argument('-d','--dns', help='DNS server for resolving IPs')
 	
 	smball_group = subparsers.add_parser('smball', help='Enumerate shares on target')
+	smball_group.add_argument('ad_id', help='ID of the domainfo to poll targets rom the DB')
 	smball_group.add_argument('smb_url',  help='Credential specitication in URL format')
-	smball_group.add_argument('--smb-queue-size', type=int, default = 100000, help='SMB worker queue max size.')
-	smball_group.add_argument('-t', '--target-file', help='taget file with hostnames. One per line.')
-	smball_group.add_argument('-l', '--ldap-url', help='ldap_connection_string. Use this to get targets from the domain controller')
-	smball_group.add_argument('-q', '--same-query', action='store_true', help='Use the same query for LDAP as for SMB. LDAP url must still be present, but without a query')
-	smball_group.add_argument('-d', '--ad-id', help='ID of the domainfo to poll targets rom the DB')
-	smball_group.add_argument('-i', '--lookup-ad', help='ID of the domainfo to look up comupter names. Advisable to set for LDAP and file pbased targets')
 	smball_group.add_argument('--smb-workers', type=int, default = 50, help='SMB worker count for parallelization')
+	smball_group.add_argument('-d','--dns', help='DNS server for resolving IPs')
 	
 
 	files_group = subparsers.add_parser('files', help='Enumerate files on targets')
@@ -271,22 +266,16 @@ def main():
 	
 
 	localgroup_group = subparsers.add_parser('localgroups', help='Enumerate local group memberships on target')
+	localgroup_group.add_argument('ad_id', help='ID of the domainfo to poll targets rom the DB')
 	localgroup_group.add_argument('smb_url',  help='Credential specitication in URL format')
-	localgroup_group.add_argument('-t', '--target-file', help='taget file with hostnames. One per line.')
-	localgroup_group.add_argument('-l', '--ldap-url', help='ldap_connection_string. Use this to get targets from the domain controller')
-	localgroup_group.add_argument('-d', '--ad-id', help='ID of the domainfo to poll targets rom the DB')
-	localgroup_group.add_argument('-i', '--lookup-ad', help='ID of the domainfo to look up comupter names. Advisable to set for LDAP and file pbased targets')
-	localgroup_group.add_argument('--smb-queue-size', type=int, default = 100000, help='SMB worker queue max size.')
-	localgroup_group.add_argument('--smb-workers', type=int, default = 50, help='SMB worker count for parallelization.')
+	localgroup_group.add_argument('--smb-workers', type=int, default = 50, help='SMB worker count for parallelization')
+	localgroup_group.add_argument('-d','--dns', help='DNS server for resolving IPs')
 	
 	session_group = subparsers.add_parser('sessions', help='Enumerate connected sessions on target')
+	session_group.add_argument('ad_id', help='ID of the domainfo to poll targets rom the DB')
 	session_group.add_argument('smb_url',  help='Credential specitication in URL format')
-	session_group.add_argument('-t', '--target-file', help='taget file with hostnames. One per line.')
-	session_group.add_argument('-l', '--ldap-url', help='ldap_connection_string. Use this to get targets from the domain controller')
-	session_group.add_argument('-d', '--ad-id', help='ID of the domainfo to poll targets rom the DB')
-	session_group.add_argument('-i', '--lookup-ad', help='ID of the domainfo to look up comupter names. Advisable to set for LDAP and file pbased targets')
-	session_group.add_argument('--smb-queue-size', type=int, default = 100000, help='SMB worker queue max size.')
-	session_group.add_argument('--smb-workers', type=int, default = 50, help='SMB worker count for parallelization.')
+	session_group.add_argument('--smb-workers', type=int, default = 50, help='SMB worker count for parallelization')
+	session_group.add_argument('-d','--dns', help='DNS server for resolving IPs')
 	
 	credential_group = subparsers.add_parser('creds', help='Add credential information from impacket')
 	credential_group.add_argument('impacket_file', help='file with LM and NT hashes, generated by impacket secretsdump.py')

@@ -121,6 +121,8 @@ from .adspn import *
 from .edge import JackDawEdge
 from .edgelookup import JackDawEdgeLookup
 from .graphinfo import JackDawGraphInfo
+from .neterror import NetError
+from .rdnslookup import RDNSLookup
 
 
 

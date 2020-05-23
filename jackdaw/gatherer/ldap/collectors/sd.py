@@ -4,7 +4,7 @@ from hashlib import sha1
 from jackdaw.dbmodel.adsd import JackDawSD
 from jackdaw.dbmodel import windowed_query
 from jackdaw import logger
-from jackdaw.gatherer.ldap.progress import LDAPGathererProgress
+from jackdaw.gatherer.progress import *
 from jackdaw.gatherer.ldap.agent.common import *
 from jackdaw.gatherer.ldap.agent.agent import LDAPGathererAgent
 from jackdaw.dbmodel.graphinfo import JackDawGraphInfo
@@ -39,11 +39,13 @@ class SDCollector:
 		self.resumption = resumption
 		self.progress_queue = progress_queue
 		self.show_progress = show_progress
+		self.progress_step_size = 1000
+		self.sd_upload_pbar = None
 
 		if self.agent_cnt is None:
 			self.agent_cnt = min(len(os.sched_getaffinity(0)), 3)
 
-		self.progress_last_updated = None
+		self.progress_last_updated = datetime.datetime.utcnow()
 		self.agent_in_q = None
 		self.agent_out_q = None
 		self.sd_file = None
@@ -142,25 +144,85 @@ class SDCollector:
 		if self.show_progress is True and self.sds_progress is not None:
 			self.sds_progress.refresh()
 			self.sds_progress.disable = True
+		
+		if self.progress_queue is not None:
+			msg = GathererProgress()
+			msg.type = GathererProgressType.SD
+			msg.msg_type = MSGTYPE.FINISHED
+			msg.adid = self.ad_id
+			msg.domain_name = self.domain_name
+			await self.progress_queue.put(msg)
 
 		try:
+			self.progress_last_updated = datetime.datetime.utcnow()
+			if self.progress_queue is not None:
+				msg = GathererProgress()
+				msg.type = GathererProgressType.SDUPLOAD
+				msg.msg_type = MSGTYPE.STARTED
+				msg.adid = self.ad_id
+				msg.domain_name = self.domain_name
+				await self.progress_queue.put(msg)
+
+			if self.show_progress is True:
+				self.sd_upload_pbar = tqdm(desc='uploading SD to DB', total=self.total_targets)
 			if self.sd_file is not None:
 				self.sd_file.close()
 				cnt = 0
 				with gzip.GzipFile(self.sd_file_path, 'r') as f:
-					for line in tqdm(f, desc='Uploading security descriptors to DB', total=self.total_targets):
+					for line in f:
 						sd = JackDawSD.from_json(line.strip())
 						self.session.add(sd)
 						cnt += 1
 						if cnt % 100 == 0:
 							self.session.commit()
+						if self.show_progress is True:
+							self.sd_upload_pbar.update()
+						if cnt % self.progress_step_size == 0:
+							if self.progress_queue is not None:
+								now = datetime.datetime.utcnow()
+								td = (now - self.progress_last_updated).total_seconds()
+								self.progress_last_updated = now
+								msg = GathererProgress()
+								msg.type = GathererProgressType.SDUPLOAD
+								msg.msg_type = MSGTYPE.PROGRESS
+								msg.adid = self.ad_id
+								msg.domain_name = self.domain_name
+								msg.total = self.total_targets
+								msg.total_finished = cnt
+								msg.speed = str(self.progress_step_size // td)
+								msg.step_size = self.progress_step_size
+								await self.progress_queue.put(msg)
 				
 				self.session.commit()
 			
 		except Exception as e:
 			logger.exception('Error while uploading sds from file to DB')
+			if self.progress_queue is not None:
+				msg = GathererProgress()
+				msg.type = GathererProgressType.SDUPLOAD
+				msg.msg_type = MSGTYPE.ERROR
+				msg.adid = self.ad_id
+				msg.domain_name = self.domain_name
+				msg.error = e
+				await self.progress_queue.put(msg)
 		finally:
-			os.remove(self.sd_file_path)
+			try:
+				os.remove(self.sd_file_path)
+			except:
+				pass
+			
+			if self.show_progress is True and self.sd_upload_pbar is not None:
+				self.sd_upload_pbar.refresh()
+				self.sd_upload_pbar.disable = True
+
+			if self.progress_queue is not None:
+				msg = GathererProgress()
+				msg.type = GathererProgressType.SDUPLOAD
+				msg.msg_type = MSGTYPE.FINISHED
+				msg.adid = self.ad_id
+				msg.domain_name = self.domain_name
+				await self.progress_queue.put(msg)
+
 
 	async def start_jobs(self):
 		self.sd_target_file_handle.seek(0,0)
@@ -195,13 +257,12 @@ class SDCollector:
 			if self.show_progress is True:
 				self.sds_progress = tqdm(desc='Collecting SDs', total=self.total_targets, position=0, leave=True)
 			if self.progress_queue is not None:
-				msg = LDAPGathererProgress()
-				msg.type = 'LDAP_SD'
-				msg.msg_type = 'STARTED'
+				msg = GathererProgress()
+				msg.type = GathererProgressType.SD
+				msg.msg_type = MSGTYPE.STARTED
 				msg.adid = self.ad_id
 				msg.domain_name = self.domain_name
-				await self.progress_queue.put(msg)
-			
+				await self.progress_queue.put(msg)			
 			
 			acnt = self.total_targets
 			while acnt > 0:
@@ -214,16 +275,19 @@ class SDCollector:
 						if self.show_progress is True:
 							self.sds_progress.update()
 						if self.progress_queue is not None:
-							if acnt % 1000 == 0:
+							if acnt % self.progress_step_size == 0:
 								now = datetime.datetime.utcnow()
 								td = (now - self.progress_last_updated).total_seconds()
 								self.progress_last_updated = now
-								msg = LDAPGathererProgress()
-								msg.type = 'LDAP_SD'
-								msg.msg_type = 'PROGRESS'
+								msg = GathererProgress()
+								msg.type = GathererProgressType.SD
+								msg.msg_type = MSGTYPE.PROGRESS
 								msg.adid = self.ad_id
 								msg.domain_name = self.domain_name
-								msg.speed = str(1000 // td)
+								msg.total = self.total_targets
+								msg.total_finished = self.total_targets - acnt
+								msg.speed = str(self.progress_step_size // td)
+								msg.step_size = self.progress_step_size
 								await self.progress_queue.put(msg)
 
 					elif res_type == LDAPAgentCommand.EXCEPTION:
@@ -233,10 +297,32 @@ class SDCollector:
 				except Exception as e:
 					logger.exception('SDs enumeration error!')
 					raise e
+
+			now = datetime.datetime.utcnow()
+			td = (now - self.progress_last_updated).total_seconds()
+			self.progress_last_updated = now
+			msg = GathererProgress()
+			msg.type = GathererProgressType.SD
+			msg.msg_type = MSGTYPE.PROGRESS
+			msg.adid = self.ad_id
+			msg.domain_name = self.domain_name
+			msg.total = self.total_targets
+			msg.total_finished = self.total_targets
+			msg.speed = str(self.progress_step_size // td)
+			msg.step_size = self.progress_step_size
+			await self.progress_queue.put(msg)
 			
 			return True, None
 		except Exception as e:
 			logger.exception('SDs enumeration main error')
+			if self.progress_queue is not None:
+				msg = GathererProgress()
+				msg.type = GathererProgressType.SD
+				msg.msg_type = MSGTYPE.ERROR
+				msg.adid = self.ad_id
+				msg.domain_name = self.domain_name
+				msg.error = e
+				await self.progress_queue.put(msg)
 			return False, e
 		
 		finally:

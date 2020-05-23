@@ -11,9 +11,7 @@ import gzip
 import base64
 import asyncio
 import datetime
-import threading
 import traceback
-import multiprocessing
 from hashlib import sha1
 
 from sqlalchemy import func
@@ -45,7 +43,7 @@ from msldap.ldap_objects import *
 from winacl.dtyp.security_descriptor import SECURITY_DESCRIPTOR
 from tqdm import tqdm
 
-from jackdaw.gatherer.ldap.progress import LDAPGathererProgress
+from jackdaw.gatherer.progress import *
 from jackdaw.gatherer.ldap.agent.common import *
 from jackdaw.gatherer.ldap.agent.agent import LDAPGathererAgent
 from jackdaw.gatherer.ldap.collectors.base import BaseCollector
@@ -69,7 +67,7 @@ class LDAPGatherer:
 
 		self.agent_cnt = agent_cnt
 		if agent_cnt is None:
-			self.agent_cnt = min(multiprocessing.cpu_count(), 3)
+			self.agent_cnt = min(len(os.sched_getaffinity(0)), 3)
 		
 		self.graph_id = graph_id
 		self.resumption = False
@@ -102,7 +100,7 @@ class LDAPGatherer:
 
 	async def run(self):
 		try:
-			logger.info('[+] Starting LDAP information acqusition. This might take a while...')
+			logger.debug('[+] Starting LDAP information acqusition. This might take a while...')
 			self.session = get_session(self.db_conn)
 
 			if self.work_dir is None:
@@ -168,7 +166,7 @@ class LDAPGatherer:
 				raise err
 
 
-			logger.info('[+] LDAP information acqusition finished!')
+			logger.debug('[+] LDAP information acqusition finished!')
 			return self.ad_id, self.graph_id, None
 		except Exception as e:
 			return None, None, e
