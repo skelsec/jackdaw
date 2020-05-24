@@ -70,7 +70,7 @@ class AIOSMBGathererAgent:
 					async for session, err in machine.list_sessions():
 						if err is not None:
 							await self.out_q.put((tid, connection.target, None, 'Failed to get sessions. Reason: %s' % format_exc(err)))
-							continue
+							break
 						else:
 							sess = NetSession()
 							sess.machine_sid = tid
@@ -85,7 +85,7 @@ class AIOSMBGathererAgent:
 						async for domain_name, user_name, sid, err in machine.list_group_members('Builtin', group_name):
 							if err is not None:
 								await self.out_q.put((tid, connection.target, None, 'Failed to connect to poll group memeberships. Reason: %s' % format_exc(err)))
-								continue
+								break
 							else:
 								lg = LocalGroup()
 								lg.machine_sid = tid
@@ -121,7 +121,7 @@ class AIOSMBGathererAgent:
 		except asyncio.CancelledError:
 			return
 		except Exception as e:
-			logger.exception('WORKER ERROR')
+			logger.debug('SMB WORKER ERROR %s' % str(e))
 			return
 
 	async def terminate(self):
@@ -150,9 +150,8 @@ class AIOSMBGathererAgent:
 			results = await asyncio.gather(*self.worker_tasks, return_exceptions = True)
 			for res in results:
 				if isinstance(res, Exception):
-					logger.error('Error! %s' % res)
+					logger.debug('SMB worker task error %s' % str(res))
 			await self.out_q.put(None)
-		except:
-			import traceback
-			traceback.print_exc()
+		except Exception as e:
+			logger.debug('SMB worker manager error %s' % str(e))
 
