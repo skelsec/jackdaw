@@ -12,11 +12,6 @@ class RDNS:
 		self.protocol = protocol
 		self.cache = {}
 
-		self.reader = None
-		self.writer = None
-
-		
-	
 	async def resolve(self, ip):
 		try:
 			if ip in self.cache:
@@ -27,8 +22,7 @@ class RDNS:
 				
 						
 			if self.protocol == 'TCP':
-				if self.reader is None:
-					self.reader, self.writer = await asyncio.open_connection(self.server, 53)
+				reader, writer = await asyncio.open_connection(self.server, 53)
 		
 				packet = DNSPacket.construct(
 							TID = tid, 
@@ -40,10 +34,10 @@ class RDNS:
 							proto = socket.SOCK_STREAM
 						)
 				
-				self.writer.write(packet.to_bytes())
-				await self.writer.drain()
+				writer.write(packet.to_bytes())
+				await writer.drain()
 				
-				data = await DNSPacket.from_streamreader(self.reader, proto = socket.SOCK_STREAM)
+				data = await DNSPacket.from_streamreader(reader, proto = socket.SOCK_STREAM)
 				self.cache[ip] = data.Answers[0].domainname
 				return data.Answers[0].domainname, None
 			else:

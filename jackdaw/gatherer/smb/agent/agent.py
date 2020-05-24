@@ -29,15 +29,17 @@ class AIOSMBGathererAgent:
 			tid, target = atarget
 			connection = self.smb_mgr.create_connection_newtarget(target)
 			async with connection:
-				await connection.login()
+				_, err = await connection.login()
+				if err is not None:
+					raise err
 				
-				extra_info = connection.get_extra_info()
-				if extra_info is not None:
-					try:
+				try:
+					extra_info = connection.get_extra_info()
+					if extra_info is not None:
 						f = SMBFinger.from_extra_info(tid, extra_info)
 						await self.out_q.put((tid, connection.target, f, None))
-					except Exception as e:
-						await self.out_q.put((tid, connection.target, None, 'Failed to get finger data. Reason: %s' % format_exc(e)))
+				except Exception as e:
+					await self.out_q.put((tid, connection.target, None, 'Failed to get finger data. Reason: %s' % format_exc(e)))
 
 				machine = SMBMachine(connection)
 
@@ -106,8 +108,8 @@ class AIOSMBGathererAgent:
 			await self.out_q.put((tid, connection.target, None, None)) #target finished
 
 	async def worker(self):
-		while True:
-			try:
+		try:
+			while True:
 				target = await self.worker_q.get()
 				if target is None:
 					return
@@ -116,11 +118,11 @@ class AIOSMBGathererAgent:
 				except:
 					#exception should be handled in scan_host
 					continue
-			except asyncio.CancelledError:
-				return
-			except Exception as e:
-				logger.exception('WORKER ERROR')
-				return
+		except asyncio.CancelledError:
+			return
+		except Exception as e:
+			logger.exception('WORKER ERROR')
+			return
 
 	async def terminate(self):
 		for worker in self.worker_tasks:
