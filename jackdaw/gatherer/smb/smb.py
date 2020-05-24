@@ -39,16 +39,18 @@ async def rdns_worker(resolver, in_q, out_q):
 			if res is None:
 				return
 
-			domain = await resolver.resolve(res)
+			domain, err = await resolver.resolve(res)
+			if err is not None:
+				await out_q.put((None, None, None, err))
+				continue
 			result = RDNSLookup(None, res, domain)
-			await out_q.put(None, None, result, None)
+			await out_q.put((None, None, result, None))
 
 	except asyncio.CancelledError:
 		return
 
 	except Exception as e:
-		print(e)
-		await out_q.put(None, None, None, e)
+		await out_q.put((None, None, None, e))
 
 class SMBGatherer:
 	def __init__(self, db_conn, ad_id, smb_mgr, worker_cnt = 50, progress_queue = None, show_progress = True, rdns_resolver = None):
