@@ -158,6 +158,8 @@ class SMBGatherer:
 			tid, target, result, error = x
 			if result is None and error is not None:
 				#something went error
+				if tid is None and target is None:
+					continue
 				logger.debug('[AIOSMBScanner][TargetError][%s] %s' % (target.get_ip(), error))
 				if self.show_progress is True:
 					self.prg_errors.update()
@@ -204,7 +206,7 @@ class SMBGatherer:
 					if self.prg_hosts_cnt % self.progress_step_size == 0:
 						msg = GathererProgress()
 						msg.type = GathererProgressType.SMB
-						msg.msg_type = MSGTYPE.PROGRESS
+						msg.msg_type = MSGTYPE.PROGRESS 
 						msg.adid = self.ad_id
 						msg.domain_name = self.domain_name
 						msg.errors = self.prg_errors_cnt
