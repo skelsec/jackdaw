@@ -39,6 +39,7 @@ class RDNS:
 				
 				data = await DNSPacket.from_streamreader(reader, proto = socket.SOCK_STREAM)
 				self.cache[ip] = data.Answers[0].domainname
+				writer.close()
 				return data.Answers[0].domainname, None
 			else:
 				cli = UDPClient((self.server, 53))

@@ -78,7 +78,8 @@ async def run(args):
 					progress_queue=None, 
 					show_progress=True,
 					calc_edges=True,
-					ad_id=args.resumption
+					ad_id=args.resumption,
+					dns=args.dns
 				)
 				res, err = await gatherer.run()
 				if err is not None:
@@ -239,7 +240,8 @@ def main():
 	enum_group.add_argument('--smb-folder-depth', type=int, default = 1, help='Files enumeration folder depth')
 	enum_group.add_argument('--smb-share-enum', action='store_true', help='Enables file enumeration in shares')
 	enum_group.add_argument('-r','--resumption', help='AD ID for resuming a broken collection. WARINING! this will drop all SD and Membership info!')
-	
+	enum_group.add_argument('-d','--dns', help='DNS server for resolving IPs')
+
 	share_group = subparsers.add_parser('shares', help='Enumerate shares on target')
 	share_group.add_argument('ad_id', help='ID of the domainfo to poll targets rom the DB')
 	share_group.add_argument('smb_url',  help='Credential specitication in URL format')

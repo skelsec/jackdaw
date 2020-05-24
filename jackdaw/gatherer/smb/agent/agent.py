@@ -48,6 +48,7 @@ class AIOSMBGathererAgent:
 					async for smbshare, err in machine.list_shares():
 						if err is not None:
 							await self.out_q.put((tid, connection.target, None, 'Failed to list shares. Reason: %s' % format_exc(err)))
+							break
 						else:
 							share = NetShare()
 							share.machine_sid = tid
@@ -114,7 +115,7 @@ class AIOSMBGathererAgent:
 				if target is None:
 					return
 				try:
-					await self.scan_host(target)
+					await asyncio.wait_for(self.scan_host(target), 20)
 				except:
 					#exception should be handled in scan_host
 					continue
