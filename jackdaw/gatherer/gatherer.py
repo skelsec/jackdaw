@@ -164,7 +164,8 @@ class Gatherer:
 				agent_cnt=self.ldap_worker_cnt, 
 				work_dir = self.ldap_work_dir,
 				progress_queue = self.progress_queue,
-				show_progress = False
+				show_progress = False,
+				ad_id = self.ad_id #this should be none, or resumption is indicated!
 			)
 			ad_id, graph_id, err = await gatherer.run()
 			if err is not None:

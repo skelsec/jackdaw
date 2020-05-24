@@ -8,6 +8,7 @@ import os
 import re
 import enum
 import gzip
+import json
 import base64
 import asyncio
 import datetime
@@ -34,6 +35,7 @@ from jackdaw.dbmodel.adspn import JackDawSPN
 from jackdaw.dbmodel import get_session
 from jackdaw.dbmodel.edge import JackDawEdge
 from jackdaw.dbmodel.edgelookup import JackDawEdgeLookup
+from jackdaw.dbmodel import windowed_query
 from jackdaw.wintypes.lookup_tables import *
 from jackdaw import logger
 
@@ -72,31 +74,13 @@ class LDAPGatherer:
 		self.graph_id = graph_id
 		self.resumption = False
 		self.ad_id = ad_id
+		print(self.ad_id )
 		if ad_id is not None:
 			self.resumption = True
 		self.domain_name = None
 
 		self.members_target_file_name = None
 		self.sd_target_file_name = None
-
-	async def restart_agents(self):
-		try:
-			print('Stopping initial agents')
-			for agent in self.agents:
-				await self.agent_in_q.put(None)
-
-			for agent in self.agents:
-				agent.cancel()
-
-			print('Resetting queues and restarting agents')
-			self.agent_in_q = asyncio.Queue(self.agent_cnt)
-			self.agent_out_q = asyncio.Queue(self.agent_cnt)
-			print(self.agent_cnt)
-			for _ in range(1):
-				agent = LDAPGathererAgent(self.ldam_mgr, self.agent_in_q, self.agent_out_q)
-				self.agents.append(asyncio.create_task(agent.arun()))
-		except Exception as e:
-			logger.exception('restart agents')
 
 	async def run(self):
 		try:
@@ -112,10 +96,9 @@ class LDAPGatherer:
 			self.members_target_file_name = str(self.work_dir.joinpath('temp_members_list.gz'))
 			self.sd_target_file_name = (self.work_dir.joinpath('temp_sd_list.gz'))
 
-			self.members_file_handle = gzip.GzipFile(self.members_target_file_name,mode='wb')
-			self.sd_file_handle = gzip.GzipFile(self.sd_target_file_name,mode='wb')
-
 			if self.resumption is False:
+				self.members_file_handle = gzip.GzipFile(self.members_target_file_name,mode='wb')
+				self.sd_file_handle = gzip.GzipFile(self.sd_target_file_name,mode='wb')
 				bc = BaseCollector(
 					self.session, 
 					self.ldap_mgr, 
@@ -129,11 +112,87 @@ class LDAPGatherer:
 				if err is False:
 					return None, None, err
 
-			self.members_file_handle.close()
-			self.sd_file_handle.close()
+				self.members_file_handle.close()
+				self.sd_file_handle.close()
+			
+			else:
+				self.session.query(JackDawSD).delete()
+				self.session.query(JackDawEdge).delete()
+				self.session.commit()
+				
+				self.members_file_handle = gzip.GzipFile(self.members_target_file_name,mode='wb')
+				self.sd_file_handle = gzip.GzipFile(self.sd_target_file_name,mode='wb')
+
+				res = self.session.query(JackDawADInfo).get(self.ad_id)
+				data = {
+					'dn' : res.distinguishedName,
+					'sid' : res.objectSid,
+					'guid' : res.objectGUID,
+					'object_type' : 'domain'
+				}
+				self.sd_file_handle.write(json.dumps(data).encode() + b'\r\n')
+
+				q = self.session.query(JackDawADUser).filter_by(ad_id = self.ad_id)
+				for res in windowed_query(q, JackDawADUser.id, 100):
+					data = {
+						'dn' : res.dn,
+						'sid' : res.objectSid,
+						'guid' : res.objectGUID,
+						'object_type' : 'user'
+					}
+					self.sd_file_handle.write(json.dumps(data).encode() + b'\r\n')
+					self.members_file_handle.write(json.dumps(data).encode() + b'\r\n')
+
+				q = self.session.query(JackDawADMachine).filter_by(ad_id = self.ad_id)
+				for res in windowed_query(q, JackDawADMachine.id, 100):
+					data = {
+						'dn' : res.dn,
+						'sid' : res.objectSid,
+						'guid' : res.objectGUID,
+						'object_type' : 'machine'
+					}
+					self.sd_file_handle.write(json.dumps(data).encode() + b'\r\n')
+					self.members_file_handle.write(json.dumps(data).encode() + b'\r\n')
+
+				q = self.session.query(JackDawADGroup).filter_by(ad_id = self.ad_id)
+				for res in windowed_query(q, JackDawADGroup.id, 100):
+					data = {
+						'dn' : res.dn,
+						'sid' : res.objectSid,
+						'guid' : res.objectGUID,
+						'object_type' : 'group'
+					}
+					self.sd_file_handle.write(json.dumps(data).encode() + b'\r\n')
+					self.members_file_handle.write(json.dumps(data).encode() + b'\r\n')
+
+				q = self.session.query(JackDawADOU).filter_by(ad_id = self.ad_id)
+				for res in windowed_query(q, JackDawADOU.id, 100):
+					data = {
+						'dn' : res.dn,
+						'sid' : None,
+						'guid' : res.objectGUID,
+						'object_type' : 'ou'
+					}
+					self.sd_file_handle.write(json.dumps(data).encode() + b'\r\n')
+
+				q = self.session.query(JackDawADGPO).filter_by(ad_id = self.ad_id)
+				for res in windowed_query(q, JackDawADGPO.id, 100):
+					data = {
+						'dn' : res.dn,
+						'sid' : None,
+						'guid' : res.objectGUID,
+						'object_type' : 'gpo'
+					}
+					self.sd_file_handle.write(json.dumps(data).encode() + b'\r\n')
+
+
+				self.members_file_handle.close()
+				self.sd_file_handle.close()
+				
+
+			
 			self.members_file_handle = gzip.GzipFile(self.members_target_file_name,mode='rb')
 			self.sd_file_handle = gzip.GzipFile(self.sd_target_file_name,mode='rb')
-
 
 			sdc = SDCollector(
 				self.session, 
@@ -142,7 +201,7 @@ class LDAPGatherer:
 				graph_id = self.graph_id, 
 				agent_cnt = self.agent_cnt, 
 				sd_target_file_handle = self.sd_file_handle, 
-				resumption = self.resumption, 
+				resumption = False, #self.resumption, 
 				progress_queue = self.progress_queue, 
 				show_progress = self.show_progress
 			)

@@ -192,6 +192,7 @@ class SDCollector:
 								msg.speed = str(self.progress_step_size // td)
 								msg.step_size = self.progress_step_size
 								await self.progress_queue.put(msg)
+								await asyncio.sleep(0)
 				
 				self.session.commit()
 			

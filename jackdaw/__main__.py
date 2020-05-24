@@ -77,7 +77,8 @@ async def run(args):
 					smb_gather_types=['all'], 
 					progress_queue=None, 
 					show_progress=True,
-					calc_edges=True
+					calc_edges=True,
+					ad_id=args.resumption
 				)
 				res, err = await gatherer.run()
 				if err is not None:
@@ -112,7 +113,8 @@ async def run(args):
 					smb_gather_types=['all'], 
 					progress_queue=None, 
 					show_progress=True,
-					calc_edges=args.calculate_edges
+					calc_edges=args.calculate_edges,
+					ad_id=args.resumption
 				)
 				await gatherer.run()
 			
@@ -236,6 +238,7 @@ def main():
 	enum_group.add_argument('--smb-queue-size', type=int, default = 100000, help='SMB worker queue max size.')
 	enum_group.add_argument('--smb-folder-depth', type=int, default = 1, help='Files enumeration folder depth')
 	enum_group.add_argument('--smb-share-enum', action='store_true', help='Enables file enumeration in shares')
+	enum_group.add_argument('-r','--resumption', help='AD ID for resuming a broken collection. WARINING! this will drop all SD and Membership info!')
 	
 	share_group = subparsers.add_parser('shares', help='Enumerate shares on target')
 	share_group.add_argument('ad_id', help='ID of the domainfo to poll targets rom the DB')
