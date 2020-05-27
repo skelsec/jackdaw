@@ -24,15 +24,15 @@ from graph_tool.topology import all_shortest_paths, shortest_path
 
 
 class JackDawDomainGraphGrapthTools:
-	def __init__(self, dbsession, graph_id, work_dir = None):
+	graph_file_name = 'graphtools.csv'
+	def __init__(self, dbsession, graph_id):
 		self.dbsession = dbsession
-		self.graph_id = graph_id
+		self.graph_id = int(graph_id)
 		self.constructs = {}
 		self.graph = None
 		self.domain_sid = None
 		self.domain_id = None
 		self.lookup = {}
-		self.work_dir = work_dir
 
 	def __resolv_edge_types(self, src_id, dst_id):
 		t = []
@@ -56,47 +56,44 @@ class JackDawDomainGraphGrapthTools:
 	def save(self):
 		pass
 
-	def load(self):
-		self.graph_id = int(self.graph_id)
-		graphinfo = self.dbsession.query(JackDawGraphInfo).get(self.graph_id)
-		domaininfo = self.dbsession.query(JackDawADInfo).get(graphinfo.ad_id)
+	def setup(self):
+		gi = self.dbsession.query(JackDawGraphInfo).get(self.graph_id)
+		domaininfo = self.dbsession.query(JackDawADInfo).get(gi.ad_id)
 		self.domain_sid = domaininfo.objectSid
-		self.domain_id = domaininfo.id
+		self.domain_id = gi.ad_id
+	
+	@staticmethod
+	def create(dbsession, ad_id, graph_id, graph_dir):
+		graph_file = graph_dir.joinpath(JackDawDomainGraphGrapthTools.graph_file_name)
 
-		create_file = False
-		graph_file = None
-		if self.work_dir is not None:
-			graph_dir = pathlib.Path(self.work_dir).joinpath(str(self.graph_id))
-			graph_dir.mkdir(parents=True, exist_ok=True)
-			graph_file = graph_dir.joinpath('edges.csv')
-			if graph_file.exists() is False:
-				create_file = True
-			else:
-				logger.debug('Loading graph from file: %s' % graph_file)
-		
-		if create_file is True:
-			logger.debug('Creating a new graph file: %s' % graph_file)
+		logger.debug('Creating a new graph file: %s' % graph_file)
 
-			## remove this
-			fi = self.dbsession.query(JackDawEdgeLookup.id).filter_by(ad_id = self.domain_id).filter(JackDawEdgeLookup.oid == 'S-1-5-32-545').first()
-			fi = fi[0]
-			##
+		## remove this
+		fi = dbsession.query(JackDawEdgeLookup.id).filter_by(ad_id = ad_id).filter(JackDawEdgeLookup.oid == 'S-1-5-32-545').first()
+		fi = fi[0]
+		##
 
-			t2 = self.dbsession.query(func.count(JackDawEdge.id)).filter_by(graph_id = self.graph_id).filter(JackDawEdgeLookup.id == JackDawEdge.src).filter(JackDawEdgeLookup.oid != None).scalar()
-			q = self.dbsession.query(JackDawEdge).filter_by(graph_id = self.graph_id).filter(JackDawEdgeLookup.id == JackDawEdge.src).filter(JackDawEdgeLookup.oid != None)
+		t2 = dbsession.query(func.count(JackDawEdge.id)).filter_by(graph_id = graph_id).filter(JackDawEdgeLookup.id == JackDawEdge.src).filter(JackDawEdgeLookup.oid != None).scalar()
+		q = dbsession.query(JackDawEdge).filter_by(graph_id = graph_id).filter(JackDawEdgeLookup.id == JackDawEdge.src).filter(JackDawEdgeLookup.oid != None)
 
-			with open(graph_file, 'w', newline = '') as f:
-				for edge in tqdm(windowed_query(q,JackDawEdge.id, 10000), desc = 'edge', total = t2):
-					if edge.src  == fi:
-						continue
-					if edge.dst  == fi:
-						continue
-					r = '%s,%s\r\n' % (edge.src, edge.dst)
-					f.write(r)
-
-		self.graph = graph_tool.load_graph_from_csv(str(graph_file), directed=True, string_vals=False, hashed=False)
-
+		with open(graph_file, 'w', newline = '') as f:
+			for edge in tqdm(windowed_query(q,JackDawEdge.id, 10000), desc = 'edge', total = t2):
+				#if edge.src  == fi:
+				#	continue
+				#if edge.dst  == fi:
+				#	continue
+				r = '%s,%s\r\n' % (edge.src, edge.dst)
+				f.write(r)
 		logger.debug('Graph created!')
+
+	@staticmethod
+	def load(dbsession, graph_id, graph_cache_dir):
+		graph_file = graph_cache_dir.joinpath(JackDawDomainGraphGrapthTools.graph_file_name)
+		g = JackDawDomainGraphGrapthTools(dbsession, graph_id)
+		g.graph = graph_tool.load_graph_from_csv(str(graph_file), directed=True, string_vals=False, hashed=False)
+		g.setup()
+		logger.debug('Graph loaded to memory')
+		return g
 
 	def all_shortest_paths(self, src_sid = None, dst_sid = None):
 		nv = GraphData()

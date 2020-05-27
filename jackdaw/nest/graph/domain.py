@@ -44,8 +44,6 @@ from winacl.dtyp.security_descriptor import SECURITY_DESCRIPTOR
 import base64
 from tqdm import tqdm
 
-from jackdaw.nest.graph.edgecalc import EdgeCalc
-
 from jackdaw.nest.graph.construct import GraphConstruct
 class GraphDecoder(json.JSONDecoder):
 	def __init__(self, *args, **kwargs):

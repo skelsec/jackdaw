@@ -15,7 +15,7 @@ from tqdm import tqdm
 from jackdaw.gatherer.progress import *
 
 class Gatherer:
-	def __init__(self, db_url, work_dir, ldap_url, smb_url, ad_id = None, calc_edges = True, ldap_worker_cnt = 4, smb_worker_cnt = 100, mp_pool = None, smb_enum_shares = False, smb_gather_types = ['all'], progress_queue = None, show_progress = True, dns = None):
+	def __init__(self, db_url, work_dir, ldap_url, smb_url, ad_id = None, calc_edges = True, ldap_worker_cnt = 4, smb_worker_cnt = 100, mp_pool = None, smb_enum_shares = False, smb_gather_types = ['all'], progress_queue = None, show_progress = True, dns = None, store_to_db = True):
 		self.db_url = db_url
 		self.work_dir = work_dir
 		self.mp_pool = mp_pool
@@ -26,6 +26,7 @@ class Gatherer:
 		self.ad_id = ad_id
 		self.calculate_edges = calc_edges
 		self.dns_server = dns
+		self.store_to_db = store_to_db
 		self.resumption = False
 		if ad_id is not None:
 			self.resumption = True
@@ -45,6 +46,10 @@ class Gatherer:
 		self.smb_work_dir = None
 		self.rdns_resolver = None
 		self.progress_task = None
+		self.base_collection_finish_evt = None
+
+		self.smb_early_task = None
+		self.ldap_gatherer = None
 	
 	async def print_progress(self):
 		logger.debug('Setting up progress bars')
@@ -54,12 +59,14 @@ class Gatherer:
 			pos += 1
 			ldap_sd_pbar           = tqdm(desc = 'LDAP SD enum          ', ascii=True, position=pos)
 			pos += 1
-			ldap_sdupload_pbar     = tqdm(desc = 'LDAP SD upload        ', ascii=True, position=pos)
-			pos += 1
+			if self.store_to_db is True:
+				ldap_sdupload_pbar     = tqdm(desc = 'LDAP SD upload        ', ascii=True, position=pos)
+				pos += 1
 			ldap_member_pbar       = tqdm(desc = 'LDAP membership enum  ', ascii=True, position=pos)
 			pos += 1
-			ldap_memberupload_pbar = tqdm(desc = 'LDAP membership upload', ascii=True, position=pos)
-			pos += 1
+			if self.store_to_db is True:
+				ldap_memberupload_pbar = tqdm(desc = 'LDAP membership upload', ascii=True, position=pos)
+				pos += 1
 		if self.smb_url is not None:
 			smb_pbar               = tqdm(desc = 'SMB enum              ', ascii=True, position=pos)
 			pos += 1
@@ -158,16 +165,18 @@ class Gatherer:
 
 	async def gather_ldap(self):
 		try:
-			gatherer = LDAPGatherer(
+			self.ldap_gatherer = LDAPGatherer(
 				self.db_url,
 				self.ldap_mgr,
 				agent_cnt=self.ldap_worker_cnt, 
 				work_dir = self.ldap_work_dir,
 				progress_queue = self.progress_queue,
 				show_progress = False,
-				ad_id = self.ad_id #this should be none, or resumption is indicated!
+				ad_id = self.ad_id, #this should be none, or resumption is indicated!
+				store_to_db = self.store_to_db,
+				base_collection_finish_evt = self.base_collection_finish_evt
 			)
-			ad_id, graph_id, err = await gatherer.run()
+			ad_id, graph_id, err = await self.ldap_gatherer.run()
 			if err is not None:
 				return None, None, err
 			logger.debug('ADInfo entry successfully created with ID %s' % ad_id)
@@ -249,8 +258,6 @@ class Gatherer:
 
 			logger.debug('Setting up database connection')
 
-			
-			
 			if self.show_progress is True and self.progress_queue is None:
 				self.progress_queue = asyncio.Queue()
 				self.progress_task = asyncio.create_task(self.print_progress())
@@ -259,6 +266,16 @@ class Gatherer:
 		except Exception as e:
 			return False, e
 
+	async def smb_early_start(self):
+		try:
+			await self.base_collection_finish_evt.wait()
+			self.ad_id = self.ldap_gatherer.ad_id
+			self.graph_id = self.ldap_gatherer.graph_id
+			_, err = await self.gather_smb()
+			if err is not None:
+				raise err
+		except Exception as e:
+			logger.exception('smb_early_start')
 
 	async def run(self):
 		try:
@@ -266,22 +283,30 @@ class Gatherer:
 			if err is not None:
 				raise err
 
-			if self.ldap_mgr is not None:
-				self.ad_id, self.graph_id, err = await self.gather_ldap()
+			if self.ldap_mgr is not None and self.smb_mgr is not None:
+				self.base_collection_finish_evt = asyncio.Event()
+				self.smb_early_task = asyncio.create_task(self.smb_early_start())
+				_, _, err = await self.gather_ldap()
 				if err is not None:
 					raise err
 
-			if self.smb_url is not None:
-				_, err = await self.gather_smb()
-				if err is not None:
-					raise err
-			
-			if self.smb_enum_shares is True and self.smb_url is not None:
-				_, err = await self.share_enum()
-				if err is not None:
-					raise err
-			
-			if self.calculate_edges is True:
+			else:
+				if self.ldap_mgr is not None:
+					self.ad_id, self.graph_id, err = await self.gather_ldap()
+					if err is not None:
+						raise err
+
+				if self.smb_url is not None:
+					_, err = await self.gather_smb()
+					if err is not None:
+						raise err
+				
+				if self.smb_enum_shares is True and self.smb_url is not None:
+					_, err = await self.share_enum()
+					if err is not None:
+						raise err
+				
+			if self.calculate_edges is True and self.store_to_db is True:
 				_, err = await self.calc_edges()
 				if err is not None:
 					raise err

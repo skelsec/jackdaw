@@ -28,7 +28,7 @@ from sqlalchemy import func
 
 
 class MembershipCollector:
-	def __init__(self, session, ldap_mgr, ad_id = None, agent_cnt = None, progress_queue = None, show_progress = True, graph_id = None, resumption = False, members_target_file_handle = None):
+	def __init__(self, session, ldap_mgr, ad_id = None, agent_cnt = None, progress_queue = None, show_progress = True, graph_id = None, resumption = False, members_target_file_handle = None, store_to_db = True):
 		self.session = session
 		self.ldap_mgr = ldap_mgr
 		self.agent_cnt = agent_cnt
@@ -42,7 +42,7 @@ class MembershipCollector:
 		self.show_progress = show_progress
 
 		if self.agent_cnt is None:
-			self.agent_cnt = min(len(os.sched_getaffinity(0)), 3)
+			self.agent_cnt = min(len(os.sched_getaffinity(0)), 8)
 
 		self.member_finish_ctr = 0
 		self.agent_in_q = None
@@ -53,6 +53,7 @@ class MembershipCollector:
 		self.agents = []
 		self.progress_step_size = 1000
 		self.lookup = {}
+		self.store_to_db = store_to_db
 
 	def sid_to_id_lookup(self, sid, ad_id, object_type):
 		if sid in self.lookup:
@@ -123,6 +124,10 @@ class MembershipCollector:
 			msg.domain_name = self.domain_name
 			await self.progress_queue.put(msg)
 		
+		if self.store_to_db is True:
+			await self.store_file_data()
+
+	async def store_file_data(self):
 		try:
 			if self.progress_queue is not None:
 				msg = GathererProgress()
@@ -235,7 +240,7 @@ class MembershipCollector:
 		try:
 
 			qs = self.agent_cnt
-			self.agent_in_q = asyncio.Queue()
+			self.agent_in_q = asyncio.Queue(qs)
 			self.agent_out_q = asyncio.Queue(qs)
 
 			self.token_file_path = 'token_' + datetime.datetime.utcnow().strftime("%Y%m%d_%H%M%S") + '.gzip'
@@ -271,6 +276,7 @@ class MembershipCollector:
 					if res_type == LDAPAgentCommand.MEMBERSHIP:
 						self.member_finish_ctr += 1
 						res.ad_id = self.ad_id
+						res.graph_id = self.graph_id
 						self.token_file.write(res.to_json().encode() + b'\r\n')
 					
 					elif res_type == LDAPAgentCommand.MEMBERSHIP_FINISHED:

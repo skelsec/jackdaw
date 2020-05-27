@@ -9,6 +9,7 @@ import datetime
 import tempfile
 import os
 import pathlib
+import copy
 
 from jackdaw.dbmodel.graphinfo import JackDawGraphInfo
 from jackdaw.nest.graph.domain import DomainGraph
@@ -19,8 +20,8 @@ from jackdaw.dbmodel.adgroup import JackDawADGroup
 from jackdaw.dbmodel.edgelookup import JackDawEdgeLookup
 from jackdaw.dbmodel.edge import JackDawEdge
 from jackdaw.dbmodel.aduser import JackDawADUser
+from jackdaw.dbmodel.adinfo import JackDawADInfo
 from jackdaw import logger
-from jackdaw.nest.graph.edgecalc import EdgeCalc
 import connexion
 
 
@@ -34,26 +35,37 @@ graphs = {}
 diff_id_ctr = 1
 diffs = {}
 
-def list_offline():
+def list_graphs():
 	t = []
-	for res in current_app.db.session.query(JackDawGraphInfo.id).all():
-		t.append(res)
+	graph_cache_dir = current_app.config['JACKDAW_WORK_DIR'].joinpath('graphcache')
+	x = [f for f in graph_cache_dir.iterdir() if f.is_dir()]
+	for d in x:
+		t.append(int(str(d.name)))
 	return t
 
-def list_loaded():
-	return list(graphs.keys())
-
 def create(adids):
-	raise Exception('Not yet implemented!')
-	#if len(adids) > 1:
-	#	raise Exception('Currently only one ID is supported!')
-	#for adid in adids:
-	#	try:
-	#		adid = str(int(adid))
-	#	except Exception as e:
-	#		raise e
-	#	
-	#return {'graphid' : graphid}
+	if len(adids) != 1:
+		logger.warning('More than one adid requested, but only one is supported currently!')
+	for ad_id in adids:
+		domaininfo = current_app.db.session.query(JackDawADInfo).get(ad_id)
+		domain_sid = domaininfo.objectSid
+		domain_id = domaininfo.id
+
+
+		for gi in current_app.db.session.query(JackDawGraphInfo).filter_by(ad_id = domain_id).all():
+			graphid = gi.id
+			graph_cache_dir = current_app.config['JACKDAW_WORK_DIR'].joinpath('graphcache')
+			graph_dir = graph_cache_dir.joinpath(str(gi.id))
+			try:
+				graph_dir.mkdir(parents=True, exist_ok=False)
+			except Exception as e:
+				logger.warning('Graph cache dir with ID %s already exists, skipping! Err %s' % (str(gi.id), str(e)))
+				continue
+			
+			current_app.config.get('JACKDAW_GRAPH_BACKEND_OBJ').create(current_app.db.session, domain_id, str(gi.id), graph_dir)
+	
+	#TODO: fix this, need noew UI to handle the logic :(
+	return {'graphid' : graphid}
 
 def delete(graphid):
 	del graphs[graphid]
@@ -89,46 +101,16 @@ def upload(file_to_upload):
 	#return {'graphid' : old_graph_id_ctr}
 
 def load(graphid):
-	global graph_id_ctr
-	if current_app.config.get('JACKDAW_GRAPH_BACKEND').upper() == 'networkx'.upper():
-		from jackdaw.nest.graph.backends.networkx.domaingraph import JackDawDomainGraphNetworkx
-		graph_type = JackDawDomainGraphNetworkx
-	elif current_app.config.get('JACKDAW_GRAPH_BACKEND').upper() == 'igraph'.upper():
-		from jackdaw.nest.graph.backends.igraph.domaingraph import JackDawDomainGraphIGraph
-		graph_type = JackDawDomainGraphIGraph
-	elif current_app.config.get('JACKDAW_GRAPH_BACKEND').upper() == 'graphtools'.upper():
-		from jackdaw.nest.graph.backends.graphtools.domaingraph import JackDawDomainGraphGrapthTools
-		graph_type = JackDawDomainGraphGrapthTools
-
+	graphid = int(graphid)
+	current_app.config['JACKDAW_WORK_DIR']
+	graph_cache_dir = current_app.config['JACKDAW_WORK_DIR'].joinpath('graphcache')
+	graph_dir = graph_cache_dir.joinpath(str(graphid))
+	if graph_dir.exists() is False:
+		raise Exception('Graph cache dir doesnt exists!')
+	else:
+		graphs[graphid] = current_app.config.get('JACKDAW_GRAPH_BACKEND_OBJ').load(current_app.db.session, graphid, graph_dir)
 		
-	graph = graph_type(current_app.db.session, graphid, work_dir = current_app.config['JACKDAW_GRAPH_DIR'])
-	graph.load()
-	old_graph_id_ctr = graph_id_ctr
-	graph_id_ctr += 1
-	graphs[old_graph_id_ctr] = graph
-	return {'graphid' : old_graph_id_ctr}
-
-
-	#
-	#old_graph_id_ctr = graph_id_ctr
-	#graph_id_ctr += 1
-	#graphs[old_graph_id_ctr] = graph
-	#return {'graphid' : old_graph_id_ctr}
-
-
-
-	#if current_app.config.get('JACKDAW_GRAPH_BACKEND').upper() == 'networkx'.upper():
-	#	from jackdaw.nest.graph.backends.networkx.domaingraph import JackDawDomainGraphNetworkx
-	#	graph_type = JackDawDomainGraphNetworkx
-	#global graph_id_ctr
-	#graph = graph_type(current_app.db.session, current_app.config.get('JACKDAW_GRAPH_DIR'))
-	#graph.load(storedid)
-	#
-	#old_graph_id_ctr = graph_id_ctr
-	#graph_id_ctr += 1
-	#graphs[old_graph_id_ctr] = graph
-	#return {'graphid' : old_graph_id_ctr}
-
+		return {'graphid' : graphid}
 
 def get(graphid):
 	if graphid not in graphs:
@@ -146,7 +128,7 @@ def query_path(graphid, src = None, dst = None, format = 'd3'):
 
 def query_path_da(graphid, format = 'vis'):
 	if graphid not in graphs:
-		return 'Graph Not Found', 404
+		load(graphid)
 	
 	da_sids = {}
 	#searching for domain admin SID
@@ -155,7 +137,7 @@ def query_path_da(graphid, format = 'vis'):
 	#	print(node)
 	#	if node.id == graphs[graphid].domain_sid + '-512':
 	#		da_sids[node.id] = 1
-	
+	print(graphs[graphid].domain_id)
 	for res in current_app.db.session.query(JackDawADGroup).filter_by(ad_id = graphs[graphid].domain_id).filter(JackDawADGroup.objectSid.like('%-512')).all():
 		da_sids[res.objectSid] = 0
 	
@@ -175,7 +157,7 @@ def query_path_dcsync(graphid, format = 'vis'):
 
 def query_path_kerberoast(graphid, format = 'vis'):
 	if graphid not in graphs:
-		return 'Graph Not Found', 404
+		load(graphid)
 
 	target_sids = {}
 	da_sids = {}
@@ -189,6 +171,7 @@ def query_path_kerberoast(graphid, format = 'vis'):
 		
 		target_sids[res[0]] = 0
 
+	print(da_sids)
 	res = GraphData()
 	for dst_sid in da_sids:
 		for src_sid in target_sids:

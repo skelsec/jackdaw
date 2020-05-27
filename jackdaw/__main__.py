@@ -197,7 +197,14 @@ async def run(args):
 
 			debug = bool(args.verbose)
 
-			server = NestServer(args.sql, bind_ip = args.ip, bind_port = args.port, debug = debug)
+			server = NestServer(
+				args.sql, 
+				bind_ip = args.ip, 
+				bind_port = args.port, 
+				debug = debug,
+				work_dir = args.work_dir,
+				graph_backend = args.backend,
+			)
 			server.run()
 	except Exception as e:
 		jdlogger.exception('main')
@@ -216,6 +223,8 @@ def main():
 	nest_group = subparsers.add_parser('nest', formatter_class=argparse.RawDescriptionHelpFormatter, help='Start the Nest server')
 	nest_group.add_argument('--ip',  default = '127.0.0.1', help='IP address to listen on')
 	nest_group.add_argument('--port',  type=int, default = 5000, help='IP address to listen on')
+	nest_group.add_argument('--work-dir', default = './workdir', help='Working directory for caching and tempfiles')
+	nest_group.add_argument('--backend', default = 'networkx', help='graph backend, pls dont change this')
 
 	adinfo_group = subparsers.add_parser('adinfo', help='Get a list of AD info entries')
 	dbinit_group = subparsers.add_parser('dbinit', help='Creates database')
@@ -241,6 +250,7 @@ def main():
 	enum_group.add_argument('--smb-share-enum', action='store_true', help='Enables file enumeration in shares')
 	enum_group.add_argument('-r','--resumption', help='AD ID for resuming a broken collection. WARINING! this will drop all SD and Membership info!')
 	enum_group.add_argument('-d','--dns', help='DNS server for resolving IPs')
+	enum_group.add_argument('-n','--do-not-store', action='store_false', help='Skip storing membership and SD info to DB. Will skip edge calculation, and will leave the raw file on disk')
 
 	share_group = subparsers.add_parser('shares', help='Enumerate shares on target')
 	share_group.add_argument('ad_id', help='ID of the domainfo to poll targets rom the DB')

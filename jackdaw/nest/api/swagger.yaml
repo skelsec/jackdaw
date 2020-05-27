@@ -58,7 +58,7 @@ paths:
 
   /graph:
     get:
-      operationId: jackdaw.nest.api.graph.list_loaded
+      operationId: jackdaw.nest.api.graph.list_graphs
       tags:
         - Graph
       summary: Returns all loaded graph IDs
@@ -213,33 +213,33 @@ paths:
                 type: string
                 description: Placeholder TODO
 
-  /graph/{graphid}/query/path/kerberoast/:
-    get:
-      operationId: jackdaw.nest.api.graph.query_path_kerberoast
-      tags:
-        - Graph
-      summary: All paths to domain admins group
-      description: All paths to domain admins group
-      parameters:
-        - name: graphid
-          in: path
-          description: ID of the graph view
-          type: integer
-          required: True
-        - name: format
-          in: query
-          description: return format. either vis or d3
-          type: string
-          required: False
-      responses:
-        200:
-          description: All paths to domain admins group
-          schema:
-            type: object
-            properties:
-              graph:
-                type: string
-                description: Placeholder TODO
+#  /graph/{graphid}/query/path/kerberoast/:
+#    get:
+#      operationId: jackdaw.nest.api.graph.query_path_kerberoast
+#      tags:
+#        - Graph
+#      summary: All paths to domain admins group
+#      description: All paths to domain admins group
+#      parameters:
+#        - name: graphid
+#          in: path
+#          description: ID of the graph view
+#          type: integer
+#          required: True
+#        - name: format
+#          in: query
+#          description: return format. either vis or d3
+#          type: string
+#          required: False
+#      responses:
+#        200:
+#          description: All paths to domain admins group
+#          schema:
+#            type: object
+#            properties:
+#              graph:
+#                type: string
+#                description: Placeholder TODO
 
   /graph/{graphid}/node/{nodeid}:
     get:

@@ -40,7 +40,7 @@ class BaseCollector:
 		
 		self.agent_cnt = agent_cnt
 		if self.agent_cnt is None:
-			self.agent_cnt = min(len(os.sched_getaffinity(0)), 3)
+			self.agent_cnt = min(len(os.sched_getaffinity(0)), 4)
 		
 		self.progress_queue = progress_queue
 		self.show_progress = show_progress

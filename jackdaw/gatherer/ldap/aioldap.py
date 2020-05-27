@@ -54,13 +54,14 @@ from jackdaw.gatherer.ldap.collectors.membership import MembershipCollector
 import pathlib
 
 class LDAPGatherer:
-	def __init__(self, db_conn, ldap_mgr, agent_cnt = None, progress_queue = None, ad_id = None, graph_id = None, work_dir = None, show_progress = True):
+	def __init__(self, db_conn, ldap_mgr, agent_cnt = None, progress_queue = None, ad_id = None, graph_id = None, work_dir = None, show_progress = True, store_to_db = True, base_collection_finish_evt = None):
 		self.db_conn = db_conn
 		self.ldap_mgr = ldap_mgr
 		self.work_dir = work_dir
 		self.show_progress = show_progress
-
+		self.store_to_db = store_to_db
 		self.progress_queue = progress_queue
+		self.base_collection_finish_evt = base_collection_finish_evt
 		self.session = None
 
 		self.agent_in_q = None
@@ -74,13 +75,92 @@ class LDAPGatherer:
 		self.graph_id = graph_id
 		self.resumption = False
 		self.ad_id = ad_id
-		print(self.ad_id )
+
 		if ad_id is not None:
 			self.resumption = True
 		self.domain_name = None
 
 		self.members_target_file_name = None
 		self.sd_target_file_name = None
+
+		self.sd_task = None
+		self.members_task = None
+
+	async def collect_members(self):
+		try:
+			self.members_file_handle = gzip.GzipFile(self.members_target_file_name,mode='rb')
+
+			mc = MembershipCollector(
+				self.session,
+				self.ldap_mgr,
+				ad_id = self.ad_id,
+				agent_cnt = self.agent_cnt,
+				resumption = False,
+				progress_queue = self.progress_queue,
+				show_progress = self.show_progress,
+				graph_id = None,
+				members_target_file_handle = self.members_file_handle,
+				store_to_db = self.store_to_db
+			)
+			_, err = await mc.run()
+			if err is not None:
+				raise err
+			
+			return True, None
+		except Exception as e:
+			return False, e
+		
+		finally:
+			if self.members_target_file_name is not None:
+				if self.members_file_handle is not None:
+					try:
+						self.members_file_handle.close()
+					except:
+						pass
+				if self.store_to_db is True:
+					try:
+						os.unlink(self.members_target_file_name)
+					except:
+						pass
+
+		
+
+	async def collect_sd(self):
+		try:
+			self.sd_file_handle = gzip.GzipFile(self.sd_target_file_name,mode='rb')
+
+			sdc = SDCollector(
+				self.session, 
+				self.ldap_mgr, 
+				ad_id = self.ad_id, 
+				graph_id = self.graph_id, 
+				agent_cnt = self.agent_cnt, 
+				sd_target_file_handle = self.sd_file_handle, 
+				resumption = False, #self.resumption, 
+				progress_queue = self.progress_queue, 
+				show_progress = self.show_progress,
+				store_to_db = self.store_to_db
+			)
+			
+			_, err = await sdc.run()
+			if err is not None:
+				raise err
+			return True, None
+		except Exception as e:
+			return False, e
+
+		finally:
+			if self.sd_target_file_name is not None:
+				if self.sd_file_handle is not None:
+					try:
+						self.sd_file_handle.close()
+					except:
+						pass
+				if self.store_to_db is True:
+					try:
+						os.unlink(self.sd_target_file_name)
+					except:
+						pass
 
 	async def run(self):
 		try:
@@ -112,6 +192,8 @@ class LDAPGatherer:
 				if err is False:
 					return None, None, err
 
+				if self.base_collection_finish_evt is not None:
+					self.base_collection_finish_evt.set()
 				self.members_file_handle.close()
 				self.sd_file_handle.close()
 			
@@ -119,7 +201,7 @@ class LDAPGatherer:
 				self.session.query(JackDawSD).delete()
 				self.session.query(JackDawEdge).delete()
 				self.session.commit()
-				
+
 				self.members_file_handle = gzip.GzipFile(self.members_target_file_name,mode='wb')
 				self.sd_file_handle = gzip.GzipFile(self.sd_target_file_name,mode='wb')
 
@@ -189,40 +271,13 @@ class LDAPGatherer:
 				self.members_file_handle.close()
 				self.sd_file_handle.close()
 				
-
 			
-			self.members_file_handle = gzip.GzipFile(self.members_target_file_name,mode='rb')
-			self.sd_file_handle = gzip.GzipFile(self.sd_target_file_name,mode='rb')
-
-			sdc = SDCollector(
-				self.session, 
-				self.ldap_mgr, 
-				ad_id = self.ad_id, 
-				graph_id = self.graph_id, 
-				agent_cnt = self.agent_cnt, 
-				sd_target_file_handle = self.sd_file_handle, 
-				resumption = False, #self.resumption, 
-				progress_queue = self.progress_queue, 
-				show_progress = self.show_progress
-			)
-			_, err = await sdc.run()
-			if err is not None:
-				raise err
-
-			mc = MembershipCollector(
-				self.session,
-				self.ldap_mgr,
-				ad_id = self.ad_id,
-				agent_cnt = self.agent_cnt,
-				resumption = False,
-				progress_queue = self.progress_queue,
-				show_progress = self.show_progress,
-				graph_id = None,
-				members_target_file_handle = self.members_file_handle
-			)
-			_, err = await mc.run()
-			if err is not None:
-				raise err
+			res = await asyncio.gather(*[self.collect_sd(), self.collect_members()])
+			if res[0][1] is not None:
+				raise res[0][1]
+			
+			if res[1][1] is not None:
+				raise res[1][1]
 
 
 			logger.debug('[+] LDAP information acqusition finished!')
@@ -230,27 +285,7 @@ class LDAPGatherer:
 		except Exception as e:
 			return None, None, e
 
-		finally:
-			if self.members_target_file_name is not None:
-				if self.members_file_handle is not None:
-					try:
-						self.members_file_handle.close()
-					except:
-						pass
-				try:
-					os.unlink(self.members_target_file_name)
-				except:
-					pass
-			if self.sd_target_file_name is not None:
-				if self.sd_file_handle is not None:
-					try:
-						self.sd_file_handle.close()
-					except:
-						pass
-				try:
-					os.unlink(self.sd_target_file_name)
-				except:
-					pass
+		
 			
 
 if __name__ == '__main__':

@@ -28,7 +28,7 @@ import json
 
 
 class SDCollector:
-	def __init__(self, session, ldap_mgr, ad_id = None, graph_id = None, agent_cnt = None, sd_target_file_handle = None, resumption = False, progress_queue = None, show_progress = True):
+	def __init__(self, session, ldap_mgr, ad_id = None, graph_id = None, agent_cnt = None, sd_target_file_handle = None, resumption = False, progress_queue = None, show_progress = True, store_to_db = True):
 		self.session = session
 		self.ldap_mgr = ldap_mgr
 		self.agent_cnt = agent_cnt
@@ -39,11 +39,12 @@ class SDCollector:
 		self.resumption = resumption
 		self.progress_queue = progress_queue
 		self.show_progress = show_progress
+		self.store_to_db = store_to_db
 		self.progress_step_size = 1000
 		self.sd_upload_pbar = None
 
 		if self.agent_cnt is None:
-			self.agent_cnt = min(len(os.sched_getaffinity(0)), 3)
+			self.agent_cnt = min(len(os.sched_getaffinity(0)), 4)
 
 		self.progress_last_updated = datetime.datetime.utcnow()
 		self.agent_in_q = None
@@ -153,6 +154,10 @@ class SDCollector:
 			msg.domain_name = self.domain_name
 			await self.progress_queue.put(msg)
 
+		if self.store_to_db is True:
+			await self.store_file_data()
+	
+	async def store_file_data(self):
 		try:
 			self.progress_last_updated = datetime.datetime.utcnow()
 			if self.progress_queue is not None:
@@ -239,7 +244,7 @@ class SDCollector:
 		try:
 
 			qs = self.agent_cnt
-			self.agent_in_q = asyncio.Queue() #AsyncProcessQueue()
+			self.agent_in_q = asyncio.Queue(qs) #AsyncProcessQueue()
 			self.agent_out_q = asyncio.Queue(qs) #AsyncProcessQueue(1000)
 			self.sd_file_path = 'sd_' + datetime.datetime.utcnow().strftime("%Y%m%d_%H%M%S") + '.gzip'
 			self.sd_file = gzip.GzipFile(self.sd_file_path, 'w')
