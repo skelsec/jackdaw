@@ -56,7 +56,6 @@ setup(
         'swagger-ui-bundle>=0.0.2',
 		'werkzeug==0.16.1',
 		'bidict',
-		'sqlalchemy-pagination',
 		'colorama; platform_system=="Windows"'
 	],
 	entry_points={

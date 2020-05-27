@@ -2,7 +2,7 @@
 from flask_sqlalchemy import SQLAlchemy
 from jackdaw.dbmodel.adinfo import JackDawADInfo
 from flask import current_app
-from sqlalchemy_pagination import paginate
+from jackdaw.dbmodel.pagination import paginate
 
 def list_domains(page, maxcnt):
 	db = current_app.db
