@@ -123,6 +123,7 @@ from .edgelookup import JackDawEdgeLookup
 from .graphinfo import JackDawGraphInfo
 from .neterror import NetError
 from .rdnslookup import RDNSLookup
+from .adobjprops import JackDawADObjProps
 
 
 

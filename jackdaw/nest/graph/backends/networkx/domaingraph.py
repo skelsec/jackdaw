@@ -3,7 +3,7 @@ from gzip import GzipFile
 import pathlib
 import multiprocessing as mp
 import networkx as nx
-from networkx.algorithms.shortest_paths.generic import shortest_path
+from networkx.algorithms.shortest_paths.generic import shortest_path, has_path
 from bidict import bidict
 from jackdaw import logger
 from jackdaw.dbmodel.adtrust import JackDawADTrust
@@ -202,11 +202,34 @@ class JackDawDomainGraphNetworkx:
 				self.__result_path_add(nv, res)
 			except nx.exception.NetworkXNoPath:
 				pass
+
+		elif src_sid is not None and dst_sid is None:
+			src = self.__resolve_sid_to_id(src_sid)
+			if src is None:
+				raise Exception('SID not found!')
+			
+			try:
+				res = shortest_path(self.graph, src)
+				for k in res:
+					self.__result_path_add(nv, res[k])
+			except nx.exception.NetworkXNoPath:
+				pass
 		
 		else:
 			raise Exception('Not implemented!')
 
 		return nv
+
+	def has_path(self, src_sid, dst_sid):
+		dst = self.__resolve_sid_to_id(dst_sid)
+		if dst is None:
+			raise Exception('SID not found!')
+
+		src = self.__resolve_sid_to_id(src_sid)
+		if src is None:
+			raise Exception('SID not found!')
+
+		return has_path(self.graph, src, dst)
 
 	def __result_path_add(self, network, path):
 		print(path)

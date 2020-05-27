@@ -165,6 +165,21 @@ function do_graph(d){
         case "path":
             url = "/graph/"+ graphid +"/query/path?dst="+ dst +"&src="+ src +"&format=vis";
             break;
+        case "path":
+            url = "/graph/"+ graphid +"/query/path?dst="+ dst +"&src="+ src +"&format=vis";
+            break;
+        case "kerberoast":
+            url = "/graph/"+ graphid +"/query/path/kerberoast/?format=vis";
+            break;
+        case "asreproast":
+            url = "/graph/"+ graphid +"/query/path/asreproast/?format=vis";
+            break;
+        case "owned":
+            url = "/graph/"+ graphid +"/query/path/owned/?format=vis";
+            break;
+        case "dcsync":
+            url = "/graph/"+ graphid +"/query/path/dcsync/?format=vis";
+            break;
         default:
             console.error("get_graph_data invoked with unknown d");
             throw "get_graph_data invoked with unknown d";

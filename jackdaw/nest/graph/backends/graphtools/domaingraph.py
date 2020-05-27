@@ -20,7 +20,7 @@ import tempfile
 from tqdm import tqdm
 from sqlalchemy import func
 import graph_tool
-from graph_tool.topology import all_shortest_paths, shortest_path
+from graph_tool.topology import all_shortest_paths, shortest_path, shortest_distance
 
 
 class JackDawDomainGraphGrapthTools:
@@ -110,15 +110,6 @@ class JackDawDomainGraphGrapthTools:
 				for path in all_shortest_paths(self.graph, nodeid[0], dst):
 					print(path)
 					self.__result_path_add(nv, path)
-
-				
-		#elif src_sid is not None and dst_sid is None:
-		#	src = self.__resolve_sid_to_id(dst_sid)
-		#	if src is None:
-		#		raise Exception('SID not found!')
-		#	
-		#	for path in all_shortest_paths(self.graph, src, mode= self.graph.OUT):
-		#		self.__result_path_add(nv, path)
 
 		elif src_sid is not None and dst_sid is not None:
 			print(1)
@@ -236,6 +227,18 @@ class JackDawDomainGraphGrapthTools:
 		
 		else:
 			return None
+
+	def has_path(self, src_sid, dst_sid):
+		# https://stackoverflow.com/questions/52414426/has-path-equivalent-in-graph-tool
+		dst = self.__resolve_sid_to_id(dst_sid)
+		if dst is None:
+			raise Exception('SID not found!')
+
+		src = self.__resolve_sid_to_id(src_sid)
+		if src is None:
+			raise Exception('SID not found!')
+		
+		return shortest_distance(self.graph, src, dst) < self.graph.num_vertices()
 
 	def get_domainsids(self):
 		pass
