@@ -49,7 +49,7 @@ async def run(args):
 			jdlogger.setLevel(1)
 			smblogger.setLevel(1)
 		
-		if not args.sql:
+		if not args.sql and args.command != 'auto':
 			print('SQL connection identification is missing! You need to provide the --sql parameter')
 			sys.exit()
 		
