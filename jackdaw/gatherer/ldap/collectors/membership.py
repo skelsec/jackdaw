@@ -151,6 +151,7 @@ class MembershipCollector:
 					edge = JackDawEdge(sd.ad_id, self.graph_id, src_id, dst_id, 'member')
 
 					self.session.add(edge)
+					await asyncio.sleep(0)
 					cnt += 1
 					if cnt % 1000 == 0:
 						self.session.commit()
@@ -172,7 +173,7 @@ class MembershipCollector:
 						msg.speed = str(self.progress_step_size // td)
 						msg.step_size = self.progress_step_size
 						await self.progress_queue.put(msg)
-						await asyncio.sleep(0)
+						
 					
 
 			self.session.commit()
@@ -241,7 +242,7 @@ class MembershipCollector:
 
 			qs = self.agent_cnt
 			self.agent_in_q = asyncio.Queue(qs)
-			self.agent_out_q = asyncio.Queue(qs)
+			self.agent_out_q = asyncio.Queue(qs*4)
 
 			self.token_file_path = 'token_' + datetime.datetime.utcnow().strftime("%Y%m%d_%H%M%S") + '.gzip'
 			self.token_file = gzip.GzipFile(self.token_file_path, 'w')	
@@ -266,6 +267,7 @@ class MembershipCollector:
 				msg.adid = self.ad_id
 				msg.domain_name = self.domain_name
 				await self.progress_queue.put(msg)
+				await asyncio.sleep(0)
 
 			acnt = self.total_members_to_poll
 			while acnt > 0:
@@ -278,6 +280,7 @@ class MembershipCollector:
 						res.ad_id = self.ad_id
 						res.graph_id = self.graph_id
 						self.token_file.write(res.to_json().encode() + b'\r\n')
+						await asyncio.sleep(0)
 					
 					elif res_type == LDAPAgentCommand.MEMBERSHIP_FINISHED:
 						if self.progress_queue is None:

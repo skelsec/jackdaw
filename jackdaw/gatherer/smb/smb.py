@@ -151,6 +151,7 @@ class SMBGatherer:
 		self.job_generator_task = asyncio.create_task(self.generate_targets())
 		
 		while True:
+			await asyncio.sleep(0)
 			x = await self.out_q.get()
 			if x is None:
 				break

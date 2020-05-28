@@ -177,6 +177,7 @@ class SDCollector:
 					for line in f:
 						sd = JackDawSD.from_json(line.strip())
 						self.session.add(sd)
+						await asyncio.sleep(0)
 						cnt += 1
 						if cnt % 100 == 0:
 							self.session.commit()
