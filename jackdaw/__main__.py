@@ -8,6 +8,8 @@ import os
 import sys
 import logging
 import asyncio
+import platform
+import datetime
 
 from sqlalchemy import exc
 
@@ -85,6 +87,38 @@ async def run(args):
 				if err is not None:
 					raise err
 
+		elif args.command == 'auto':
+			if platform.system() != 'Windows':
+				raise Exception('auto mode only works on windows!')
+
+			from winacl.functions.highlevel import get_logon_info
+			logon = get_logon_info()
+
+			if db_conn is None:
+				db_loc = '%s_%s.db' % (logon['domain'], datetime.datetime.utcnow().strftime("%Y%m%d_%H%M%S"))
+				db_conn = 'sqlite:///%s' % db_loc
+				create_db(db_conn)
+			ldap_url = 'ldap+sspi-ntlm://%s\\%s:hehe@%s' % (logon['domain'], logon['username'], logon['logoserver'])
+			smb_url = 'smb2+sspi-ntlm://%s\\%s:hehe@%s' % (logon['domain'], logon['username'], logon['logoserver'])
+
+			with multiprocessing.Pool() as mp_pool:
+				gatherer = Gatherer(
+					db_conn, 
+					work_dir, 
+					ldap_url, 
+					smb_url, 
+					ldap_worker_cnt=args.ldap_workers, 
+					smb_worker_cnt=args.smb_workers, 
+					mp_pool=mp_pool, 
+					smb_gather_types=['all'], 
+					progress_queue=None, 
+					show_progress=True,
+					calc_edges=True,
+					dns=args.dns
+				)
+				res, err = await gatherer.run()
+				if err is not None:
+					raise err
 
 		elif args.command == 'dbinit':
 			create_db(db_conn)
@@ -141,6 +175,7 @@ async def run(args):
 			await gatherer.run()
 
 		elif args.command == 'files':
+			raise Exception('not yet implemented!')
 			if args.src == 'domain':
 				if not args.ad_id:
 					raise Exception('ad-id parameter is mandatory in ldap mode')
@@ -237,15 +272,18 @@ def main():
 	ldap_group.add_argument('-d', '--ad-id', help='AD id from DB. signals resumption task')
 	ldap_group.add_argument('-c', '--calculate-edges', action='store_true', help='Calculate edges after enumeration')
 	
+	auto_group = subparsers.add_parser('auto', help='auto mode, windows only!')
+	auto_group.add_argument('--ldap-workers', type=int, default = 4, help='LDAP worker count for parallelization')
+	auto_group.add_argument('--smb-workers', type=int, default = 50, help='SMB worker count for parallelization')
+	auto_group.add_argument('-d','--dns', help='DNS server for resolving IPs')
+	
 	
 	enum_group = subparsers.add_parser('enum', formatter_class=argparse.RawDescriptionHelpFormatter, help='Enumerate all stuffs', epilog = MSLDAPURLDecoder.help_epilog)
 	enum_group.add_argument('ldap_url',  help='Connection specitication in URL format')
 	enum_group.add_argument('smb_url',  help='Connection specitication in URL format')
 	enum_group.add_argument('-q', '--same-query', action='store_true', help='Use the same query for LDAP as for SMB. LDAP url must still be present, but without a query')
 	enum_group.add_argument('--ldap-workers', type=int, default = 4, help='LDAP worker count for parallelization')
-	enum_group.add_argument('--ldap-queue-size', type=int, default = 100000, help='LDAP worker queue max size.')
 	enum_group.add_argument('--smb-workers', type=int, default = 50, help='SMB worker count for parallelization')
-	enum_group.add_argument('--smb-queue-size', type=int, default = 100000, help='SMB worker queue max size.')
 	enum_group.add_argument('--smb-folder-depth', type=int, default = 1, help='Files enumeration folder depth')
 	enum_group.add_argument('--smb-share-enum', action='store_true', help='Enables file enumeration in shares')
 	enum_group.add_argument('-r','--resumption', help='AD ID for resuming a broken collection. WARINING! this will drop all SD and Membership info!')
