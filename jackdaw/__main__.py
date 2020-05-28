@@ -61,9 +61,13 @@ async def run(args):
 			ldap_url = args.ldap_url
 		if hasattr(args, 'smb_url'):
 			smb_url = args.smb_url
+
 		db_conn = args.sql
-		os.environ['JACKDAW_SQLITE'] = '0'
-		if args.sql.lower().startswith('sqlite'):
+		if db_conn is not None:
+			os.environ['JACKDAW_SQLITE'] = '0'
+			if args.sql.lower().startswith('sqlite'):
+				os.environ['JACKDAW_SQLITE'] = '1'
+		else:
 			os.environ['JACKDAW_SQLITE'] = '1'
 		
 		if args.command == 'enum':
