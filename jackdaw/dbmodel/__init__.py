@@ -94,8 +94,6 @@ def bc(x):
 			return None
 	raise Exception('Cant convert this to bool: %s type: %s' % (x, type(x)))
 
-#from .addacl import *
-#from .tokengroup import *
 from .adgroup import *
 from .adcomp import *
 from .adinfo import *

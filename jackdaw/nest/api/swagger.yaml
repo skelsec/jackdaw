@@ -2093,4 +2093,25 @@ paths:
                 type: string
                 description: Placeholder TODO 
 
-
+  /database/upload:
+    put:
+      operationId: jackdaw.nest.api.database.upload
+      tags:
+        - Database
+      summary: Uploads and merges SQLite database file with the current database
+      description: Uploads and merges SQLite database file with the current database
+      parameters:
+        - name: dbfile
+          in: formData
+          description: File to upload
+          type: file
+          required: True
+      responses:
+        200:
+          description: TODO
+          schema:
+            type: object
+            properties:
+              graph:
+                type: string
+                description: Placeholder TODO
