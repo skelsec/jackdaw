@@ -1,8 +1,9 @@
 from . import Basemodel
 import datetime
 from sqlalchemy import Column, Integer, String, DateTime
+from jackdaw.dbmodel.utils.serializer import Serializer
 
-class NetFile(Basemodel):
+class NetFile(Basemodel, Serializer):
 	__tablename__ = 'netfile'
 	
 	id = Column(Integer, primary_key=True)

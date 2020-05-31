@@ -1,27 +1,27 @@
 import traceback
 import asyncio
 
+from jackdaw.dbmodel.utils.tokengroup import JackDawTokenGroup
+
 from jackdaw.gatherer.ldap.agent.common import *
 from jackdaw import logger
-from jackdaw.dbmodel.graphinfo import JackDawGraphInfo
-from jackdaw.dbmodel.spnservice import JackDawSPNService
-from jackdaw.dbmodel.addacl import JackDawADDACL
-from jackdaw.dbmodel.adgroup import JackDawADGroup
-from jackdaw.dbmodel.adinfo import JackDawADInfo
-from jackdaw.dbmodel.aduser import JackDawADUser
-from jackdaw.dbmodel.adcomp import JackDawADMachine
-from jackdaw.dbmodel.adou import JackDawADOU
-from jackdaw.dbmodel.adinfo import JackDawADInfo
-from jackdaw.dbmodel.tokengroup import JackDawTokenGroup
-from jackdaw.dbmodel.adgpo import JackDawADGPO
-from jackdaw.dbmodel.constrained import JackDawMachineConstrainedDelegation, JackDawUserConstrainedDelegation
-from jackdaw.dbmodel.adgplink import JackDawADGplink
+from jackdaw.dbmodel.graphinfo import GraphInfo
+from jackdaw.dbmodel.spnservice import SPNService
+from jackdaw.dbmodel.adgroup import Group
+from jackdaw.dbmodel.adinfo import ADInfo
+from jackdaw.dbmodel.aduser import ADUser
+from jackdaw.dbmodel.adcomp import Machine
+from jackdaw.dbmodel.adou import ADOU
+from jackdaw.dbmodel.adinfo import ADInfo
+from jackdaw.dbmodel.adgpo import GPO
+from jackdaw.dbmodel.constrained import MachineConstrainedDelegation, JackDawUserConstrainedDelegation
+from jackdaw.dbmodel.adgplink import Gplink
 from jackdaw.dbmodel.adsd import JackDawSD
-from jackdaw.dbmodel.adtrust import JackDawADTrust
+from jackdaw.dbmodel.adtrust import ADTrust
 from jackdaw.dbmodel.adspn import JackDawSPN
 from jackdaw.dbmodel import get_session
-from jackdaw.dbmodel.edge import JackDawEdge
-from jackdaw.dbmodel.edgelookup import JackDawEdgeLookup
+from jackdaw.dbmodel.edge import Edge
+from jackdaw.dbmodel.edgelookup import EdgeLookup
 
 
 class LDAPGathererAgent:
@@ -94,7 +94,7 @@ class LDAPGathererAgent:
 			async for entry, err in self.ldap.get_all_trusts():
 				if err is not None:
 					raise err
-				await self.agent_out_q.put((LDAPAgentCommand.TRUSTS, JackDawADTrust.from_ldapdict(entry.to_dict())))
+				await self.agent_out_q.put((LDAPAgentCommand.TRUSTS, ADTrust.from_ldapdict(entry.to_dict())))
 		except:
 			await self.agent_out_q.put((LDAPAgentCommand.EXCEPTION, str(traceback.format_exc())))
 		finally:
@@ -122,7 +122,7 @@ class LDAPGathererAgent:
 						if computername.find('/') != -1:
 							computername, service_name = computername.rsplit('/',1)
 
-					s = JackDawSPNService()
+					s = SPNService()
 					s.owner_sid = str(entry['attributes']['objectSid'])
 					s.computername = computername
 					s.service_class = service_class
@@ -140,7 +140,7 @@ class LDAPGathererAgent:
 			async for user_data, err in self.ldap.get_all_users():
 				if err is not None:
 					raise err
-				user = JackDawADUser.from_aduser(user_data)
+				user = ADUser.from_aduser(user_data)
 				spns = []
 				if user_data.servicePrincipalName is not None:
 					for spn in user_data.servicePrincipalName:
@@ -157,7 +157,7 @@ class LDAPGathererAgent:
 			async for group, err in self.ldap.get_all_groups():
 				if err is not None:
 					raise err
-				g = JackDawADGroup.from_dict(group.to_dict())
+				g = Group.from_dict(group.to_dict())
 				await self.agent_out_q.put((LDAPAgentCommand.GROUP, g))
 				del g
 		except:
@@ -170,7 +170,7 @@ class LDAPGathererAgent:
 			async for gpo, err in self.ldap.get_all_gpos():
 				if err is not None:
 					raise err
-				g = JackDawADGPO.from_adgpo(gpo)
+				g = GPO.from_adgpo(gpo)
 				await self.agent_out_q.put((LDAPAgentCommand.GPO, g))
 				del g
 		except:
@@ -184,12 +184,12 @@ class LDAPGathererAgent:
 			async for machine_data, err in self.ldap.get_all_machines():
 				if err is not None:
 					raise err
-				machine = JackDawADMachine.from_adcomp(machine_data)
+				machine = Machine.from_adcomp(machine_data)
 				
 				delegations = []
 				if machine_data.allowedtodelegateto is not None:
 					for delegate_data in machine_data.allowedtodelegateto:
-						delegations.append(JackDawMachineConstrainedDelegation.from_spn_str(delegate_data))
+						delegations.append(MachineConstrainedDelegation.from_spn_str(delegate_data))
 				await self.agent_out_q.put((LDAPAgentCommand.MACHINE, {'machine' : machine, 'delegations' : delegations}))
 		except:
 			await self.agent_out_q.put((LDAPAgentCommand.EXCEPTION, str(traceback.format_exc())))
@@ -201,7 +201,7 @@ class LDAPGathererAgent:
 			async for ou, err in self.ldap.get_all_ous():
 				if err is not None:
 					raise err
-				o = JackDawADOU.from_adou(ou)
+				o = ADOU.from_adou(ou)
 				await self.agent_out_q.put((LDAPAgentCommand.OU, o))
 				del o
 		except:
@@ -214,7 +214,7 @@ class LDAPGathererAgent:
 			info, err = await self.ldap.get_ad_info()
 			if err is not None:
 				raise err
-			adinfo = JackDawADInfo.from_msldap(info)
+			adinfo = ADInfo.from_msldap(info)
 			await self.agent_out_q.put((LDAPAgentCommand.DOMAININFO, adinfo))
 		except:
 			await self.agent_out_q.put((LDAPAgentCommand.EXCEPTION, str(traceback.format_exc())))

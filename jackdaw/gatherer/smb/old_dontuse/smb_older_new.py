@@ -27,8 +27,8 @@ from jackdaw.dbmodel.smbfinger import SMBFinger
 from jackdaw import logger
 from jackdaw.dbmodel import get_session
 
-from jackdaw.dbmodel.adinfo import JackDawADInfo
-from jackdaw.dbmodel.adcomp import JackDawADMachine
+from jackdaw.dbmodel.adinfo import ADInfo
+from jackdaw.dbmodel.adcomp import Machine
 
 class SMBGathererManager:
 	def __init__(self, smb_mgr, worker_cnt = 50, queue_size = 100000):
@@ -84,10 +84,10 @@ class SMBGathererManager:
 			for entry in self.ldap_conn.pagedsearch(ldap_filter, attributes):
 				tid = -1
 				if self.lookup_ad is not None:
-					res = session.query(JackDawADMachine)\
+					res = session.query(Machine)\
 							.filter_by(ad_id = self.lookup_ad)\
-							.with_entities(JackDawADMachine.id)\
-							.filter(JackDawADMachine.sAMAccountName == entry['attributes']['sAMAccountName'])\
+							.with_entities(Machine.id)\
+							.filter(Machine.sAMAccountName == entry['attributes']['sAMAccountName'])\
 							.first()
 					if res is not None:
 						tid = res[0]
@@ -95,7 +95,7 @@ class SMBGathererManager:
 				yield (tid, entry['attributes']['sAMAccountName'][:-1])
 
 		if self.target_ad is not None:
-			for target_id, target_name in session.query(JackDawADMachine).filter_by(ad_id = self.target_ad).with_entities(JackDawADMachine.id, JackDawADMachine.sAMAccountName):
+			for target_id, target_name in session.query(Machine).filter_by(ad_id = self.target_ad).with_entities(Machine.id, Machine.sAMAccountName):
 				yield (target_id, target_name[:-1])
 
 		if self.db_conn is not None:

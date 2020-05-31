@@ -129,11 +129,11 @@ async def run(args):
 		
 		elif args.command == 'adinfo':
 			session = get_session(db_conn)
-			from jackdaw.dbmodel.adinfo import JackDawADInfo
+			from jackdaw.dbmodel.adinfo import ADInfo
 			from jackdaw.utils.table import print_table
 			
 			rows = [['Ad ID', 'domain name', 'scantime']]
-			for did, distinguishedName, creation in session.query(JackDawADInfo).with_entities(JackDawADInfo.id, JackDawADInfo.distinguishedName, JackDawADInfo.fetched_at).all():
+			for did, distinguishedName, creation in session.query(ADInfo).with_entities(ADInfo.id, ADInfo.distinguishedName, ADInfo.fetched_at).all():
 				name = distinguishedName.replace('DC=','')
 				name = name.replace(',','.')
 				rows.append([str(did), name, creation.isoformat()])

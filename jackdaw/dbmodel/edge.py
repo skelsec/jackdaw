@@ -3,12 +3,14 @@ import datetime
 from sqlalchemy.orm import relationship
 from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Boolean
 import json
+from jackdaw.dbmodel.utils.serializer import Serializer
 
-class JackDawEdge(Basemodel):
-	__tablename__ = 'edges'
+
+class Edge(Basemodel, Serializer):
+	__tablename__ = 'adedges'
 	
 	id = Column(Integer, primary_key=True)
-	ad_id = Column(Integer, ForeignKey('ads.id'))
+	ad_id = Column(Integer, ForeignKey('adinfo.id'))
 	graph_id = Column(Integer, index = True)
 	src = Column(Integer, index = True)
 	dst = Column(Integer, index = True)
@@ -23,11 +25,11 @@ class JackDawEdge(Basemodel):
 
 	@staticmethod
 	def from_dict(d):
-		return JackDawEdge(d['ad_id'], d['graph_id'], d['src'], d['dst'], d['label'])
+		return Edge(d['ad_id'], d['graph_id'], d['src'], d['dst'], d['label'])
 
 	@staticmethod
 	def from_json(x):
-		return JackDawEdge.from_dict(json.loads(x))
+		return Edge.from_dict(json.loads(x))
 
 	def to_dict(self):
 		return {

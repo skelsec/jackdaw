@@ -1,8 +1,10 @@
 from . import Basemodel
 import datetime
 from sqlalchemy import Column, Integer, String, DateTime
+from jackdaw.dbmodel.utils.serializer import Serializer
 
-class NetDir(Basemodel):
+
+class NetDir(Basemodel, Serializer):
 	__tablename__ = 'netdir'
 	
 	id = Column(Integer, primary_key=True)

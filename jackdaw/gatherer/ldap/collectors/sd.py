@@ -7,17 +7,17 @@ from jackdaw import logger
 from jackdaw.gatherer.progress import *
 from jackdaw.gatherer.ldap.agent.common import *
 from jackdaw.gatherer.ldap.agent.agent import LDAPGathererAgent
-from jackdaw.dbmodel.graphinfo import JackDawGraphInfo
-from jackdaw.dbmodel.adgroup import JackDawADGroup
-from jackdaw.dbmodel.adinfo import JackDawADInfo
-from jackdaw.dbmodel.aduser import JackDawADUser
-from jackdaw.dbmodel.adcomp import JackDawADMachine
-from jackdaw.dbmodel.adou import JackDawADOU
-from jackdaw.dbmodel.adgpo import JackDawADGPO
-from jackdaw.dbmodel.adtrust import JackDawADTrust
+from jackdaw.dbmodel.graphinfo import GraphInfo
+from jackdaw.dbmodel.adgroup import Group
+from jackdaw.dbmodel.adinfo import ADInfo
+from jackdaw.dbmodel.aduser import ADUser
+from jackdaw.dbmodel.adcomp import Machine
+from jackdaw.dbmodel.adou import ADOU
+from jackdaw.dbmodel.adgpo import GPO
+from jackdaw.dbmodel.adtrust import ADTrust
 from jackdaw.dbmodel import get_session
-from jackdaw.dbmodel.edge import JackDawEdge
-from jackdaw.dbmodel.edgelookup import JackDawEdgeLookup
+from jackdaw.dbmodel.edge import Edge
+from jackdaw.dbmodel.edgelookup import EdgeLookup
 import gzip
 from tqdm import tqdm
 import os
@@ -96,18 +96,18 @@ class SDCollector:
 	async def generate_sd_targets(self):
 		try:
 			subq = self.session.query(JackDawSD.guid).filter(JackDawSD.ad_id == self.ad_id)
-			q = self.session.query(JackDawADInfo.distinguishedName, JackDawADInfo.objectSid, JackDawADInfo.objectGUID).filter_by(id = self.ad_id).filter(~JackDawADInfo.objectGUID.in_(subq))
-			await self.resumption_target_gen(q, JackDawADInfo.id, 'domain', LDAPAgentCommand.SDS)
-			q = self.session.query(JackDawADUser.dn, JackDawADUser.objectSid, JackDawADUser.objectGUID).filter_by(ad_id = self.ad_id).filter(~JackDawADUser.objectGUID.in_(subq))
-			await self.resumption_target_gen(q, JackDawADUser.id, 'user', LDAPAgentCommand.SDS)
-			q = self.session.query(JackDawADMachine.dn, JackDawADMachine.objectSid, JackDawADMachine.objectGUID).filter_by(ad_id = self.ad_id).filter(~JackDawADMachine.objectGUID.in_(subq))
-			await self.resumption_target_gen(q, JackDawADMachine.id, 'machine', LDAPAgentCommand.SDS)
-			q = self.session.query(JackDawADGroup.dn, JackDawADGroup.objectSid, JackDawADGroup.objectGUID).filter_by(ad_id = self.ad_id).filter(~JackDawADGroup.objectGUID.in_(subq))
-			await self.resumption_target_gen(q, JackDawADGroup.id, 'group', LDAPAgentCommand.SDS)
-			q = self.session.query(JackDawADOU.dn, JackDawADOU.objectGUID).filter_by(ad_id = self.ad_id).filter(~JackDawADOU.objectGUID.in_(subq))
-			await self.resumption_target_gen_2(q, JackDawADOU.id, 'ou', LDAPAgentCommand.SDS)
-			q = self.session.query(JackDawADGPO.dn, JackDawADGPO.objectGUID).filter_by(ad_id = self.ad_id).filter(~JackDawADGPO.objectGUID.in_(subq))
-			await self.resumption_target_gen_2(q, JackDawADGPO.id, 'gpo', LDAPAgentCommand.SDS)
+			q = self.session.query(ADInfo.distinguishedName, ADInfo.objectSid, ADInfo.objectGUID).filter_by(id = self.ad_id).filter(~ADInfo.objectGUID.in_(subq))
+			await self.resumption_target_gen(q, ADInfo.id, 'domain', LDAPAgentCommand.SDS)
+			q = self.session.query(ADUser.dn, ADUser.objectSid, ADUser.objectGUID).filter_by(ad_id = self.ad_id).filter(~ADUser.objectGUID.in_(subq))
+			await self.resumption_target_gen(q, ADUser.id, 'user', LDAPAgentCommand.SDS)
+			q = self.session.query(Machine.dn, Machine.objectSid, Machine.objectGUID).filter_by(ad_id = self.ad_id).filter(~Machine.objectGUID.in_(subq))
+			await self.resumption_target_gen(q, Machine.id, 'machine', LDAPAgentCommand.SDS)
+			q = self.session.query(Group.dn, Group.objectSid, Group.objectGUID).filter_by(ad_id = self.ad_id).filter(~Group.objectGUID.in_(subq))
+			await self.resumption_target_gen(q, Group.id, 'group', LDAPAgentCommand.SDS)
+			q = self.session.query(ADOU.dn, ADOU.objectGUID).filter_by(ad_id = self.ad_id).filter(~ADOU.objectGUID.in_(subq))
+			await self.resumption_target_gen_2(q, ADOU.id, 'ou', LDAPAgentCommand.SDS)
+			q = self.session.query(GPO.dn, GPO.objectGUID).filter_by(ad_id = self.ad_id).filter(~GPO.objectGUID.in_(subq))
+			await self.resumption_target_gen_2(q, GPO.id, 'gpo', LDAPAgentCommand.SDS)
 
 			logger.debug('generate_sd_targets finished!')
 		except Exception as e:

@@ -2,13 +2,14 @@ from . import Basemodel, lf
 import datetime
 from sqlalchemy.orm import relationship
 from sqlalchemy import Column, Integer, String, DateTime, ForeignKey
+from jackdaw.dbmodel.utils.serializer import Serializer
 
-class JackDawADTrust(Basemodel):
-	__tablename__ = 'trusts'
+
+class ADTrust(Basemodel, Serializer):
+	__tablename__ = 'adtrusts'
 	
 	id = Column(Integer, primary_key=True)
-	ad_id = Column(Integer, ForeignKey('ads.id'))
-	ad = relationship("JackDawADInfo", back_populates="trusts", lazy = True)
+	ad_id = Column(Integer, ForeignKey('adinfo.id'))
 	cn = Column(String, index=True)
 	dn = Column(String, index=True)
 	guid = Column(String, index=True)
@@ -26,7 +27,7 @@ class JackDawADTrust(Basemodel):
 
 	@staticmethod
 	def from_ldapdict(d):
-		trust = JackDawADTrust()
+		trust = ADTrust()
 		trust.cn = lf(d.get('cn'))
 		trust.dn = lf(d.get('distinguishedName'))
 		trust.guid = lf(d.get('objectGUID'))

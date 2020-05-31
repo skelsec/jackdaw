@@ -11,18 +11,18 @@ import objgraph
 import traceback
 import os
 import re
-from jackdaw.dbmodel.spnservice import JackDawSPNService
+from jackdaw.dbmodel.spnservice import SPNService
 from jackdaw.dbmodel.addacl import JackDawADDACL
-from jackdaw.dbmodel.adgroup import JackDawADGroup
-from jackdaw.dbmodel.adinfo import JackDawADInfo
-from jackdaw.dbmodel.aduser import JackDawADUser
-from jackdaw.dbmodel.adcomp import JackDawADMachine
-from jackdaw.dbmodel.adou import JackDawADOU
-from jackdaw.dbmodel.adinfo import JackDawADInfo
+from jackdaw.dbmodel.adgroup import Group
+from jackdaw.dbmodel.adinfo import ADInfo
+from jackdaw.dbmodel.aduser import ADUser
+from jackdaw.dbmodel.adcomp import Machine
+from jackdaw.dbmodel.adou import ADOU
+from jackdaw.dbmodel.adinfo import ADInfo
 from jackdaw.dbmodel.tokengroup import JackDawTokenGroup
-from jackdaw.dbmodel.adgpo import JackDawADGPO
-from jackdaw.dbmodel.constrained import JackDawMachineConstrainedDelegation, JackDawUserConstrainedDelegation
-from jackdaw.dbmodel.adgplink import JackDawADGplink
+from jackdaw.dbmodel.adgpo import GPO
+from jackdaw.dbmodel.constrained import MachineConstrainedDelegation, JackDawUserConstrainedDelegation
+from jackdaw.dbmodel.adgplink import Gplink
 from jackdaw.dbmodel import get_session
 from jackdaw.wintypes.lookup_tables import *
 from jackdaw import logger
@@ -121,7 +121,7 @@ class LDAPEnumeratorAgent(multiprocessing.Process):
 					else:
 						computername = t
 						
-					s = JackDawSPNService()
+					s = SPNService()
 					s.computername = computername
 					s.service = service
 					s.port = port
@@ -148,7 +148,7 @@ class LDAPEnumeratorAgent(multiprocessing.Process):
 	def get_all_groups(self):
 		try:
 			for group in self.ldap.get_all_groups():
-				g = JackDawADGroup.from_dict(group.to_dict())
+				g = Group.from_dict(group.to_dict())
 				self.agent_out_q.put((LDAPAgentCommand.GROUP, g))
 				del g
 		except:
@@ -159,7 +159,7 @@ class LDAPEnumeratorAgent(multiprocessing.Process):
 	def get_all_gpos(self):
 		try:
 			for gpo in self.ldap.get_all_gpos():
-				g = JackDawADGPO.from_adgpo(gpo)
+				g = GPO.from_adgpo(gpo)
 				self.agent_out_q.put((LDAPAgentCommand.GPO, g))
 				del g
 		except:
@@ -180,7 +180,7 @@ class LDAPEnumeratorAgent(multiprocessing.Process):
 	def get_all_ous(self):
 		try:
 			for ou in self.ldap.get_all_ous():
-				o = JackDawADOU.from_adou(ou)
+				o = ADOU.from_adou(ou)
 				self.agent_out_q.put((LDAPAgentCommand.OU, o))
 				del o
 		except:
@@ -191,7 +191,7 @@ class LDAPEnumeratorAgent(multiprocessing.Process):
 	def get_domain_info(self):
 		try:
 			info = self.ldap.get_ad_info()
-			adinfo = JackDawADInfo.from_dict(info.to_dict())
+			adinfo = ADInfo.from_dict(info.to_dict())
 			self.agent_out_q.put((LDAPAgentCommand.DOMAININFO, adinfo))
 		except:
 			self.agent_out_q.put((LDAPAgentCommand.EXCEPTION, str(traceback.format_exc())))
@@ -354,14 +354,14 @@ class LDAPEnumeratorManager:
 
 	def enum_machine(self, machine_data):
 		#print('Got machine object!')
-		machine = JackDawADMachine.from_adcomp(machine_data)
+		machine = Machine.from_adcomp(machine_data)
 		machine.ad_id = self.ad_id
 		self.session.add(machine)
 		self.session.commit()
 		self.session.refresh(machine)
 		
 		for spn in getattr(machine,'allowedtodelegateto',[]):
-			con = JackDawMachineConstrainedDelegation()
+			con = MachineConstrainedDelegation()
 			con.spn = spn
 			con.targetaccount = LDAPEnumeratorManager.spn_to_account(spn)
 			machine.allowedtodelegateto.append(con)
@@ -387,7 +387,7 @@ class LDAPEnumeratorManager:
 
 	def enum_user(self, user_data):
 		user_data = MSADUser.from_ldap(user_data)
-		user = JackDawADUser.from_aduser(user_data)
+		user = ADUser.from_aduser(user_data)
 		user.ad_id = self.ad_id
 		self.session.add(user)
 		self.session.commit()
@@ -455,7 +455,7 @@ class LDAPEnumeratorManager:
 				gp = re.search(r'{(.*?)}', gp).group(1)
 				gp = '{' + gp + '}'
 
-				link = JackDawADGplink()
+				link = Gplink()
 				link.ent_id = ou.id
 				link.gpo_dn = gp
 				link.order = order

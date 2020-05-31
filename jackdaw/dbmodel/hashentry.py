@@ -1,8 +1,10 @@
 from . import Basemodel
 import datetime
 from sqlalchemy import Column, Integer, String, Boolean
+from jackdaw.dbmodel.utils.serializer import Serializer
 
-class HashEntry(Basemodel):
+
+class HashEntry(Basemodel, Serializer):
 	__tablename__ = 'hashes'
 	
 	id = Column(Integer, primary_key=True)
@@ -15,8 +17,7 @@ class HashEntry(Basemodel):
 	pw_digit = Column(Boolean, index = True)
 	pw_special = Column(Boolean, index = True)
 	
-	
-
+	@staticmethod
 	def isspecial(s):
 		if s.isupper() or s.islower() or s in '0123456789':
 			return False

@@ -2,13 +2,13 @@ from . import Basemodel, lf, dt, bc
 import datetime
 from sqlalchemy.orm import relationship
 from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Boolean
+from jackdaw.dbmodel.utils.serializer import Serializer
 
-class JackDawADOU(Basemodel):
+class ADOU(Basemodel, Serializer):
 	__tablename__ = 'adou'
 
 	id = Column(Integer, primary_key=True)
-	ad_id = Column(Integer, ForeignKey('ads.id'))
-	ad = relationship("JackDawADInfo", back_populates="ous", lazy = True)
+	ad_id = Column(Integer, ForeignKey('adinfo.id'))
 	
 	description = Column(String, index=True)
 	dn = Column(String, index=True)
@@ -37,7 +37,7 @@ class JackDawADOU(Basemodel):
 	
 	@staticmethod
 	def from_adou(u):
-		adou = JackDawADOU()
+		adou = ADOU()
 		adou.description = lf(getattr(u,'description'))
 		adou.dn = lf(getattr(u,'distinguishedName'))
 		adou.gPLink = lf(getattr(u,'gPLink'))

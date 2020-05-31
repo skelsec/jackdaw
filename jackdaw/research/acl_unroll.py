@@ -1,7 +1,7 @@
 import traceback
 import os
 import base64
-from jackdaw.dbmodel.spnservice import JackDawSPNService
+from jackdaw.dbmodel.spnservice import SPNService
 from jackdaw.dbmodel.addacl import JackDawADDACL
 from jackdaw.dbmodel.adsd import JackDawSD
 from winacl.dtyp.security_descriptor import SECURITY_DESCRIPTOR

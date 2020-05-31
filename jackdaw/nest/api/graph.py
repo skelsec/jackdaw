@@ -11,17 +11,17 @@ import os
 import pathlib
 import copy
 
-from jackdaw.dbmodel.graphinfo import JackDawGraphInfo
+from jackdaw.dbmodel.graphinfo import GraphInfo
 from jackdaw.nest.graph.domain import DomainGraph
 from jackdaw.nest.graph.graphdata import GraphData
 from jackdaw.nest.graph.construct import GraphConstruct
 from jackdaw.nest.graph.domaindiff import DomainDiff
-from jackdaw.dbmodel.adgroup import JackDawADGroup
-from jackdaw.dbmodel.edgelookup import JackDawEdgeLookup
-from jackdaw.dbmodel.edge import JackDawEdge
-from jackdaw.dbmodel.aduser import JackDawADUser
-from jackdaw.dbmodel.adinfo import JackDawADInfo
-from jackdaw.dbmodel.adobjprops import JackDawADObjProps
+from jackdaw.dbmodel.adgroup import Group
+from jackdaw.dbmodel.edgelookup import EdgeLookup
+from jackdaw.dbmodel.edge import Edge
+from jackdaw.dbmodel.aduser import ADUser
+from jackdaw.dbmodel.adinfo import ADInfo
+from jackdaw.dbmodel.adobjprops import ADObjProps
 from jackdaw import logger
 import connexion
 from sqlalchemy import or_
@@ -49,12 +49,12 @@ def create(adids):
 	if len(adids) != 1:
 		logger.warning('More than one adid requested, but only one is supported currently!')
 	for ad_id in adids:
-		domaininfo = current_app.db.session.query(JackDawADInfo).get(ad_id)
+		domaininfo = current_app.db.session.query(ADInfo).get(ad_id)
 		domain_sid = domaininfo.objectSid
 		domain_id = domaininfo.id
 
 
-		for gi in current_app.db.session.query(JackDawGraphInfo).filter_by(ad_id = domain_id).all():
+		for gi in current_app.db.session.query(GraphInfo).filter_by(ad_id = domain_id).all():
 			graphid = gi.id
 			graph_cache_dir = current_app.config['JACKDAW_WORK_DIR'].joinpath('graphcache')
 			graph_dir = graph_cache_dir.joinpath(str(gi.id))
@@ -140,7 +140,7 @@ def query_path_da(graphid, format = 'vis'):
 	#	if node.id == graphs[graphid].domain_sid + '-512':
 	#		da_sids[node.id] = 1
 	print(graphs[graphid].domain_id)
-	for res in current_app.db.session.query(JackDawADGroup).filter_by(ad_id = graphs[graphid].domain_id).filter(JackDawADGroup.objectSid.like('%-512')).all():
+	for res in current_app.db.session.query(Group).filter_by(ad_id = graphs[graphid].domain_id).filter(Group.objectSid.like('%-512')).all():
 		da_sids[res.objectSid] = 0
 	
 	if len(da_sids) == 0:
@@ -161,11 +161,11 @@ def query_path_dcsync(graphid, format = 'vis'):
 	target_sids = {}
 	da_sids = {graphs[graphid].domain_sid : 0}
 
-	for res in current_app.db.session.query(JackDawEdgeLookup.oid)\
+	for res in current_app.db.session.query(EdgeLookup.oid)\
 		.filter_by(ad_id = graphs[graphid].domain_id)\
-		.filter(JackDawEdgeLookup.id == JackDawEdge.src)\
-		.filter(JackDawEdgeLookup.oid != None)\
-		.filter(or_(JackDawEdge.label == 'GetChanges', JackDawEdge.label == 'GetChangesAll'))\
+		.filter(EdgeLookup.id == Edge.src)\
+		.filter(EdgeLookup.oid != None)\
+		.filter(or_(Edge.label == 'GetChanges', Edge.label == 'GetChangesAll'))\
 		.all():
 		
 		target_sids[res[0]] = 0
@@ -184,12 +184,12 @@ def query_path_kerberoastda(graphid, format = 'vis'):
 	target_sids = {}
 	da_sids = {}
 
-	for res in current_app.db.session.query(JackDawADGroup).filter_by(ad_id = graphs[graphid].domain_id).filter(JackDawADGroup.objectSid.like('%-512')).all():
+	for res in current_app.db.session.query(Group).filter_by(ad_id = graphs[graphid].domain_id).filter(Group.objectSid.like('%-512')).all():
 		da_sids[res.objectSid] = 0
 
-	for res in current_app.db.session.query(JackDawADUser.objectSid)\
+	for res in current_app.db.session.query(ADUser.objectSid)\
 		.filter_by(ad_id = graphs[graphid].domain_id)\
-		.filter(JackDawADUser.servicePrincipalName != None).all():
+		.filter(ADUser.servicePrincipalName != None).all():
 		
 		target_sids[res[0]] = 0
 
@@ -207,9 +207,9 @@ def query_path_kerberoastany(graphid, format = 'vis'):
 	target_sids = {}
 	path_to_da = []
 
-	for res in current_app.db.session.query(JackDawADUser.objectSid)\
+	for res in current_app.db.session.query(ADUser.objectSid)\
 		.filter_by(ad_id = graphs[graphid].domain_id)\
-		.filter(JackDawADUser.servicePrincipalName != None).all():
+		.filter(ADUser.servicePrincipalName != None).all():
 		
 		target_sids[res[0]] = 0
 
@@ -230,12 +230,12 @@ def query_path_asreproast(graphid, format = 'vis'):
 	target_sids = {}
 	da_sids = {}
 
-	for res in current_app.db.session.query(JackDawADGroup).filter_by(ad_id = graphs[graphid].domain_id).filter(JackDawADGroup.objectSid.like('%-512')).all():
+	for res in current_app.db.session.query(Group).filter_by(ad_id = graphs[graphid].domain_id).filter(Group.objectSid.like('%-512')).all():
 		da_sids[res.objectSid] = 0
 
-	for res in current_app.db.session.query(JackDawADUser.objectSid)\
+	for res in current_app.db.session.query(ADUser.objectSid)\
 		.filter_by(ad_id = graphs[graphid].domain_id)\
-		.filter(JackDawADUser.UAC_DONT_REQUIRE_PREAUTH == True).all():
+		.filter(ADUser.UAC_DONT_REQUIRE_PREAUTH == True).all():
 		
 		target_sids[res[0]] = 0
 
@@ -253,11 +253,11 @@ def query_path_tohighvalue(graphid, format = 'vis'):
 	target_sids = {}
 	da_sids = {}
 
-	for res in current_app.db.session.query(JackDawEdgeLookup.oid)\
+	for res in current_app.db.session.query(EdgeLookup.oid)\
 		.filter_by(ad_id = graphs[graphid].domain_id)\
-		.filter(JackDawEdgeLookup.oid == JackDawADObjProps.oid)\
-		.filter(JackDawADObjProps.ad_id == graphs[graphid].domain_id)\
-		.filter(JackDawADObjProps.prop == 'HVT')\
+		.filter(EdgeLookup.oid == ADObjProps.oid)\
+		.filter(ADObjProps.ad_id == graphs[graphid].domain_id)\
+		.filter(ADObjProps.prop == 'HVT')\
 		.all():
 		
 		target_sids[res[0]] = 0
@@ -276,14 +276,14 @@ def query_path_ownedda(graphid, format = 'vis'):
 	target_sids = {}
 	da_sids = {}
 
-	for res in current_app.db.session.query(JackDawADGroup).filter_by(ad_id = graphs[graphid].domain_id).filter(JackDawADGroup.objectSid.like('%-512')).all():
+	for res in current_app.db.session.query(Group).filter_by(ad_id = graphs[graphid].domain_id).filter(Group.objectSid.like('%-512')).all():
 		da_sids[res.objectSid] = 0
 
-	for res in current_app.db.session.query(JackDawEdgeLookup.oid)\
+	for res in current_app.db.session.query(EdgeLookup.oid)\
 		.filter_by(ad_id = graphs[graphid].domain_id)\
-		.filter(JackDawEdgeLookup.oid == JackDawADObjProps.oid)\
-		.filter(JackDawADObjProps.ad_id == graphs[graphid].domain_id)\
-		.filter(JackDawADObjProps.prop == 'OWNED')\
+		.filter(EdgeLookup.oid == ADObjProps.oid)\
+		.filter(ADObjProps.ad_id == graphs[graphid].domain_id)\
+		.filter(ADObjProps.prop == 'OWNED')\
 		.all():
 		
 		target_sids[res[0]] = 0
@@ -301,11 +301,11 @@ def query_path_fromowned(graphid, format = 'vis'):
 
 	target_sids = {}
 
-	for res in current_app.db.session.query(JackDawEdgeLookup.oid)\
+	for res in current_app.db.session.query(EdgeLookup.oid)\
 		.filter_by(ad_id = graphs[graphid].domain_id)\
-		.filter(JackDawEdgeLookup.oid == JackDawADObjProps.oid)\
-		.filter(JackDawADObjProps.ad_id == graphs[graphid].domain_id)\
-		.filter(JackDawADObjProps.prop == 'OWNED')\
+		.filter(EdgeLookup.oid == ADObjProps.oid)\
+		.filter(ADObjProps.ad_id == graphs[graphid].domain_id)\
+		.filter(ADObjProps.prop == 'OWNED')\
 		.all():
 		
 		target_sids[res[0]] = 0

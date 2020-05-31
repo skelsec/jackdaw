@@ -1,18 +1,14 @@
-from . import Basemodel
+
 import datetime
-from sqlalchemy.orm import relationship
-from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Boolean
 import json
 
-class JackDawTokenGroup(Basemodel):
-	__tablename__ = 'tokengroup'
+class JackDawTokenGroup:
 	
-	id = Column(Integer, primary_key=True)
-	ad_id = Column(Integer, ForeignKey('ads.id'))
-	#ad = relationship("JackDawADInfo", back_populates="group_lookups", lazy = True)
-	sid = Column(String)
-	member_sid = Column(String)
-	object_type = Column(String)
+	def __init__(self):
+		self.ad_id = None
+		self.sid = None
+		self.member_sid = None
+		self.object_type = None
 	
 
 	@staticmethod

@@ -5,24 +5,22 @@ import asyncio
 import datetime
 import json
 
-from jackdaw.dbmodel.graphinfo import JackDawGraphInfo
-from jackdaw.dbmodel.spnservice import JackDawSPNService
-from jackdaw.dbmodel.addacl import JackDawADDACL
-from jackdaw.dbmodel.adgroup import JackDawADGroup
-from jackdaw.dbmodel.adinfo import JackDawADInfo
-from jackdaw.dbmodel.aduser import JackDawADUser
-from jackdaw.dbmodel.adcomp import JackDawADMachine
-from jackdaw.dbmodel.adou import JackDawADOU
-from jackdaw.dbmodel.adinfo import JackDawADInfo
-from jackdaw.dbmodel.tokengroup import JackDawTokenGroup
-from jackdaw.dbmodel.adgpo import JackDawADGPO
-from jackdaw.dbmodel.constrained import JackDawMachineConstrainedDelegation, JackDawUserConstrainedDelegation
-from jackdaw.dbmodel.adgplink import JackDawADGplink
-from jackdaw.dbmodel.adtrust import JackDawADTrust
+from jackdaw.dbmodel.graphinfo import GraphInfo
+from jackdaw.dbmodel.spnservice import SPNService
+from jackdaw.dbmodel.adgroup import Group
+from jackdaw.dbmodel.adinfo import ADInfo
+from jackdaw.dbmodel.aduser import ADUser
+from jackdaw.dbmodel.adcomp import Machine
+from jackdaw.dbmodel.adou import ADOU
+from jackdaw.dbmodel.adinfo import ADInfo
+from jackdaw.dbmodel.adgpo import GPO
+from jackdaw.dbmodel.constrained import MachineConstrainedDelegation, JackDawUserConstrainedDelegation
+from jackdaw.dbmodel.adgplink import Gplink
+from jackdaw.dbmodel.adtrust import ADTrust
 from jackdaw.dbmodel.adspn import JackDawSPN
 from jackdaw.dbmodel import get_session
-from jackdaw.dbmodel.edge import JackDawEdge
-from jackdaw.dbmodel.edgelookup import JackDawEdgeLookup
+from jackdaw.dbmodel.edge import Edge
+from jackdaw.dbmodel.edgelookup import EdgeLookup
 
 
 from jackdaw import logger
@@ -141,7 +139,7 @@ class BaseCollector:
 	async def stop_agents(self):
 		logger.debug('mgr stop')
 
-		info = self.session.query(JackDawADInfo).get(self.ad_id)
+		info = self.session.query(ADInfo).get(self.ad_id)
 		info.ldap_enumeration_state = 'FINISHED'
 		self.session.commit()
 		
@@ -180,7 +178,7 @@ class BaseCollector:
 		self.session.refresh(info)
 		self.ad_id = info.id
 		
-		graph = JackDawGraphInfo()
+		graph = GraphInfo()
 		graph.ad_id = self.ad_id
 		self.session.add(graph)
 		self.session.commit()
@@ -188,7 +186,7 @@ class BaseCollector:
 
 		self.graph_id = graph.id
 
-		t = JackDawEdgeLookup(self.ad_id, info.objectSid, 'domain')
+		t = EdgeLookup(self.ad_id, info.objectSid, 'domain')
 		self.session.add(t)
 
 		data = {
@@ -209,7 +207,7 @@ class BaseCollector:
 	async def store_trust(self, trust):
 		trust.ad_id = self.ad_id
 		self.session.add(trust)
-		t = JackDawEdgeLookup(self.ad_id, trust.securityIdentifier, 'trust')
+		t = EdgeLookup(self.ad_id, trust.securityIdentifier, 'trust')
 		self.session.add(t)
 		self.session.flush()
 
@@ -224,7 +222,7 @@ class BaseCollector:
 		spns = user_and_spn['spns']
 		user.ad_id = self.ad_id
 		self.session.add(user)
-		t = JackDawEdgeLookup(self.ad_id, user.objectSid, 'user')
+		t = EdgeLookup(self.ad_id, user.objectSid, 'user')
 		self.session.add(t)
 		for spn in spns:
 			spn.ad_id = self.ad_id
@@ -253,7 +251,7 @@ class BaseCollector:
 		machine = machine_and_del['machine']
 		delegations = machine_and_del['delegations']
 		machine.ad_id = self.ad_id
-		t = JackDawEdgeLookup(self.ad_id, machine.objectSid, 'machine')
+		t = EdgeLookup(self.ad_id, machine.objectSid, 'machine')
 		self.session.add(t)
 		self.session.add(machine)
 		self.session.commit()
@@ -283,7 +281,7 @@ class BaseCollector:
 
 	async def store_group(self, group):
 		group.ad_id = self.ad_id
-		t = JackDawEdgeLookup(self.ad_id, group.objectSid, 'group')
+		t = EdgeLookup(self.ad_id, group.objectSid, 'group')
 		self.session.add(t)
 		self.session.add(group)
 		self.session.flush()
@@ -309,7 +307,7 @@ class BaseCollector:
 		self.session.add(ou)
 		self.session.commit()
 		self.session.refresh(ou)
-		t = JackDawEdgeLookup(self.ad_id, ou.objectGUID, 'ou')
+		t = EdgeLookup(self.ad_id, ou.objectGUID, 'ou')
 		self.session.add(t)
 
 		if ou.gPLink is not None and ou.gPLink != 'None':
@@ -323,7 +321,7 @@ class BaseCollector:
 				gp = re.search(r'{(.*?)}', gp).group(1)
 				gp = '{' + gp + '}'
 
-				link = JackDawADGplink()
+				link = Gplink()
 				link.ad_id = self.ad_id
 				link.ou_guid = ou.objectGUID
 				link.gpo_dn = gp
@@ -359,7 +357,7 @@ class BaseCollector:
 		gpo.ad_id = self.ad_id
 		self.session.add(gpo)
 		self.session.flush()
-		t = JackDawEdgeLookup(self.ad_id, gpo.objectGUID, 'gpo')
+		t = EdgeLookup(self.ad_id, gpo.objectGUID, 'gpo')
 		self.session.add(t)
 
 		data = {

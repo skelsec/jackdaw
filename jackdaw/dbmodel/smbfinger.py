@@ -1,8 +1,9 @@
 from . import Basemodel
 import datetime
 from sqlalchemy import Column, Integer, String, DateTime, Boolean
+from jackdaw.dbmodel.utils.serializer import Serializer
 
-class SMBFinger(Basemodel):
+class SMBFinger(Basemodel, Serializer):
 	__tablename__ = 'smbfinger'
 	
 	id = Column(Integer, primary_key=True)

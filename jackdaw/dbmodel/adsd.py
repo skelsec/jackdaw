@@ -4,13 +4,13 @@ import datetime
 from sqlalchemy.orm import relationship
 from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Boolean
 import json
+from jackdaw.dbmodel.utils.serializer import Serializer
 
-class JackDawSD(Basemodel):
-	__tablename__ = 'adsd'
+class JackDawSD(Basemodel, Serializer):
+	__tablename__ = 'adsds'
 	
 	id = Column(Integer, primary_key=True)
-	ad_id = Column(Integer, ForeignKey('ads.id'))
-	ad = relationship("JackDawADInfo", back_populates="sds", lazy = True)
+	ad_id = Column(Integer, ForeignKey('adinfo.id'))
 	
 	guid = Column(String, index=True)
 	sid = Column(String, index=True)

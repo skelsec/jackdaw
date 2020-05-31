@@ -2,12 +2,13 @@ from . import Basemodel, lf
 import datetime
 from sqlalchemy.orm import relationship
 from sqlalchemy import Column, Integer, String, ForeignKey
+from jackdaw.dbmodel.utils.serializer import Serializer
 
-class JackDawMachineConstrainedDelegation(Basemodel):
-	__tablename__ = 'constrainedmachine'
+class MachineConstrainedDelegation(Basemodel, Serializer):
+	__tablename__ = 'adconstrainedmachine'
 
 	id = Column(Integer, primary_key=True)
-	ad_id = Column(Integer, ForeignKey('ads.id'))
+	ad_id = Column(Integer, ForeignKey('adinfo.id'))
 	machine_sid = Column(String, index=True)
 	target_service = Column(String, index=True)
 	target_server = Column(String, index=True)
@@ -15,7 +16,7 @@ class JackDawMachineConstrainedDelegation(Basemodel):
 
 	@staticmethod
 	def from_spn_str(s, machine_sid = None):
-		d = JackDawMachineConstrainedDelegation()
+		d = MachineConstrainedDelegation()
 		d.machine_sid = machine_sid
 		if s.find('/') != -1:
 			d.target_service, d.target_server = s.split('/')
@@ -35,6 +36,6 @@ class JackDawUserConstrainedDelegation(Basemodel):
 
 	id = Column(Integer, primary_key=True)
 	user_id = Column(Integer, ForeignKey('users.id'))
-	#user = relationship("JackDawADUser", back_populates="allowedtodelegateto", lazy = True)
+	#user = relationship("ADUser", back_populates="allowedtodelegateto", lazy = True)
 	spn = Column(String, index=True)
 	targetaccount = Column(String, index=True)

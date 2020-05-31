@@ -17,20 +17,20 @@ import networkx as nx
 from networkx.readwrite import json_graph
 
 from jackdaw.dbmodel import get_session
-from jackdaw.dbmodel.spnservice import JackDawSPNService
+from jackdaw.dbmodel.spnservice import SPNService
 from jackdaw.dbmodel.addacl import JackDawADDACL
 from jackdaw.dbmodel.adsd import JackDawSD
-from jackdaw.dbmodel.adgroup import JackDawADGroup
-from jackdaw.dbmodel.adinfo import JackDawADInfo
-from jackdaw.dbmodel.aduser import JackDawADUser
-from jackdaw.dbmodel.adcomp import JackDawADMachine
-from jackdaw.dbmodel.adou import JackDawADOU
-from jackdaw.dbmodel.adinfo import JackDawADInfo
-from jackdaw.dbmodel.adtrust import JackDawADTrust
+from jackdaw.dbmodel.adgroup import Group
+from jackdaw.dbmodel.adinfo import ADInfo
+from jackdaw.dbmodel.aduser import ADUser
+from jackdaw.dbmodel.adcomp import Machine
+from jackdaw.dbmodel.adou import ADOU
+from jackdaw.dbmodel.adinfo import ADInfo
+from jackdaw.dbmodel.adtrust import ADTrust
 from jackdaw.dbmodel.tokengroup import JackDawTokenGroup
-from jackdaw.dbmodel.adgpo import JackDawADGPO
-from jackdaw.dbmodel.constrained import JackDawMachineConstrainedDelegation, JackDawUserConstrainedDelegation
-from jackdaw.dbmodel.adgplink import JackDawADGplink
+from jackdaw.dbmodel.adgpo import GPO
+from jackdaw.dbmodel.constrained import MachineConstrainedDelegation, JackDawUserConstrainedDelegation
+from jackdaw.dbmodel.adgplink import Gplink
 from jackdaw.dbmodel.adspn import JackDawSPN
 from jackdaw.dbmodel.netsession import NetSession
 from jackdaw.dbmodel.localgroup import LocalGroup
@@ -43,6 +43,7 @@ from jackdaw.utils.encoder import UniversalEncoder
 from winacl.dtyp.security_descriptor import SECURITY_DESCRIPTOR
 import base64
 from tqdm import tqdm
+from jackdaw.dbmodel import windowed_query
 
 from jackdaw.nest.graph.construct import GraphConstruct
 class GraphDecoder(json.JSONDecoder):
@@ -52,27 +53,6 @@ class GraphDecoder(json.JSONDecoder):
 		if 'construct' in dct:
 			dct['construct'] = GraphConstruct.from_dict(dct['construct'])
 		return dct
-
-def windowed_query(q, column, windowsize, is_single_entity = True):
-	""""Break a Query into chunks on a given column."""
-
-	#single_entity = q.is_single_entity
-	q = q.add_column(column).order_by(column)
-	last_id = None
-
-	while True:
-		subq = q
-		if last_id is not None:
-			subq = subq.filter(column > last_id)
-		chunk = subq.limit(windowsize).all()
-		if not chunk:
-			break
-		last_id = chunk[-1][-1]
-		for row in chunk:
-			if is_single_entity is True:
-				yield row[0]
-			else:
-				yield row[0:-1]
 
 
 def ace_applies(ace_guid, object_class):
@@ -144,7 +124,7 @@ def acl_calc_gen(session, adid, inqueue, procno):
 
 	for adsd in tqdm(windowed_query(q, JackDawSD.id, 1000), total=total):
 		inqueue.put(adsd)
-	#adinfo = session.query(JackDawADInfo).get(adid)
+	#adinfo = session.query(ADInfo).get(adid)
 	#for acl in adinfo.objectacls:
 	#	inqueue.put(acl)
 
@@ -329,19 +309,19 @@ class DomainGraph:
 			
 	def sid2cn(self, sid, throw = False):
 		session = self.get_session()
-		tsid = session.query(JackDawADGroup.cn).filter(JackDawADGroup.sid == sid).first()
+		tsid = session.query(Group.cn).filter(Group.sid == sid).first()
 		if tsid is not None:
 			return tsid[0]
 		
-		tsid = session.query(JackDawADUser.cn).filter(JackDawADUser.objectSid == sid).first()
+		tsid = session.query(ADUser.cn).filter(ADUser.objectSid == sid).first()
 		if tsid is not None:
 			return tsid[0]
 		
-		tsid = session.query(JackDawADMachine.cn).filter(JackDawADMachine.objectSid == sid).first()
+		tsid = session.query(Machine.cn).filter(Machine.objectSid == sid).first()
 		if tsid is not None:
 			return tsid[0]
 
-		tsid = session.query(JackDawADTrust.cn).filter(JackDawADTrust.securityIdentifier == sid).first()
+		tsid = session.query(ADTrust.cn).filter(ADTrust.securityIdentifier == sid).first()
 		if tsid is not None:
 			return tsid[0]
 
@@ -355,19 +335,19 @@ class DomainGraph:
 		sid = get_sid_for_name(cn, domain_sid)
 		
 		session = self.get_session()
-		tsid = session.query(JackDawADGroup.objectSid).filter(JackDawADMachine.cn == cn).first()
+		tsid = session.query(Group.objectSid).filter(Machine.cn == cn).first()
 		if tsid is not None:
 			return tsid[0]
 		
-		tsid = session.query(JackDawADUser.objectSid).filter(JackDawADUser.cn == cn).first()
+		tsid = session.query(ADUser.objectSid).filter(ADUser.cn == cn).first()
 		if tsid is not None:
 			return tsid[0]
 		
-		tsid = session.query(JackDawADMachine.objectSid).filter(JackDawADMachine.cn == cn).first()
+		tsid = session.query(Machine.objectSid).filter(Machine.cn == cn).first()
 		if tsid is not None:
 			return tsid[0]
 
-		tsid = session.query(JackDawADTrust.securityIdentifier).filter(JackDawADTrust.cn == cn).first()
+		tsid = session.query(ADTrust.securityIdentifier).filter(ADTrust.cn == cn).first()
 		if tsid is not None:
 			return tsid[0]
 		
@@ -695,7 +675,7 @@ class DomainGraph:
 		"""
 		#self.ad_id = ad_id
 		session = self.get_session()
-		adinfo = session.query(JackDawADInfo).get(construct.ad_id)
+		adinfo = session.query(ADInfo).get(construct.ad_id)
 		
 		self.domain_sid = str(adinfo.objectSid)
 
@@ -727,7 +707,7 @@ class DomainGraph:
 
 		logger.debug('Adding trusts edges')
 		cnt = 0
-		for trust in session.query(JackDawADTrust).filter_by(ad_id = adinfo.id):
+		for trust in session.query(ADTrust).filter_by(ad_id = adinfo.id):
 			if trust.trustDirection == 'INBOUND':
 				self.add_edge(adinfo.objectSid, trust.securityIdentifier, construct, label='trustedBy')
 				cnt += 1
@@ -742,20 +722,20 @@ class DomainGraph:
 
 		logger.debug('Adding sqladmin edges')
 		cnt = 0
-		for user_sid, machine_sid in session.query(JackDawSPN.owner_sid, JackDawADMachine.objectSid)\
+		for user_sid, machine_sid in session.query(JackDawSPN.owner_sid, Machine.objectSid)\
 				.filter(JackDawSPN.ad_id == adinfo.id)\
-				.filter(JackDawADMachine.ad_id == adinfo.id)\
-				.filter(JackDawADUser.ad_id == adinfo.id)\
-				.filter(JackDawSPN.owner_sid == JackDawADUser.objectSid)\
+				.filter(Machine.ad_id == adinfo.id)\
+				.filter(ADUser.ad_id == adinfo.id)\
+				.filter(JackDawSPN.owner_sid == ADUser.objectSid)\
 				.filter(JackDawSPN.service_class == 'MSSQLSvc')\
-				.filter(JackDawSPN.computername == JackDawADMachine.dNSHostName):
+				.filter(JackDawSPN.computername == Machine.dNSHostName):
 			self.add_edge(user_sid, machine_sid, construct, label='sqladmin')
 			cnt += 1
 		logger.debug('Added %s sqladmin edges' % cnt)
 
 		logger.debug('Adding hassession edges')
 		cnt = 0
-		for res in session.query(JackDawADUser.objectSid, JackDawADMachine.objectSid).filter(NetSession.username == JackDawADUser.sAMAccountName).filter(NetSession.source == JackDawADMachine.sAMAccountName).distinct(NetSession.username):
+		for res in session.query(ADUser.objectSid, Machine.objectSid).filter(NetSession.username == ADUser.sAMAccountName).filter(NetSession.source == Machine.sAMAccountName).distinct(NetSession.username):
 			self.add_edge(res[0], res[1], construct, label='hasSession')
 			self.add_edge(res[1], res[0], construct, label='hasSession')
 			cnt += 2
@@ -763,11 +743,11 @@ class DomainGraph:
 		
 		logger.debug('Adding localgroup edges')
 		cnt = 0
-		for res in session.query(JackDawADUser.objectSid, JackDawADMachine.objectSid, LocalGroup.groupname
-					).filter(JackDawADMachine.id == LocalGroup.machine_id
-					).filter(JackDawADMachine.ad_id == construct.ad_id
-					).filter(JackDawADUser.ad_id == construct.ad_id
-					).filter(JackDawADUser.objectSid == LocalGroup.sid
+		for res in session.query(ADUser.objectSid, Machine.objectSid, LocalGroup.groupname
+					).filter(Machine.id == LocalGroup.machine_id
+					).filter(Machine.ad_id == construct.ad_id
+					).filter(ADUser.ad_id == construct.ad_id
+					).filter(ADUser.objectSid == LocalGroup.sid
 					).all():
 			label = None
 			if res[2] == 'Remote Desktop Users':
@@ -830,9 +810,9 @@ class DomainGraph:
 		logger.info('Adding password sharing edges')
 		cnt = 0
 		def get_sid_by_nthash(ad_id, nt_hash):
-			return session.query(JackDawADUser.objectSid, Credential.username
+			return session.query(ADUser.objectSid, Credential.username
 				).filter_by(ad_id = ad_id
-				).filter(Credential.username == JackDawADUser.sAMAccountName
+				).filter(Credential.username == ADUser.sAMAccountName
 				).filter(Credential.nt_hash == nt_hash
 				)
 

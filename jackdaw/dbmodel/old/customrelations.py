@@ -11,8 +11,7 @@ class JackDawCustomRelations(Basemodel):
 	__tablename__ = 'customrelations'
 	
 	id = Column(Integer, primary_key=True)
-	ad_id = Column(Integer, ForeignKey('ads.id'))
-	ad = relationship("JackDawADInfo", back_populates="customrelations", lazy = True)
+	ad_id = Column(Integer, ForeignKey('adinfo.id'))
 	created_at = Column(DateTime, default=datetime.datetime.utcnow)
 	sid = Column(String, index=True)
 	target_sid = Column(String, index=True)

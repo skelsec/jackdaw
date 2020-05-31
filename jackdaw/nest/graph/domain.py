@@ -17,20 +17,18 @@ import networkx as nx
 from networkx.readwrite import json_graph
 
 from jackdaw.dbmodel import get_session
-from jackdaw.dbmodel.spnservice import JackDawSPNService
-from jackdaw.dbmodel.addacl import JackDawADDACL
+from jackdaw.dbmodel.spnservice import SPNService
 from jackdaw.dbmodel.adsd import JackDawSD
-from jackdaw.dbmodel.adgroup import JackDawADGroup
-from jackdaw.dbmodel.adinfo import JackDawADInfo
-from jackdaw.dbmodel.aduser import JackDawADUser
-from jackdaw.dbmodel.adcomp import JackDawADMachine
-from jackdaw.dbmodel.adou import JackDawADOU
-from jackdaw.dbmodel.adinfo import JackDawADInfo
-from jackdaw.dbmodel.adtrust import JackDawADTrust
-from jackdaw.dbmodel.tokengroup import JackDawTokenGroup
-from jackdaw.dbmodel.adgpo import JackDawADGPO
-from jackdaw.dbmodel.constrained import JackDawMachineConstrainedDelegation, JackDawUserConstrainedDelegation
-from jackdaw.dbmodel.adgplink import JackDawADGplink
+from jackdaw.dbmodel.adgroup import Group
+from jackdaw.dbmodel.adinfo import ADInfo
+from jackdaw.dbmodel.aduser import ADUser
+from jackdaw.dbmodel.adcomp import Machine
+from jackdaw.dbmodel.adou import ADOU
+from jackdaw.dbmodel.adinfo import ADInfo
+from jackdaw.dbmodel.adtrust import ADTrust
+from jackdaw.dbmodel.adgpo import GPO
+from jackdaw.dbmodel.constrained import MachineConstrainedDelegation, JackDawUserConstrainedDelegation
+from jackdaw.dbmodel.adgplink import Gplink
 from jackdaw.dbmodel.adspn import JackDawSPN
 from jackdaw.dbmodel.netsession import NetSession
 from jackdaw.dbmodel.localgroup import LocalGroup
@@ -43,6 +41,7 @@ from jackdaw.utils.encoder import UniversalEncoder
 from winacl.dtyp.security_descriptor import SECURITY_DESCRIPTOR
 import base64
 from tqdm import tqdm
+from jackdaw.dbmodel import windowed_query
 
 from jackdaw.nest.graph.construct import GraphConstruct
 class GraphDecoder(json.JSONDecoder):
@@ -52,27 +51,6 @@ class GraphDecoder(json.JSONDecoder):
 		if 'construct' in dct:
 			dct['construct'] = GraphConstruct.from_dict(dct['construct'])
 		return dct
-
-def windowed_query(q, column, windowsize, is_single_entity = True):
-	""""Break a Query into chunks on a given column."""
-
-	#single_entity = q.is_single_entity
-	q = q.add_column(column).order_by(column)
-	last_id = None
-
-	while True:
-		subq = q
-		if last_id is not None:
-			subq = subq.filter(column > last_id)
-		chunk = subq.limit(windowsize).all()
-		if not chunk:
-			break
-		last_id = chunk[-1][-1]
-		for row in chunk:
-			if is_single_entity is True:
-				yield row[0]
-			else:
-				yield row[0:-1]
 
 
 def ace_applies(ace_guid, object_class):
@@ -182,19 +160,19 @@ class DomainGraph:
 			
 	def sid2cn(self, sid, throw = False):
 		session = self.get_session()
-		tsid = session.query(JackDawADGroup.cn).filter(JackDawADGroup.sid == sid).first()
+		tsid = session.query(Group.cn).filter(Group.sid == sid).first()
 		if tsid is not None:
 			return tsid[0]
 		
-		tsid = session.query(JackDawADUser.cn).filter(JackDawADUser.objectSid == sid).first()
+		tsid = session.query(ADUser.cn).filter(ADUser.objectSid == sid).first()
 		if tsid is not None:
 			return tsid[0]
 		
-		tsid = session.query(JackDawADMachine.cn).filter(JackDawADMachine.objectSid == sid).first()
+		tsid = session.query(Machine.cn).filter(Machine.objectSid == sid).first()
 		if tsid is not None:
 			return tsid[0]
 
-		tsid = session.query(JackDawADTrust.cn).filter(JackDawADTrust.securityIdentifier == sid).first()
+		tsid = session.query(ADTrust.cn).filter(ADTrust.securityIdentifier == sid).first()
 		if tsid is not None:
 			return tsid[0]
 
@@ -208,19 +186,19 @@ class DomainGraph:
 		sid = get_sid_for_name(cn, domain_sid)
 		
 		session = self.get_session()
-		tsid = session.query(JackDawADGroup.objectSid).filter(JackDawADMachine.cn == cn).first()
+		tsid = session.query(Group.objectSid).filter(Machine.cn == cn).first()
 		if tsid is not None:
 			return tsid[0]
 		
-		tsid = session.query(JackDawADUser.objectSid).filter(JackDawADUser.cn == cn).first()
+		tsid = session.query(ADUser.objectSid).filter(ADUser.cn == cn).first()
 		if tsid is not None:
 			return tsid[0]
 		
-		tsid = session.query(JackDawADMachine.objectSid).filter(JackDawADMachine.cn == cn).first()
+		tsid = session.query(Machine.objectSid).filter(Machine.cn == cn).first()
 		if tsid is not None:
 			return tsid[0]
 
-		tsid = session.query(JackDawADTrust.securityIdentifier).filter(JackDawADTrust.cn == cn).first()
+		tsid = session.query(ADTrust.securityIdentifier).filter(ADTrust.cn == cn).first()
 		if tsid is not None:
 			return tsid[0]
 		
@@ -393,7 +371,7 @@ class DomainGraph:
 		"""
 		#self.ad_id = ad_id
 		session = self.get_session()
-		adinfo = session.query(JackDawADInfo).get(construct.ad_id)
+		adinfo = session.query(ADInfo).get(construct.ad_id)
 		
 		self.domain_sid = str(adinfo.objectSid)
 

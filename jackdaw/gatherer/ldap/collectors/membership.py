@@ -8,18 +8,18 @@ import asyncio
 from jackdaw.gatherer.progress import *
 from jackdaw.gatherer.ldap.agent.common import *
 from jackdaw.gatherer.ldap.agent.agent import LDAPGathererAgent
-from jackdaw.dbmodel.graphinfo import JackDawGraphInfo
-from jackdaw.dbmodel.adgroup import JackDawADGroup
-from jackdaw.dbmodel.adinfo import JackDawADInfo
-from jackdaw.dbmodel.aduser import JackDawADUser
-from jackdaw.dbmodel.adcomp import JackDawADMachine
-from jackdaw.dbmodel.adou import JackDawADOU
-from jackdaw.dbmodel.adgpo import JackDawADGPO
-from jackdaw.dbmodel.adtrust import JackDawADTrust
-from jackdaw.dbmodel.tokengroup import JackDawTokenGroup
+from jackdaw.dbmodel.graphinfo import GraphInfo
+from jackdaw.dbmodel.adgroup import Group
+from jackdaw.dbmodel.adinfo import ADInfo
+from jackdaw.dbmodel.aduser import ADUser
+from jackdaw.dbmodel.adcomp import Machine
+from jackdaw.dbmodel.adou import ADOU
+from jackdaw.dbmodel.adgpo import GPO
+from jackdaw.dbmodel.adtrust import ADTrust
+from jackdaw.dbmodel.utils.tokengroup import JackDawTokenGroup
 from jackdaw.dbmodel import get_session
-from jackdaw.dbmodel.edge import JackDawEdge
-from jackdaw.dbmodel.edgelookup import JackDawEdgeLookup
+from jackdaw.dbmodel.edge import Edge
+from jackdaw.dbmodel.edgelookup import EdgeLookup
 from jackdaw.dbmodel import windowed_query
 from jackdaw import logger
 
@@ -59,9 +59,9 @@ class MembershipCollector:
 		if sid in self.lookup:
 			return self.lookup[sid]
 
-		src_id = self.session.query(JackDawEdgeLookup.id).filter_by(oid = sid).filter(JackDawEdgeLookup.ad_id == ad_id).first()
+		src_id = self.session.query(EdgeLookup.id).filter_by(oid = sid).filter(EdgeLookup.ad_id == ad_id).first()
 		if src_id is None:
-			t = JackDawEdgeLookup(ad_id, sid, object_type)
+			t = EdgeLookup(ad_id, sid, object_type)
 			self.session.add(t)
 			self.session.commit()
 			self.session.refresh(t)
@@ -86,19 +86,19 @@ class MembershipCollector:
 
 	async def generate_member_targets(self):
 		try:
-			subq = self.session.query(JackDawEdgeLookup.oid).filter_by(ad_id = self.ad_id).filter(JackDawEdgeLookup.id == JackDawEdge.src).filter(JackDawEdge.label == 'member').filter(JackDawEdge.ad_id == self.ad_id)
-			q = self.session.query(JackDawADUser.dn, JackDawADUser.objectSid, JackDawADUser.objectGUID)\
+			subq = self.session.query(EdgeLookup.oid).filter_by(ad_id = self.ad_id).filter(EdgeLookup.id == Edge.src).filter(Edge.label == 'member').filter(Edge.ad_id == self.ad_id)
+			q = self.session.query(ADUser.dn, ADUser.objectSid, ADUser.objectGUID)\
 				.filter_by(ad_id = self.ad_id)\
-				.filter(~JackDawADUser.objectSid.in_(subq))
-			await self.resumption_target_gen_member(q, JackDawADUser.id, 'user', LDAPAgentCommand.MEMBERSHIPS)
-			q = self.session.query(JackDawADMachine.dn, JackDawADMachine.objectSid, JackDawADMachine.objectGUID)\
+				.filter(~ADUser.objectSid.in_(subq))
+			await self.resumption_target_gen_member(q, ADUser.id, 'user', LDAPAgentCommand.MEMBERSHIPS)
+			q = self.session.query(Machine.dn, Machine.objectSid, Machine.objectGUID)\
 				.filter_by(ad_id = self.ad_id)\
-				.filter(~JackDawADMachine.objectSid.in_(subq))
-			await self.resumption_target_gen_member(q, JackDawADMachine.id, 'machine', LDAPAgentCommand.MEMBERSHIPS)
-			q = self.session.query(JackDawADGroup.dn, JackDawADGroup.objectSid, JackDawADGroup.objectGUID)\
+				.filter(~Machine.objectSid.in_(subq))
+			await self.resumption_target_gen_member(q, Machine.id, 'machine', LDAPAgentCommand.MEMBERSHIPS)
+			q = self.session.query(Group.dn, Group.objectSid, Group.objectGUID)\
 				.filter_by(ad_id = self.ad_id)\
-				.filter(~JackDawADGroup.objectSid.in_(subq))
-			await self.resumption_target_gen_member(q, JackDawADGroup.id, 'group', LDAPAgentCommand.MEMBERSHIPS)
+				.filter(~Group.objectSid.in_(subq))
+			await self.resumption_target_gen_member(q, Group.id, 'group', LDAPAgentCommand.MEMBERSHIPS)
 			
 		except Exception as e:
 			logger.exception('generate_member_targets')
@@ -148,7 +148,7 @@ class MembershipCollector:
 					src_id = self.sid_to_id_lookup(sd.sid, sd.ad_id, sd.object_type)
 					dst_id = self.sid_to_id_lookup(sd.member_sid, sd.ad_id, sd.object_type)
 
-					edge = JackDawEdge(sd.ad_id, self.graph_id, src_id, dst_id, 'member')
+					edge = Edge(sd.ad_id, self.graph_id, src_id, dst_id, 'member')
 
 					self.session.add(edge)
 					await asyncio.sleep(0)

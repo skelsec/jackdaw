@@ -2,13 +2,13 @@ from . import Basemodel, lf
 import datetime
 from sqlalchemy.orm import relationship
 from sqlalchemy import Column, Integer, String, DateTime, ForeignKey
+from jackdaw.dbmodel.utils.serializer import Serializer
 
-class JackDawADGroup(Basemodel):
-	__tablename__ = 'groups'
+class Group(Basemodel, Serializer):
+	__tablename__ = 'adgroups'
 	
 	id = Column(Integer, primary_key=True)
-	ad_id = Column(Integer, ForeignKey('ads.id'))
-	ad = relationship("JackDawADInfo", back_populates="groups", lazy = True)
+	ad_id = Column(Integer, ForeignKey('adinfo.id'))
 	cn = Column(String, index=True)
 	dn = Column(String, index=True)
 	
@@ -43,7 +43,7 @@ class JackDawADGroup(Basemodel):
 
 	@staticmethod
 	def from_dict(d):
-		group = JackDawADGroup()
+		group = Group()
 		group.cn = d.get('cn')
 		group.dn = d.get('distinguishedName')
 		group.objectGUID = d.get('objectGUID')

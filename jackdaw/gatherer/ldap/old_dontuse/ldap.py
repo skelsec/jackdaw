@@ -1,13 +1,13 @@
 
 import os
-from jackdaw.dbmodel.spnservice import JackDawSPNService
+from jackdaw.dbmodel.spnservice import SPNService
 from jackdaw.dbmodel.addacl import JackDawADDACL
-from jackdaw.dbmodel.adgroup import JackDawADGroup
-from jackdaw.dbmodel.adinfo import JackDawADInfo
-from jackdaw.dbmodel.aduser import JackDawADUser
-from jackdaw.dbmodel.adcomp import JackDawADMachine
-from jackdaw.dbmodel.adou import JackDawADOU
-from jackdaw.dbmodel.adinfo import JackDawADInfo
+from jackdaw.dbmodel.adgroup import Group
+from jackdaw.dbmodel.adinfo import ADInfo
+from jackdaw.dbmodel.aduser import ADUser
+from jackdaw.dbmodel.adcomp import Machine
+from jackdaw.dbmodel.adou import ADOU
+from jackdaw.dbmodel.adinfo import ADInfo
 from jackdaw.dbmodel.tokengroup import JackDawTokenGroup
 from jackdaw.dbmodel import *
 from jackdaw.wintypes.lookup_tables import *
@@ -35,7 +35,7 @@ class LDAPEnumerator:
 				else:
 					computername = t
 					
-				s = JackDawSPNService()
+				s = SPNService()
 				s.computername = computername
 				s.service = service
 				s.port = port
@@ -43,28 +43,28 @@ class LDAPEnumerator:
 			
 	def get_domain_info(self):
 		info = self.ldap.get_ad_info()
-		return JackDawADInfo.from_msldap(info)
+		return ADInfo.from_msldap(info)
 		
 	def get_all_machines(self):
 		for machine in self.ldap.get_all_machine_objects():
-			yield (machine, JackDawADMachine.from_adcomp(machine))
+			yield (machine, Machine.from_adcomp(machine))
 			
 	def get_all_users(self):
 		for user in self.ldap.get_all_user_objects():
 			#TODO: fix this ugly stuff here...
 			if user.sAMAccountName[-1] == "$":
 				continue
-			yield (user, JackDawADUser.from_aduser(user))
+			yield (user, ADUser.from_aduser(user))
 			
 			
 	def get_all_ous(self):
 		for ou in self.ldap.get_all_ous():
-			yield (ou, JackDawADOU.from_adou(ou))
+			yield (ou, ADOU.from_adou(ou))
 
 		
 	def get_all_groups(self):
 		for group in self.ldap.get_all_groups():
-			yield JackDawADGroup.from_dict(group.to_dict())
+			yield Group.from_dict(group.to_dict())
 
 		
 	def get_user_effective_memberships(self, user):
@@ -73,17 +73,17 @@ class LDAPEnumerator:
 			s.cn = str(user.cn)
 			s.dn = str(user.dn)
 			
-			if isinstance(user, JackDawADUser):
+			if isinstance(user, ADUser):
 				s.guid = str(user.objectGUID)
 				s.sid = str(user.objectSid)
 				s.member_sid = sid
 				s.is_user = True
-			elif isinstance(user, JackDawADMachine):
+			elif isinstance(user, Machine):
 				s.guid = str(user.objectGUID)
 				s.sid = str(user.objectSid)
 				s.member_sid = sid
 				s.is_machine = True
-			elif isinstance(user, JackDawADGroup):
+			elif isinstance(user, Group):
 				s.guid = str(user.guid)
 				s.sid = str(user.sid)
 				s.member_sid = sid
@@ -92,13 +92,13 @@ class LDAPEnumerator:
 			yield s
 			
 	def ace_to_dbo(self, obj, sd):
-		if isinstance(obj, JackDawADUser):
+		if isinstance(obj, ADUser):
 			obj_type = 'user'
-		elif isinstance(obj, JackDawADMachine):
+		elif isinstance(obj, Machine):
 			obj_type = 'machine'
-		elif isinstance(obj, JackDawADGroup):
+		elif isinstance(obj, Group):
 			obj_type = 'group'
-		elif isinstance(obj, JackDawADOU):
+		elif isinstance(obj, ADOU):
 			obj_type = 'ou'
 		else:
 			raise Exception('Unknown object type %s' % type(obj))
@@ -207,7 +207,7 @@ class LDAPEnumerator:
 				info.group_lookups.append(membership)
 			
 			for spn in getattr(obj,'allowedtodelegateto',[]):
-				con = JackDawMachineConstrainedDelegation()
+				con = MachineConstrainedDelegation()
 				con.spn = spn
 				con.targetaccount = self.spn_to_account(spn)
 				machine.allowedtodelegateto.append(con)

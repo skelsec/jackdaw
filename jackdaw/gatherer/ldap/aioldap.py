@@ -17,24 +17,24 @@ from hashlib import sha1
 
 from sqlalchemy import func
 
-from jackdaw.dbmodel.graphinfo import JackDawGraphInfo
-from jackdaw.dbmodel.spnservice import JackDawSPNService
-from jackdaw.dbmodel.addacl import JackDawADDACL
-from jackdaw.dbmodel.adgroup import JackDawADGroup
-from jackdaw.dbmodel.adinfo import JackDawADInfo
-from jackdaw.dbmodel.aduser import JackDawADUser
-from jackdaw.dbmodel.adcomp import JackDawADMachine
-from jackdaw.dbmodel.adou import JackDawADOU
-from jackdaw.dbmodel.adinfo import JackDawADInfo
-from jackdaw.dbmodel.adgpo import JackDawADGPO
-from jackdaw.dbmodel.constrained import JackDawMachineConstrainedDelegation, JackDawUserConstrainedDelegation
-from jackdaw.dbmodel.adgplink import JackDawADGplink
+#from jackdaw.dbmodel.addacl import JackDawADDACL
+from jackdaw.dbmodel.graphinfo import GraphInfo
+from jackdaw.dbmodel.spnservice import SPNService
+from jackdaw.dbmodel.adgroup import Group
+from jackdaw.dbmodel.adinfo import ADInfo
+from jackdaw.dbmodel.aduser import ADUser
+from jackdaw.dbmodel.adcomp import Machine
+from jackdaw.dbmodel.adou import ADOU
+from jackdaw.dbmodel.adinfo import ADInfo
+from jackdaw.dbmodel.adgpo import GPO
+from jackdaw.dbmodel.constrained import MachineConstrainedDelegation, JackDawUserConstrainedDelegation
+from jackdaw.dbmodel.adgplink import Gplink
 from jackdaw.dbmodel.adsd import JackDawSD
-from jackdaw.dbmodel.adtrust import JackDawADTrust
+from jackdaw.dbmodel.adtrust import ADTrust
 from jackdaw.dbmodel.adspn import JackDawSPN
 from jackdaw.dbmodel import get_session
-from jackdaw.dbmodel.edge import JackDawEdge
-from jackdaw.dbmodel.edgelookup import JackDawEdgeLookup
+from jackdaw.dbmodel.edge import Edge
+from jackdaw.dbmodel.edgelookup import EdgeLookup
 from jackdaw.dbmodel import windowed_query
 from jackdaw.wintypes.lookup_tables import *
 from jackdaw import logger
@@ -98,7 +98,7 @@ class LDAPGatherer:
 				resumption = False,
 				progress_queue = self.progress_queue,
 				show_progress = self.show_progress,
-				graph_id = None,
+				graph_id = self.graph_id,
 				members_target_file_handle = self.members_file_handle,
 				store_to_db = self.store_to_db
 			)
@@ -199,13 +199,13 @@ class LDAPGatherer:
 			
 			else:
 				self.session.query(JackDawSD).delete()
-				self.session.query(JackDawEdge).delete()
+				self.session.query(Edge).delete()
 				self.session.commit()
 
 				self.members_file_handle = gzip.GzipFile(self.members_target_file_name,mode='wb')
 				self.sd_file_handle = gzip.GzipFile(self.sd_target_file_name,mode='wb')
 
-				res = self.session.query(JackDawADInfo).get(self.ad_id)
+				res = self.session.query(ADInfo).get(self.ad_id)
 				data = {
 					'dn' : res.distinguishedName,
 					'sid' : res.objectSid,
@@ -214,8 +214,8 @@ class LDAPGatherer:
 				}
 				self.sd_file_handle.write(json.dumps(data).encode() + b'\r\n')
 
-				q = self.session.query(JackDawADUser).filter_by(ad_id = self.ad_id)
-				for res in windowed_query(q, JackDawADUser.id, 100):
+				q = self.session.query(ADUser).filter_by(ad_id = self.ad_id)
+				for res in windowed_query(q, ADUser.id, 100):
 					data = {
 						'dn' : res.dn,
 						'sid' : res.objectSid,
@@ -225,8 +225,8 @@ class LDAPGatherer:
 					self.sd_file_handle.write(json.dumps(data).encode() + b'\r\n')
 					self.members_file_handle.write(json.dumps(data).encode() + b'\r\n')
 
-				q = self.session.query(JackDawADMachine).filter_by(ad_id = self.ad_id)
-				for res in windowed_query(q, JackDawADMachine.id, 100):
+				q = self.session.query(Machine).filter_by(ad_id = self.ad_id)
+				for res in windowed_query(q, Machine.id, 100):
 					data = {
 						'dn' : res.dn,
 						'sid' : res.objectSid,
@@ -236,8 +236,8 @@ class LDAPGatherer:
 					self.sd_file_handle.write(json.dumps(data).encode() + b'\r\n')
 					self.members_file_handle.write(json.dumps(data).encode() + b'\r\n')
 
-				q = self.session.query(JackDawADGroup).filter_by(ad_id = self.ad_id)
-				for res in windowed_query(q, JackDawADGroup.id, 100):
+				q = self.session.query(Group).filter_by(ad_id = self.ad_id)
+				for res in windowed_query(q, Group.id, 100):
 					data = {
 						'dn' : res.dn,
 						'sid' : res.objectSid,
@@ -247,8 +247,8 @@ class LDAPGatherer:
 					self.sd_file_handle.write(json.dumps(data).encode() + b'\r\n')
 					self.members_file_handle.write(json.dumps(data).encode() + b'\r\n')
 
-				q = self.session.query(JackDawADOU).filter_by(ad_id = self.ad_id)
-				for res in windowed_query(q, JackDawADOU.id, 100):
+				q = self.session.query(ADOU).filter_by(ad_id = self.ad_id)
+				for res in windowed_query(q, ADOU.id, 100):
 					data = {
 						'dn' : res.dn,
 						'sid' : None,
@@ -257,8 +257,8 @@ class LDAPGatherer:
 					}
 					self.sd_file_handle.write(json.dumps(data).encode() + b'\r\n')
 
-				q = self.session.query(JackDawADGPO).filter_by(ad_id = self.ad_id)
-				for res in windowed_query(q, JackDawADGPO.id, 100):
+				q = self.session.query(GPO).filter_by(ad_id = self.ad_id)
+				for res in windowed_query(q, GPO.id, 100):
 					data = {
 						'dn' : res.dn,
 						'sid' : None,

@@ -1,8 +1,8 @@
 
 from flask_sqlalchemy import SQLAlchemy
-from jackdaw.dbmodel.adinfo import JackDawADInfo
+from jackdaw.dbmodel.adinfo import ADInfo
 from flask import current_app
-from jackdaw.dbmodel.pagination import paginate
+from jackdaw.dbmodel.utils.pagination import paginate
 
 def list_domains(page, maxcnt):
 	db = current_app.db
@@ -11,11 +11,11 @@ def list_domains(page, maxcnt):
 		'page': {},
 	}
 	qry = db.session.query(
-		JackDawADInfo
+		ADInfo
 		).with_entities(
-			JackDawADInfo.id, 
-			JackDawADInfo.distinguishedName, 
-			JackDawADInfo.fetched_at
+			ADInfo.id, 
+			ADInfo.distinguishedName, 
+			ADInfo.fetched_at
 			)
 		
 	qry = paginate(qry, page, maxcnt)
@@ -44,5 +44,5 @@ def list_domains(page, maxcnt):
 
 def get(domainid):
 	db = current_app.db
-	adinfo = db.session.query(JackDawADInfo).get(domainid)
+	adinfo = db.session.query(ADInfo).get(domainid)
 	return adinfo.to_dict()

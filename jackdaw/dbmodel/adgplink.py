@@ -2,8 +2,9 @@ from . import Basemodel, lf, dt, bc
 import datetime
 from sqlalchemy.orm import relationship
 from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Boolean
+from jackdaw.dbmodel.utils.serializer import Serializer
 
-class JackDawADGplink(Basemodel):
+class Gplink(Basemodel, Serializer):
 	__tablename__ = 'adgplink'
 
 	id = Column(Integer, primary_key=True)	

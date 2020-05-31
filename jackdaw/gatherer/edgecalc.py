@@ -8,28 +8,25 @@ from gzip import GzipFile
 
 from jackdaw import logger
 from jackdaw.dbmodel import get_session, windowed_query
-from jackdaw.dbmodel.spnservice import JackDawSPNService
-from jackdaw.dbmodel.addacl import JackDawADDACL
+from jackdaw.dbmodel.spnservice import SPNService
 from jackdaw.dbmodel.adsd import JackDawSD
-from jackdaw.dbmodel.adgroup import JackDawADGroup
-from jackdaw.dbmodel.adinfo import JackDawADInfo
-from jackdaw.dbmodel.aduser import JackDawADUser
-from jackdaw.dbmodel.adcomp import JackDawADMachine
-from jackdaw.dbmodel.adou import JackDawADOU
-from jackdaw.dbmodel.adinfo import JackDawADInfo
-from jackdaw.dbmodel.adtrust import JackDawADTrust
-from jackdaw.dbmodel.tokengroup import JackDawTokenGroup
-from jackdaw.dbmodel.adgpo import JackDawADGPO
-from jackdaw.dbmodel.constrained import JackDawMachineConstrainedDelegation, JackDawUserConstrainedDelegation
-from jackdaw.dbmodel.adgplink import JackDawADGplink
+from jackdaw.dbmodel.adgroup import Group
+from jackdaw.dbmodel.adinfo import ADInfo
+from jackdaw.dbmodel.aduser import ADUser
+from jackdaw.dbmodel.adcomp import Machine
+from jackdaw.dbmodel.adou import ADOU
+from jackdaw.dbmodel.adinfo import ADInfo
+from jackdaw.dbmodel.adtrust import ADTrust
+from jackdaw.dbmodel.adgpo import GPO
+from jackdaw.dbmodel.constrained import MachineConstrainedDelegation, JackDawUserConstrainedDelegation
+from jackdaw.dbmodel.adgplink import Gplink
 from jackdaw.dbmodel.adspn import JackDawSPN
-from jackdaw.dbmodel.edge import JackDawEdge
-from jackdaw.dbmodel.edgelookup import JackDawEdgeLookup
+from jackdaw.dbmodel.edge import Edge
+from jackdaw.dbmodel.edgelookup import EdgeLookup
 from jackdaw.dbmodel.netsession import NetSession
 from jackdaw.dbmodel.localgroup import LocalGroup
 from jackdaw.dbmodel.credential import Credential
-from jackdaw.dbmodel.graphinfo import JackDawGraphInfo
-from jackdaw.dbmodel.tokengroup import JackDawTokenGroup
+from jackdaw.dbmodel.graphinfo import GraphInfo
 from jackdaw.gatherer.sdcalc import calc_sd_edges
 
 from sqlalchemy.orm.session import make_transient
@@ -77,10 +74,10 @@ class EdgeCalc:
 		if sid in self.boost_dict:
 			return self.boost_dict[sid]
 		orig = sid
-		sid = self.session.query(JackDawEdgeLookup.id).filter_by(oid = sid).filter(JackDawEdgeLookup.ad_id == self.ad_id).first()
+		sid = self.session.query(EdgeLookup.id).filter_by(oid = sid).filter(EdgeLookup.ad_id == self.ad_id).first()
 		if sid is None:
 			#this should not happen
-			t = JackDawEdgeLookup(self.ad_id, sid, 'unknown')
+			t = EdgeLookup(self.ad_id, sid, 'unknown')
 			self.session.add(t)
 			self.session.commit()
 			self.session.refresh(t)
@@ -95,7 +92,7 @@ class EdgeCalc:
 		src_id = self.get_id_for_sid(src_sid, with_boost = with_boost)		
 		dst_id = self.get_id_for_sid(dst_sid, with_boost = with_boost)
 
-		edge = JackDawEdge(self.ad_id, self.graph_id, src_id, dst_id, label)
+		edge = Edge(self.ad_id, self.graph_id, src_id, dst_id, label)
 		self.session.add(edge)
 		if self.total_edges % 100 == 0:
 			self.session.commit()
@@ -103,8 +100,8 @@ class EdgeCalc:
 	def trust_edges(self):
 		logger.debug('Adding trusts edges')
 		cnt = 0
-		adinfo = self.session.query(JackDawADInfo).get(self.ad_id)
-		for trust in self.session.query(JackDawADTrust).filter_by(ad_id = self.ad_id):
+		adinfo = self.session.query(ADInfo).get(self.ad_id)
+		for trust in self.session.query(ADTrust).filter_by(ad_id = self.ad_id):
 			if trust.trustDirection == 'INBOUND':
 				self.add_edge(adinfo.objectSid, trust.securityIdentifier,'trustedBy')
 				cnt += 1
@@ -122,13 +119,13 @@ class EdgeCalc:
 	def sqladmin_edges(self):
 		logger.debug('Adding sqladmin edges')
 		cnt = 0
-		for user_sid, machine_sid in self.session.query(JackDawSPN.owner_sid, JackDawADMachine.objectSid)\
+		for user_sid, machine_sid in self.session.query(JackDawSPN.owner_sid, Machine.objectSid)\
 				.filter(JackDawSPN.ad_id == self.ad_id)\
-				.filter(JackDawADMachine.ad_id == self.ad_id)\
-				.filter(JackDawADUser.ad_id == self.ad_id)\
-				.filter(JackDawSPN.owner_sid == JackDawADUser.objectSid)\
+				.filter(Machine.ad_id == self.ad_id)\
+				.filter(ADUser.ad_id == self.ad_id)\
+				.filter(JackDawSPN.owner_sid == ADUser.objectSid)\
 				.filter(JackDawSPN.service_class == 'MSSQLSvc')\
-				.filter(JackDawSPN.computername == JackDawADMachine.dNSHostName):
+				.filter(JackDawSPN.computername == Machine.dNSHostName):
 			self.add_edge(user_sid, machine_sid,'sqladmin')
 			cnt += 1
 		logger.debug('Added %s sqladmin edges' % cnt)
@@ -137,18 +134,18 @@ class EdgeCalc:
 		logger.debug('Adding hassession edges')
 		cnt = 0
 		#for user sessions
-		for res in self.session.query(JackDawADUser.objectSid, JackDawADMachine.objectSid)\
-			.filter(NetSession.username == JackDawADUser.sAMAccountName)\
-			.filter(func.lower(NetSession.source) == func.lower(JackDawADMachine.dNSHostName))\
+		for res in self.session.query(ADUser.objectSid, Machine.objectSid)\
+			.filter(NetSession.username == ADUser.sAMAccountName)\
+			.filter(func.lower(NetSession.source) == func.lower(Machine.dNSHostName))\
 			.distinct(NetSession.username).all():
 			
 			self.add_edge(res[0], res[1],'hasSession')
 			self.add_edge(res[1], res[0],'hasSession')
 			cnt += 2
 		#for machine account sessions
-		for res in self.session.query(JackDawADMachine.objectSid, JackDawADMachine.objectSid)\
-			.filter(NetSession.username == JackDawADMachine.sAMAccountName)\
-			.filter(func.lower(NetSession.source) == func.lower(JackDawADMachine.dNSHostName))\
+		for res in self.session.query(Machine.objectSid, Machine.objectSid)\
+			.filter(NetSession.username == Machine.sAMAccountName)\
+			.filter(func.lower(NetSession.source) == func.lower(Machine.dNSHostName))\
 			.distinct(NetSession.username).all():
 			
 			self.add_edge(res[0], res[1],'hasSession')
@@ -159,11 +156,11 @@ class EdgeCalc:
 	def localgroup_edges(self):
 		logger.debug('Adding localgroup edges')
 		cnt = 0
-		for res in self.session.query(JackDawADUser.objectSid, JackDawADMachine.objectSid, LocalGroup.groupname
-					).filter(JackDawADMachine.objectSid == LocalGroup.machine_sid
-					).filter(JackDawADMachine.ad_id == self.ad_id
-					).filter(JackDawADUser.ad_id == self.ad_id
-					).filter(JackDawADUser.objectSid == LocalGroup.sid
+		for res in self.session.query(ADUser.objectSid, Machine.objectSid, LocalGroup.groupname
+					).filter(Machine.objectSid == LocalGroup.machine_sid
+					).filter(Machine.ad_id == self.ad_id
+					).filter(ADUser.ad_id == self.ad_id
+					).filter(ADUser.objectSid == LocalGroup.sid
 					).all():
 			label = None
 			if res[2] == 'Remote Desktop Users':
@@ -187,9 +184,9 @@ class EdgeCalc:
 		logger.debug('Adding password sharing edges')
 		cnt = 0
 		def get_sid_by_nthash(ad_id, nt_hash):
-			return self.session.query(JackDawADUser.objectSid, Credential.username
+			return self.session.query(ADUser.objectSid, Credential.username
 				).filter_by(ad_id = ad_id
-				).filter(Credential.username == JackDawADUser.sAMAccountName
+				).filter(Credential.username == ADUser.sAMAccountName
 				).filter(Credential.nt_hash == nt_hash
 				)
 
@@ -220,10 +217,10 @@ class EdgeCalc:
 
 	def gplink_edges(self):
 		logger.debug('Adding gplink edges')
-		q = self.session.query(JackDawADOU.objectGUID, JackDawADGPO.objectGUID)\
+		q = self.session.query(ADOU.objectGUID, GPO.objectGUID)\
 				.filter_by(ad_id = self.ad_id)\
-				.filter(JackDawADOU.objectGUID == JackDawADGplink.ou_guid)\
-				.filter(JackDawADGplink.gpo_dn == JackDawADGPO.cn)
+				.filter(ADOU.objectGUID == Gplink.ou_guid)\
+				.filter(Gplink.gpo_dn == GPO.cn)
 		cnt = 0
 		for res in q.all():
 				self.add_edge(res[0], res[1], 'gplink')
@@ -335,7 +332,7 @@ class EdgeCalc:
 			for i, line in enumerate(testfile):
 				line = line.strip()
 				src_id, dst_id, label, _ = line.split(',')
-				edge = JackDawEdge(self.ad_id, self.graph_id, src_id, dst_id, label)
+				edge = Edge(self.ad_id, self.graph_id, src_id, dst_id, label)
 				self.session.add(edge)
 				if i % 100 == 0:
 					self.session.commit()
@@ -434,7 +431,7 @@ def main():
 
 	graph_id = args.graph_id
 	if graph_id == -1:
-		gi = JackDawGraphInfo()
+		gi = GraphInfo()
 		session.add(gi)
 		session.commit()
 		session.refresh(gi)

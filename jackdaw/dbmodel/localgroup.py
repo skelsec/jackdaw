@@ -2,8 +2,10 @@ from . import Basemodel
 import datetime
 from sqlalchemy import Column, Integer, String, DateTime
 
-class LocalGroup(Basemodel):
-	__tablename__ = 'localgroup'
+from jackdaw.dbmodel.utils.serializer import Serializer
+
+class LocalGroup(Basemodel, Serializer):
+	__tablename__ = 'netlocalgroup'
 	
 	id = Column(Integer, primary_key=True)
 	ad_id = Column(Integer, index=True)

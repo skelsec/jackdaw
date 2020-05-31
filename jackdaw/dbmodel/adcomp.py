@@ -1,16 +1,18 @@
-from . import Basemodel, lf, dt
-from jackdaw.dbmodel.utils import *
 import datetime
+
+from . import Basemodel, lf, dt
+
 from sqlalchemy.orm import relationship
 from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Boolean
+from jackdaw.dbmodel.utils.serializer import Serializer
+from jackdaw.dbmodel.utils.uacflags import calc_uac_flags
 
-class JackDawADMachine(Basemodel):
-	__tablename__ = 'machines'
+class Machine(Basemodel, Serializer):
+	__tablename__ = 'admachines'
 
 	# Now for the attributes
 	id = Column(Integer, primary_key=True)
-	ad_id = Column(Integer, ForeignKey('ads.id'))
-	ad = relationship("JackDawADInfo", back_populates="computers", lazy = True)
+	ad_id = Column(Integer, ForeignKey('adinfo.id'))
 	sn = Column(String)
 	cn = Column(String)
 	dn = Column(String)
@@ -130,7 +132,7 @@ class JackDawADMachine(Basemodel):
 	
 	@staticmethod
 	def from_adcomp(u):
-		machine = JackDawADMachine()
+		machine = Machine()
 		machine.sn = u.sn
 		machine.cn = u.cn
 		machine.dn = u.distinguishedName

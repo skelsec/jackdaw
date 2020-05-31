@@ -1,13 +1,13 @@
 
-from jackdaw.dbmodel.graphinfo import JackDawGraphInfo
+from jackdaw.dbmodel.graphinfo import GraphInfo
 from jackdaw.nest.graph.domain import DomainGraph
 from jackdaw.nest.graph.graphdata import GraphData
 from jackdaw.nest.graph.construct import GraphConstruct
 from jackdaw.nest.graph.domaindiff import DomainDiff
-from jackdaw.dbmodel.adgroup import JackDawADGroup
-from jackdaw.dbmodel.edgelookup import JackDawEdgeLookup
-from jackdaw.dbmodel.edge import JackDawEdge
-from jackdaw.dbmodel.aduser import JackDawADUser
+from jackdaw.dbmodel.adgroup import Group
+from jackdaw.dbmodel.edgelookup import EdgeLookup
+from jackdaw.dbmodel.edge import Edge
+from jackdaw.dbmodel.aduser import ADUser
 
 from jackdaw.nest.graph.backends.graphtools.domaingraph import JackDawDomainGraphGrapthTools
 from jackdaw.dbmodel import get_session
@@ -33,14 +33,14 @@ dst_sid = 'S-1-5-21-796845957-1547161642-839522115-512'
 da_sids = {}
 #target_sids = {}
 #
-#for res in session.query(JackDawADUser.objectSid)\
+#for res in session.query(ADUser.objectSid)\
 #		.filter_by(ad_id = ad_id)\
-#		.filter(JackDawADUser.servicePrincipalName != None).all():
+#		.filter(ADUser.servicePrincipalName != None).all():
 #		
 #		target_sids[res[0]] = 0
 #
 
-for res in session.query(JackDawADGroup).filter_by(ad_id = ad_id).filter(JackDawADGroup.objectSid.like('%-512')).all():
+for res in session.query(Group).filter_by(ad_id = ad_id).filter(Group.objectSid.like('%-512')).all():
 		da_sids[res.objectSid] = 0
 	
 if len(da_sids) == 0:

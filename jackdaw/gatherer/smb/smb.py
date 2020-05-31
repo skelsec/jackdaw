@@ -20,8 +20,8 @@ from jackdaw.dbmodel.netshare import NetShare
 from jackdaw.dbmodel.netsession import NetSession
 from jackdaw.dbmodel.localgroup import LocalGroup
 from jackdaw.dbmodel.smbfinger import SMBFinger
-from jackdaw.dbmodel.adinfo import JackDawADInfo
-from jackdaw.dbmodel.adcomp import JackDawADMachine
+from jackdaw.dbmodel.adinfo import ADInfo
+from jackdaw.dbmodel.adcomp import Machine
 from jackdaw.dbmodel.neterror import NetError
 from jackdaw.dbmodel.rdnslookup import RDNSLookup
 
@@ -101,7 +101,7 @@ class SMBGatherer:
 			self.gatherer_task.cancel()
 			
 	async def generate_targets(self):
-		for target_id, dns in self.session.query(JackDawADMachine).filter_by(ad_id = self.ad_id).with_entities(JackDawADMachine.objectSid, JackDawADMachine.dNSHostName):
+		for target_id, dns in self.session.query(Machine).filter_by(ad_id = self.ad_id).with_entities(Machine.objectSid, Machine.dNSHostName):
 			await self.in_q.put((target_id, dns))
 
 		#signaling the ed of target generation
@@ -116,12 +116,12 @@ class SMBGatherer:
 		
 		if self.rdns_resolver is not None:
 			self.rdns_task = asyncio.create_task(rdns_worker(self.rdns_resolver, self.rdns_in_q, self.out_q))
-		info = self.session.query(JackDawADInfo).get(self.ad_id)
+		info = self.session.query(ADInfo).get(self.ad_id)
 		info.smb_enumeration_state = 'STARTED'
 		self.domain_name = str(info.distinguishedName).replace(',','.').replace('DC=','')
 		self.session.commit()
 		
-		self.total_targets = self.session.query(func.count(JackDawADMachine.id)).filter_by(ad_id = self.ad_id).scalar()
+		self.total_targets = self.session.query(func.count(Machine.id)).filter_by(ad_id = self.ad_id).scalar()
 		
 		
 		if self.show_progress is True:
@@ -220,7 +220,7 @@ class SMBGatherer:
 
 						await self.progress_queue.put(msg)
 
-		info = self.session.query(JackDawADInfo).get(self.ad_id)
+		info = self.session.query(ADInfo).get(self.ad_id)
 		info.smb_enumeration_state = 'FINISHED'
 		self.session.commit()
 

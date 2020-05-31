@@ -16,8 +16,8 @@ from sqlalchemy.orm import load_only
 
 from jackdaw.dbmodel import get_session, windowed_query
 from jackdaw.dbmodel.adsd import JackDawSD
-from jackdaw.dbmodel.adinfo import JackDawADInfo
-from jackdaw.dbmodel.addacl import JackDawADDACL
+from jackdaw.dbmodel.adinfo import ADInfo
+from jackdaw.dbmodel.utils.addacl import JackDawADDACL
 from winacl.dtyp.ace import ADS_ACCESS_MASK, AceFlags
 from jackdaw import logger
 from winacl.dtyp.security_descriptor import SECURITY_DESCRIPTOR
@@ -104,8 +104,6 @@ def calc_sd_edges(adsd):
 		t = getattr(ace,'InheritedObjectType', None)
 		if t:
 			acl.ace_inheritedobjecttype = str(t)
-				
-		true_attr, false_attr = JackDawADDACL.mask2attr(ace.Mask)
 		
 		ace.Mask = ADS_ACCESS_MASK(ace.Mask)
 		acl.ace_sid = str(ace.Sid)

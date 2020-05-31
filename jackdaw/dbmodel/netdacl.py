@@ -4,6 +4,7 @@ from sqlalchemy.orm import relationship
 from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Boolean
 
 from winacl.dtyp.ace import ADS_ACCESS_MASK, AceFlags
+from jackdaw.dbmodel.utils.serializer import Serializer
 
 
 am_lookup_table = {
@@ -39,7 +40,7 @@ hdr_flag_lookup = {
 	AceFlags.SUCCESSFUL_ACCESS_ACE_FLAG : 'ace_hdr_flag_successful_access',
 }
 
-class NetDACL(Basemodel):
+class NetDACL(Basemodel, Serializer):
 	__tablename__ = 'netdacl'
 	
 	id = Column(Integer, primary_key=True)	

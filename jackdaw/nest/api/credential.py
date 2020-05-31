@@ -5,8 +5,8 @@ from sqlalchemy.exc import IntegrityError
 from jackdaw.dbmodel.credential import Credential
 from jackdaw.dbmodel.hashentry import HashEntry
 from jackdaw.dbmodel.netsession import NetSession
-from jackdaw.dbmodel.adcomp import JackDawADMachine
-from jackdaw.dbmodel.aduser import JackDawADUser
+from jackdaw.dbmodel.adcomp import Machine
+from jackdaw.dbmodel.aduser import ADUser
 from jackdaw.credentials.credentials import JackDawCredentials
 from flask import current_app
 
@@ -63,11 +63,11 @@ def lsass_upload(domainid, computername = None):
 			cname = computername
 			if computername[-1] != '$':
 				cname = computername + '$'
-			comp = db.session.query(JackDawADMachine).filter_by(ad_id = domainid).filter(JackDawADMachine.sAMAccountName == cname).first()
+			comp = db.session.query(Machine).filter_by(ad_id = domainid).filter(Machine.sAMAccountName == cname).first()
 			#print('COMP %s' % comp)
 			if comp is None:
 				continue
-			user = db.session.query(JackDawADUser.sAMAccountName).filter_by(ad_id = domainid).filter(JackDawADUser.objectSid == sid).first()
+			user = db.session.query(ADUser.sAMAccountName).filter_by(ad_id = domainid).filter(ADUser.objectSid == sid).first()
 			#print('USER %s' % user)
 			#print('SID %s' % sid )
 			if user is None:

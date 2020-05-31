@@ -1,15 +1,15 @@
 
 from flask_sqlalchemy import SQLAlchemy
-from jackdaw.dbmodel.adinfo import JackDawADInfo
+from jackdaw.dbmodel.adinfo import ADInfo
 from flask import current_app
-from jackdaw.dbmodel.pagination import paginate
+from jackdaw.dbmodel.utils.pagination import paginate
 import connexion
 import datetime
 import os
 import zipfile
 import glob
 from jackdaw.dbmodel import get_session
-from jackdaw.dbmodel.migrate import migrate
+from jackdaw.dbmodel.utils.migrate import Migrator
 
 def upload(dbfile):
 	file_to_upload = connexion.request.files['dbfile']
@@ -44,9 +44,9 @@ def upload(dbfile):
 		raise Exception('Could not find database file in zip!')
 
 	sql_url = 'sqlite:///%s' % str(current_decompression_folder.joinpath(dbfile))
-	print(sql_url)
-
+	
 	old_session = get_session(sql_url)
-	migrate(old_session, current_app.db.session)
+	m = Migrator(old_session, current_app.db.session, work_dir=current_app.config['JACKDAW_WORK_DIR'])
+	m.migrate()
 
 	return

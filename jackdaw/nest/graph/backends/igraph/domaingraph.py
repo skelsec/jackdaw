@@ -5,14 +5,14 @@ import multiprocessing as mp
 import networkx as nx
 from bidict import bidict
 from jackdaw import logger
-from jackdaw.dbmodel.adtrust import JackDawADTrust
-from jackdaw.dbmodel.adcomp import JackDawADMachine
-from jackdaw.dbmodel.aduser import JackDawADUser
-from jackdaw.dbmodel.adgroup import JackDawADGroup
-from jackdaw.dbmodel.adinfo import JackDawADInfo
-from jackdaw.dbmodel.graphinfo import JackDawGraphInfo
-from jackdaw.dbmodel.edge import JackDawEdge
-from jackdaw.dbmodel.edgelookup import JackDawEdgeLookup
+from jackdaw.dbmodel.adtrust import ADTrust
+from jackdaw.dbmodel.adcomp import Machine
+from jackdaw.dbmodel.aduser import ADUser
+from jackdaw.dbmodel.adgroup import Group
+from jackdaw.dbmodel.adinfo import ADInfo
+from jackdaw.dbmodel.graphinfo import GraphInfo
+from jackdaw.dbmodel.edge import Edge
+from jackdaw.dbmodel.edgelookup import EdgeLookup
 from jackdaw.dbmodel import windowed_query
 from jackdaw.nest.graph.graphdata import GraphData, GraphNode
 from jackdaw.nest.graph.construct import GraphConstruct
@@ -34,17 +34,17 @@ class JackDawDomainGraphIGraph:
 
 	def __resolv_edge_types(self, src_id, dst_id):
 		t = []
-		for res in self.dbsession.query(JackDawEdge.label).distinct(JackDawEdge.label).filter_by(graph_id = self.graph_id).filter(JackDawEdge.ad_id == self.domain_id).filter(JackDawEdge.src == src_id).filter(JackDawEdge.dst == dst_id).all():
+		for res in self.dbsession.query(Edge.label).distinct(Edge.label).filter_by(graph_id = self.graph_id).filter(Edge.ad_id == self.domain_id).filter(Edge.src == src_id).filter(Edge.dst == dst_id).all():
 			t.append(res)
 		return t
 
 	def __resolve_sid_to_id(self, sid):
-		for res in self.dbsession.query(JackDawEdgeLookup.id).filter_by(ad_id = self.domain_id).filter(JackDawEdgeLookup.oid == sid).first():
+		for res in self.dbsession.query(EdgeLookup.id).filter_by(ad_id = self.domain_id).filter(EdgeLookup.oid == sid).first():
 			return res
 		return None
 
 	def __nodename_to_sid(self, node_name):
-		t = self.dbsession.query(JackDawEdgeLookup).get(node_name) #node_name is the ID of the edgelookup
+		t = self.dbsession.query(EdgeLookup).get(node_name) #node_name is the ID of the edgelookup
 		return t.oid, t.otype
 
 
@@ -56,17 +56,17 @@ class JackDawDomainGraphIGraph:
 		pass
 
 	def load(self):
-		graphinfo = self.dbsession.query(JackDawGraphInfo).get(self.graph_id)
-		domaininfo = self.dbsession.query(JackDawADInfo).get(graphinfo.ad_id)
+		graphinfo = self.dbsession.query(GraphInfo).get(self.graph_id)
+		domaininfo = self.dbsession.query(ADInfo).get(graphinfo.ad_id)
 		self.domain_sid = domaininfo.objectSid
 		self.domain_id = domaininfo.id
 
 		fname = 'tempfile.bla'
-		t2 = self.dbsession.query(func.count(JackDawEdge.id)).filter_by(graph_id = self.graph_id).scalar()
-		q = self.dbsession.query(JackDawEdge).filter_by(graph_id = self.graph_id)
+		t2 = self.dbsession.query(func.count(Edge.id)).filter_by(graph_id = self.graph_id).scalar()
+		q = self.dbsession.query(Edge).filter_by(graph_id = self.graph_id)
 
 		with open(fname, 'w', newline = '') as f:
-			for edge in tqdm(windowed_query(q,JackDawEdge.id, 10000), desc = 'edge', total = t2):
+			for edge in tqdm(windowed_query(q,Edge.id, 10000), desc = 'edge', total = t2):
 				r = '%s %s %s\r\n' % (edge.src, edge.dst, edge.label)
 				f.write(r)
 
@@ -138,22 +138,22 @@ class JackDawDomainGraphIGraph:
 
 	def __sid2cn(self, sid, otype):
 		if otype == 'user':
-			tsid = self.dbsession.query(JackDawADUser.cn).filter(JackDawADUser.objectSid == sid).first()
+			tsid = self.dbsession.query(ADUser.cn).filter(ADUser.objectSid == sid).first()
 			if tsid is not None:
 				return tsid[0]
 		
 		elif otype == 'group':
-			tsid = self.dbsession.query(JackDawADGroup.cn).filter(JackDawADGroup.objectSid == sid).first()
+			tsid = self.dbsession.query(Group.cn).filter(Group.objectSid == sid).first()
 			if tsid is not None:
 				return tsid[0]
 
 		elif otype == 'machine':
-			tsid = self.dbsession.query(JackDawADMachine.cn).filter(JackDawADMachine.objectSid == sid).first()
+			tsid = self.dbsession.query(Machine.cn).filter(Machine.objectSid == sid).first()
 			if tsid is not None:
 				return tsid[0]
 
 		elif otype == 'trust':
-			tsid = self.dbsession.query(JackDawADTrust.cn).filter(JackDawADTrust.securityIdentifier == sid).first()
+			tsid = self.dbsession.query(ADTrust.cn).filter(ADTrust.securityIdentifier == sid).first()
 			if tsid is not None:
 				return tsid[0]
 		

@@ -4,11 +4,11 @@ import codecs
 import pprint
 
 from jackdaw.dbmodel import *
-from jackdaw.dbmodel.adinfo import JackDawADInfo
-from jackdaw.dbmodel.adcomp import JackDawADMachine
-from jackdaw.dbmodel.aduser import JackDawADUser
-from jackdaw.dbmodel.adgroup import JackDawADGroup
-from jackdaw.dbmodel.adou import JackDawADOU
+from jackdaw.dbmodel.adinfo import ADInfo
+from jackdaw.dbmodel.adcomp import Machine
+from jackdaw.dbmodel.aduser import ADUser
+from jackdaw.dbmodel.adgroup import Group
+from jackdaw.dbmodel.adou import ADOU
 
 class BHImport:
 	def __init__(self, db_conn = None, db_session = None):
@@ -34,7 +34,7 @@ class BHImport:
 			#pprint.pprint(machine)
 			#input()
 			
-			m = JackDawADMachine()
+			m = Machine()
 			m.ad_id = self.ads[machine['Properties']['objectsid'].rsplit('-',1)[0]]
 			m.sAMAccountName = machine['Name'].split('.', 1)[0] + '$'
 			m.objectSid = machine['Properties']['objectsid']
@@ -50,7 +50,7 @@ class BHImport:
 			#pprint.pprint(user)
 			#input()
 			
-			m = JackDawADUser()
+			m = ADUser()
 			m.ad_id = self.ads[user['Properties']['objectsid'].rsplit('-',1)[0]]
 			m.name = user['Name'].split('@', 1)[0]
 			m.objectSid = user['Properties']['objectsid']
@@ -75,9 +75,9 @@ class BHImport:
 					cname = session['ComputerName'].split('.', 1)[0] + '$'
 
 				qry = self.db_session.query(
-					JackDawADMachine.id
+					Machine.id
 					).filter_by(ad_id = self.adn[ad_name]
-					).filter(JackDawADMachine.sAMAccountName == cname
+					).filter(Machine.sAMAccountName == cname
 					)
 				machine_id = qry.first()
 				if machine_id is None:
@@ -101,7 +101,7 @@ class BHImport:
 			#input()
 			try:
 				ad_name = ou['Name'].rsplit('@', 1)[1]
-				m = JackDawADOU()
+				m = ADOU()
 				m.ad_id = self.adn[ad_name]
 				m.name = ou['Name'].split('@', 1)[0]
 				m.objectSid = ou['Properties']['objectsid']
@@ -121,7 +121,7 @@ class BHImport:
 			#pprint.pprint(domain)
 			#input()
 
-			di = JackDawADInfo()
+			di = ADInfo()
 			di.name = domain['Name']
 			di.objectSid = domain['Properties']['objectsid']
 
@@ -140,7 +140,7 @@ class BHImport:
 			input()
 			try:
 				ad_name = ou['Name'].rsplit('@', 1)[1]
-				m = JackDawADOU()
+				m = ADOU()
 				m.ad_id = self.adn[ad_name]
 				m.name = ou['Name'].split('@', 1)[0]
 				m.objectSid = ou['Properties']['objectsid']
@@ -161,7 +161,7 @@ class BHImport:
 			#input()
 			try:
 				ad_name = groups['Name'].rsplit('@', 1)[1]
-				m = JackDawADGroup()
+				m = Group()
 				m.ad_id = self.adn[ad_name]
 				m.name = groups['Name'].split('@', 1)[0]
 				m.objectSid = groups['Properties']['objectsid']

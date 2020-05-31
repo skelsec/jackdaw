@@ -3,6 +3,7 @@ import datetime
 import hashlib
 from sqlalchemy.orm import relationship
 from sqlalchemy import Column, Integer, String, ForeignKey, Index, DateTime
+from jackdaw.dbmodel.utils.serializer import Serializer
 
 from pypykatz.pypykatz import pypykatz
 from pypykatz.utils.crypto.winhash import LM, NT
@@ -13,7 +14,7 @@ from pypykatz.utils.crypto.winhash import LM, NT
 # Summary: we need to use the ad_id and the username<->samaccountname
 #
 
-class Credential(Basemodel):
+class Credential(Basemodel, Serializer):
 	__tablename__ = 'credentials'
 	__table_args__ = (Index('Credential_uc', "ad_id", "domain", "username","nt_hash", "lm_hash", "history_no", unique = True), )
 

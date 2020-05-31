@@ -106,7 +106,6 @@ from .netshare import *
 from .spnservice import *
 from .localgroup import *
 from .constrained import *
-from .customrelations import *
 from .smbfinger import *
 from .adgplink import *
 from .adgpo import *
@@ -116,12 +115,12 @@ from .adsd import *
 from .adtrust import *
 from .lsasecrets import *
 from .adspn import *
-from .edge import JackDawEdge
-from .edgelookup import JackDawEdgeLookup
-from .graphinfo import JackDawGraphInfo
+from .edge import Edge
+from .edgelookup import EdgeLookup
+from .graphinfo import GraphInfo
 from .neterror import NetError
 from .rdnslookup import RDNSLookup
-from .adobjprops import JackDawADObjProps
+from .adobjprops import ADObjProps
 
 
 

@@ -26,8 +26,8 @@ from jackdaw.dbmodel.netdacl import NetDACL
 from jackdaw import logger
 from jackdaw.dbmodel import create_db, get_session
 
-from jackdaw.dbmodel.adinfo import JackDawADInfo
-from jackdaw.dbmodel.adcomp import JackDawADMachine
+from jackdaw.dbmodel.adinfo import ADInfo
+from jackdaw.dbmodel.adcomp import Machine
 
 class SMBShareGathererCmd(enum.Enum):
 	START = 'START'
@@ -197,9 +197,9 @@ class ShareGathererManager:
 	def generate_targets(self):
 		session = get_session(self.db_conn)
 		qry = session.query(
-			JackDawADMachine.sAMAccountName, NetShare.id, NetShare.netname
-			).filter(JackDawADMachine.ad_id == self.settings_base.ad_id
-			).filter(JackDawADMachine.id == NetShare.machine_id)
+			Machine.sAMAccountName, NetShare.id, NetShare.netname
+			).filter(Machine.ad_id == self.settings_base.ad_id
+			).filter(Machine.id == NetShare.machine_id)
 
 		for mname, shareid, sharename in qry.all():
 			if sharename in self.exclude_shares:

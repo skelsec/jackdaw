@@ -2,13 +2,13 @@ from . import Basemodel
 import datetime
 from sqlalchemy.orm import relationship
 from sqlalchemy import Column, Integer, String, DateTime, ForeignKey
+from jackdaw.dbmodel.utils.serializer import Serializer
 
-class JackDawSPN(Basemodel):
+class JackDawSPN(Basemodel, Serializer):
 	__tablename__ = 'adspn'
 	
 	id = Column(Integer, primary_key=True)
-	ad_id = Column(Integer, ForeignKey('ads.id'))
-	ad = relationship("JackDawADInfo", back_populates="spns", lazy = True)
+	ad_id = Column(Integer, ForeignKey('adinfo.id'))
 	owner_sid = Column(String, index=True)
 	service_class = Column(String, index=True)
 	computername = Column(String, index=True)

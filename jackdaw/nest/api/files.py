@@ -4,7 +4,7 @@ from jackdaw.dbmodel.netfile import NetFile
 from jackdaw.dbmodel.netshare import NetShare
 from jackdaw.dbmodel.netdacl import NetDACL
 from jackdaw.dbmodel.netdir import NetDir
-from jackdaw.dbmodel.adcomp import JackDawADMachine
+from jackdaw.dbmodel.adcomp import Machine
 
 
 def get_file(domainid, fileid):
@@ -27,8 +27,8 @@ def search_file_name(domainid, pattern, page, maxcnt):
 
 	qry = db.session.query(
 		NetFile.id, NetFile.name, NetFile.unc
-		).filter(NetShare.machine_id == JackDawADMachine.id
-		).filter(JackDawADMachine.ad_id == domainid
+		).filter(NetShare.machine_id == Machine.id
+		).filter(Machine.ad_id == domainid
 		).filter(NetDir.share_id == NetShare.id
 		).filter(NetDir.id == NetFile.folder_id
 		).filter(NetFile.name.like(pattern))
@@ -63,8 +63,8 @@ def search_file_ext(domainid, pattern, page, maxcnt):
 
 	qry = db.session.query(
 		NetFile.id, NetFile.name, NetFile.unc
-		).filter(NetShare.machine_id == JackDawADMachine.id
-		).filter(JackDawADMachine.ad_id == domainid
+		).filter(NetShare.machine_id == Machine.id
+		).filter(Machine.ad_id == domainid
 		).filter(NetDir.share_id == NetShare.id
 		).filter(NetDir.id == NetFile.folder_id
 		).filter(NetFile.ext.like(pattern))
@@ -109,8 +109,8 @@ def search_file_full(domainid, filter, page, maxcnt):
 
 	qry = db.session.query(
 		NetFile.id, NetFile.name, NetFile.unc
-		).filter(NetShare.machine_id == JackDawADMachine.id
-		).filter(JackDawADMachine.ad_id == domainid
+		).filter(NetShare.machine_id == Machine.id
+		).filter(Machine.ad_id == domainid
 		).filter(NetDir.share_id == NetShare.id
 		).filter(NetDir.id == NetFile.folder_id
 		).filter(NetFile.unc.like(pattern))
@@ -121,7 +121,7 @@ def search_file_full(domainid, filter, page, maxcnt):
 			)
 
 	if machineid is not None:
-		qry = qry.filter(JackDawADMachine.id == machineid)
+		qry = qry.filter(Machine.id == machineid)
 
 	if created_after is not None:
 		qry = qry.filter(NetFile.creation_time >= created_after)
@@ -175,8 +175,8 @@ def search_file_owner(domainid, ownersid, pattern, page, maxcnt):
 
 	qry = db.session.query(
 		NetFile.id, NetFile.name, NetFile.unc
-		).filter(NetShare.machine_id == JackDawADMachine.id
-		).filter(JackDawADMachine.ad_id == domainid
+		).filter(NetShare.machine_id == Machine.id
+		).filter(Machine.ad_id == domainid
 		).filter(NetDir.share_id == NetShare.id
 		).filter(NetDir.id == NetFile.folder_id
 		).filter(NetDACL.object_id == NetFile.id

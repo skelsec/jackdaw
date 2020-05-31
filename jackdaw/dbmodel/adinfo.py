@@ -9,9 +9,10 @@ import datetime
 from sqlalchemy.orm import relationship
 from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, BigInteger
 from jackdaw._version import __version__
+from jackdaw.dbmodel.utils.serializer import Serializer
 
-class JackDawADInfo(Basemodel):
-	__tablename__ = 'ads'
+class ADInfo(Basemodel, Serializer):
+	__tablename__ = 'adinfo'
 	
 	id = Column(Integer, primary_key=True)
 	fetched_at = Column(DateTime, default=datetime.datetime.utcnow)
@@ -46,17 +47,6 @@ class JackDawADInfo(Basemodel):
 	jdversion = Column(String)
 	ldap_enumeration_state = Column(String)
 	smb_enumeration_state = Column(String)
-
-	users = relationship("JackDawADUser", back_populates="ad", lazy = True)
-	computers = relationship("JackDawADMachine", back_populates="ad", lazy = True)
-	groups = relationship("JackDawADGroup", back_populates="ad", lazy = True)
-	spnservices = relationship("JackDawSPNService", back_populates="ad", lazy = True)
-	customrelations = relationship("JackDawCustomRelations", back_populates="ad", lazy = True)
-	ous = relationship("JackDawADOU", back_populates="ad", lazy = True)
-	gpos = relationship("JackDawADGPO", back_populates="ad", lazy = True)
-	sds = relationship("JackDawSD", back_populates="ad", lazy = True)
-	trusts = relationship("JackDawADTrust", back_populates="ad", lazy = True)
-	spns = relationship("JackDawSPN", back_populates="ad", lazy = True)
 	
 	def to_dict(self):
 		return {
@@ -97,7 +87,7 @@ class JackDawADInfo(Basemodel):
 
 	@staticmethod
 	def from_dict(d):
-		adinfo = JackDawADInfo()
+		adinfo = ADInfo()
 		adinfo.id = d.get('id')
 		adinfo.fetched_at = d.get('fetched_at')
 		adinfo.auditingPolicy = d.get('auditingPolicy')
@@ -136,7 +126,7 @@ class JackDawADInfo(Basemodel):
 
 	@staticmethod
 	def from_msldap(d):
-		adinfo = JackDawADInfo()
+		adinfo = ADInfo()
 		adinfo.auditingPolicy = d.auditingPolicy
 		adinfo.creationTime = d.creationTime
 		adinfo.dc = d.dc
