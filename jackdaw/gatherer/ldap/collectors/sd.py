@@ -173,14 +173,15 @@ class SDCollector:
 			if self.sd_file is not None:
 				self.sd_file.close()
 				cnt = 0
+				buffer = []
 				with gzip.GzipFile(self.sd_file_path, 'r') as f:
 					for line in f:
-						sd = JackDawSD.from_json(line.strip())
-						self.session.add(sd)
+						buffer.append(JackDawSD.from_json(line.strip()))
 						await asyncio.sleep(0)
 						cnt += 1
-						if cnt % 100 == 0:
-							self.session.commit()
+						if cnt % 100000 == 0:
+							self.session.bulk_save_objects(buffer)
+							buffer = []
 						if self.show_progress is True:
 							self.sd_upload_pbar.update()
 						if cnt % self.progress_step_size == 0:
