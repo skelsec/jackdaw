@@ -272,12 +272,18 @@ class LDAPGatherer:
 				self.sd_file_handle.close()
 				
 			
-			res = await asyncio.gather(*[self.collect_sd(), self.collect_members()])
-			if res[0][1] is not None:
-				raise res[0][1]
-			
-			if res[1][1] is not None:
-				raise res[1][1]
+			_, err = await self.collect_sd()
+			if err is not None:
+				raise err
+			_, err = await self.collect_members()
+			if err is not None:
+				raise err
+			#res = await asyncio.gather(*[self.collect_sd(), self.collect_members()])
+			#if res[0][1] is not None:
+			#	raise res[0][1]
+			#
+			#if res[1][1] is not None:
+			#	raise res[1][1]
 
 
 			logger.debug('[+] LDAP information acqusition finished!')
