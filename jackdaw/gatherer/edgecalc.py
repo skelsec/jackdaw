@@ -264,8 +264,6 @@ class EdgeCalc:
 			try:
 				for adsd in windowed_query(q, JackDawSD.id, self.buffer_size):
 					adsd = JackDawSD.from_dict(adsd.to_dict())
-					if adsd.sd is None:
-						print(adsd.id)
 					buffer.append(adsd)
 					if len(buffer) > self.buffer_size:
 						for res in self.mp_pool.imap_unordered(calc_sd_edges, buffer):
@@ -281,7 +279,7 @@ class EdgeCalc:
 						if sdcalc_pbar is not None:
 							sdcalc_pbar.update(self.buffer_size)
 								
-						if self.progress_queue is not None:
+						if self.progress_queue is not None and cnt % self.progress_step_size == 0:
 							now = datetime.datetime.utcnow()
 							td = (now - self.progress_last_updated).total_seconds()
 							self.progress_last_updated = now
@@ -334,7 +332,7 @@ class EdgeCalc:
 				src_id, dst_id, label, _ = line.split(',')
 				edge = Edge(self.ad_id, self.graph_id, src_id, dst_id, label)
 				self.session.add(edge)
-				if i % 100 == 0:
+				if i % (self.buffer_size*1000) == 0:
 					self.session.commit()
 
 				if self.show_progress is True:
