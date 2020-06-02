@@ -119,7 +119,9 @@ class BaseCollector:
 				msg.running = self.running_enums
 				msg.total_finished = self.total_counter
 				msg.step_size = self.total_counter_steps
-				msg.speed = str(cd / td)
+				msg.speed = 0
+				if td > 0:
+					msg.speed = str(cd / td)
 
 				await self.progress_queue.put(msg)
 	
