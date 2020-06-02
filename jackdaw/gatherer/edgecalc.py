@@ -328,10 +328,10 @@ class EdgeCalc:
 						msg.adid = self.ad_id
 						msg.domain_name = self.domain_name
 						msg.total = total
-						msg.total_finished = last_stat_cnt + len(buffer)
+						msg.total_finished = tf
 						if td > 0:
 							msg.speed = str(len(buffer) // td)
-						msg.step_size = len(buffer)
+						msg.step_size = tf - last_stat_cnt
 						await self.progress_queue.put(msg)
 						await asyncio.sleep(0)
 
