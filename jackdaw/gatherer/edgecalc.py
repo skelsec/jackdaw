@@ -249,10 +249,11 @@ class EdgeCalc:
 
 	async def calc_sds_mp(self):
 		await self.log_msg('Calculating SD edges')
-
+		logger.debug('starting calc_sds_mp')
 		try:
 			cnt = 0
 			total = self.session.query(func.count(JackDawSD.id)).filter_by(ad_id = self.ad_id).scalar()
+			logger.debug('calc_sds_mp total SDs %s' % str(total))
 			q = self.session.query(JackDawSD).filter_by(ad_id = self.ad_id)
 
 			if self.progress_queue is not None:
@@ -272,6 +273,7 @@ class EdgeCalc:
 			if self.mp_pool is None:
 				self.mp_pool = mp.Pool()
 
+			logger.debug('calc_sds_mp starting calc')
 			tf = 0
 			try:
 				for adsd in windowed_query(q, JackDawSD.id, self.buffer_size):
@@ -322,6 +324,7 @@ class EdgeCalc:
 
 			except Exception as e:
 				logger.exception('SD calc exception!')
+				raise e
 			finally:
 				if self.foreign_pool is False:
 					self.mp_pool.close()
@@ -334,6 +337,7 @@ class EdgeCalc:
 				msg.domain_name = self.domain_name
 				await self.progress_queue.put(msg)
 			
+			logger.debug('Writing SD edge file contents to DB')
 			await self.log_msg('Writing SD edge file contents to DB')
 			sdcalcupload_pbar = None
 			if self.show_progress is True:
@@ -380,8 +384,11 @@ class EdgeCalc:
 			if self.show_progress is True and sdcalcupload_pbar is not None:
 				sdcalcupload_pbar.refresh()
 				sdcalcupload_pbar.disable = True
+			
+			return True, None
 		except Exception as e:
 			logger.exception('sdcalc!')
+			return False, e
 
 	async def run(self):
 		try:
@@ -401,7 +408,9 @@ class EdgeCalc:
 			await self.log_msg('Adding password sharing edges')
 			self.passwordsharing_edges()
 			self.session.commit()
-			await self.calc_sds_mp()
+			_, err = await self.calc_sds_mp()
+			if err is not None:
+				raise err
 
 			return True, None
 

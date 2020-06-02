@@ -288,28 +288,20 @@ class Gatherer:
 			if err is not None:
 				raise err
 
-			if self.ldap_mgr is not None and self.smb_mgr is not None:
-				self.base_collection_finish_evt = asyncio.Event()
-				self.smb_early_task = asyncio.create_task(self.smb_early_start())
-				_, _, err = await self.gather_ldap()
+			if self.ldap_mgr is not None:
+				self.ad_id, self.graph_id, err = await self.gather_ldap()
 				if err is not None:
 					raise err
 
-			else:
-				if self.ldap_mgr is not None:
-					self.ad_id, self.graph_id, err = await self.gather_ldap()
-					if err is not None:
-						raise err
-
-				if self.smb_url is not None:
-					_, err = await self.gather_smb()
-					if err is not None:
-						raise err
+			if self.smb_url is not None:
+				_, err = await self.gather_smb()
+				if err is not None:
+					raise err
 				
-				if self.smb_enum_shares is True and self.smb_url is not None:
-					_, err = await self.share_enum()
-					if err is not None:
-						raise err
+			if self.smb_enum_shares is True and self.smb_url is not None:
+				_, err = await self.share_enum()
+				if err is not None:
+					raise err
 				
 			if self.calculate_edges is True and self.store_to_db is True:
 				_, err = await self.calc_edges()
