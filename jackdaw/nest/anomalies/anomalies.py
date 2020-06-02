@@ -320,7 +320,7 @@ class Anomalies:
 			ADInfo.id, Machine.id, Machine.sAMAccountName , SMBFinger.domainname
 			).filter(Machine.ad_id == domainid
 			).filter(ADInfo.id == domainid
-			).filter(SMBFinger.machine_id == Machine.id
+			).filter(SMBFinger.machine_sid == Machine.objectSid
 			).filter(SMBFinger.domainname != ADInfo.name
 			).filter(SMBFinger.domainname != None
 			)

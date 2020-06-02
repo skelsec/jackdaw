@@ -209,7 +209,7 @@ class BaseCollector:
 		self.session.add(trust)
 		t = EdgeLookup(self.ad_id, trust.securityIdentifier, 'trust')
 		self.session.add(t)
-		self.session.flush()
+		#self.session.flush()
 
 	async def enum_users(self):
 		logger.debug('Enumerating users')
@@ -228,7 +228,7 @@ class BaseCollector:
 			spn.ad_id = self.ad_id
 			self.session.add(spn)
 
-		self.session.flush()
+		#self.session.flush()
 
 		data = {
 				'dn' : user.dn,
@@ -254,13 +254,13 @@ class BaseCollector:
 		t = EdgeLookup(self.ad_id, machine.objectSid, 'machine')
 		self.session.add(t)
 		self.session.add(machine)
-		self.session.commit()
-		self.session.refresh(machine)
+		#self.session.commit()
+		#self.session.refresh(machine)
 		for d in delegations:
 			d.machine_sid = machine.objectSid
 			self.session.add(d)
 		#self.session.commit()
-		self.session.flush()
+		#self.session.flush()
 
 		data = {
 				'dn' : machine.dn,
@@ -284,7 +284,7 @@ class BaseCollector:
 		t = EdgeLookup(self.ad_id, group.objectSid, 'group')
 		self.session.add(t)
 		self.session.add(group)
-		self.session.flush()
+		#self.session.flush()
 
 		data = {
 				'dn' : group.dn,
@@ -305,8 +305,8 @@ class BaseCollector:
 	async def store_ous(self, ou):
 		ou.ad_id = self.ad_id
 		self.session.add(ou)
-		self.session.commit()
-		self.session.refresh(ou)
+		#self.session.commit()
+		#self.session.refresh(ou)
 		t = EdgeLookup(self.ad_id, ou.objectGUID, 'ou')
 		self.session.add(t)
 
@@ -327,7 +327,7 @@ class BaseCollector:
 				link.gpo_dn = gp
 				link.order = order
 				self.session.add(link)
-		self.session.flush()
+		#self.session.flush()
 
 		data = {
 				'dn' : ou.dn,
@@ -346,7 +346,7 @@ class BaseCollector:
 	async def store_spn(self, spn):
 		spn.ad_id = self.ad_id
 		self.session.add(spn)
-		self.session.flush()
+		#self.session.flush()
 
 	async def enum_gpos(self):
 		logger.debug('Enumerating gpos')
@@ -356,7 +356,7 @@ class BaseCollector:
 	async def store_gpo(self, gpo):
 		gpo.ad_id = self.ad_id
 		self.session.add(gpo)
-		self.session.flush()
+		#self.session.flush()
 		t = EdgeLookup(self.ad_id, gpo.objectGUID, 'gpo')
 		self.session.add(t)
 

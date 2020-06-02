@@ -33,7 +33,7 @@ def list_machines(domainid, page, maxcnt):
 		)
 
 	page = dict(
-		total=qry.total, 
+		total=qry.total,
 		current_page=qry.page,
 		per_page=qry.per_page
 	)

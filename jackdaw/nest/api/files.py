@@ -27,7 +27,7 @@ def search_file_name(domainid, pattern, page, maxcnt):
 
 	qry = db.session.query(
 		NetFile.id, NetFile.name, NetFile.unc
-		).filter(NetShare.machine_id == Machine.id
+		).filter(NetShare.machine_sid == Machine.objectSid
 		).filter(Machine.ad_id == domainid
 		).filter(NetDir.share_id == NetShare.id
 		).filter(NetDir.id == NetFile.folder_id

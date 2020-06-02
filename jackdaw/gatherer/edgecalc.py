@@ -60,6 +60,7 @@ class EdgeCalc:
 		self.progress_last_updated = datetime.datetime.utcnow()
 
 		self.total_edges = 0
+		self.sd_edges_written = 0
 		self.worker_count = worker_count
 		self.boost_dict = {}
 		self.session = None
@@ -247,6 +248,15 @@ class EdgeCalc:
 		#		cnt += 1
 		#logger.info('Added %s groupmembership edges' % cnt)
 
+	def calc_sds_batch(self, buffer, testfile):
+		for res in self.mp_pool.imap_unordered(calc_sd_edges, buffer):
+			for r in res:
+				src,dst,label,ad_id = r
+				src = self.get_id_for_sid(src, with_boost=True)
+				dst = self.get_id_for_sid(dst, with_boost=True)
+				self.sd_edges_written += 1
+				testfile.write('%s,%s,%s,%s\r\n' % (src, dst, label, ad_id))
+
 	async def calc_sds_mp(self):
 		await self.log_msg('Calculating SD edges')
 		logger.debug('starting calc_sds_mp')
@@ -275,39 +285,55 @@ class EdgeCalc:
 
 			logger.debug('calc_sds_mp starting calc')
 			tf = 0
+			last_stat_cnt = 0
 			try:
 				for adsd in windowed_query(q, JackDawSD.id, self.buffer_size):
+					tf += 1
 					adsd = JackDawSD.from_dict(adsd.to_dict())
 					buffer.append(adsd)
-					if len(buffer) > self.buffer_size:
-						for res in self.mp_pool.imap_unordered(calc_sd_edges, buffer):
-							for r in res:
-								src,dst,label,ad_id = r
-								src = self.get_id_for_sid(src, with_boost=True)
-								dst = self.get_id_for_sid(dst, with_boost=True)
-								cnt += 1
-								testfile.write('%s,%s,%s,%s\r\n' % (src, dst, label, ad_id))
-
+					if len(buffer) == self.buffer_size:
+						self.calc_sds_batch(buffer, testfile)
 						buffer = []
-						tf += self.buffer_size
+						
 						if sdcalc_pbar is not None:
 							sdcalc_pbar.update(self.buffer_size)
 								
-						if self.progress_queue is not None and tf % self.progress_step_size == 0:
-							now = datetime.datetime.utcnow()
-							td = (now - self.progress_last_updated).total_seconds()
-							self.progress_last_updated = now
-							msg = GathererProgress()
-							msg.type = GathererProgressType.SDCALC
-							msg.msg_type = MSGTYPE.PROGRESS
-							msg.adid = self.ad_id
-							msg.domain_name = self.domain_name
-							msg.total = total
-							msg.total_finished = tf
-							msg.speed = str(self.progress_step_size // td)
-							msg.step_size = self.progress_step_size
-							await self.progress_queue.put(msg)
-							await asyncio.sleep(0)
+					if self.progress_queue is not None and tf % self.progress_step_size == 0:
+						last_stat_cnt += self.progress_step_size
+						now = datetime.datetime.utcnow()
+						td = (now - self.progress_last_updated).total_seconds()
+						self.progress_last_updated = now
+						msg = GathererProgress()
+						msg.type = GathererProgressType.SDCALC
+						msg.msg_type = MSGTYPE.PROGRESS
+						msg.adid = self.ad_id
+						msg.domain_name = self.domain_name
+						msg.total = total
+						msg.total_finished = tf
+						msg.speed = str(self.progress_step_size // td)
+						msg.step_size = self.progress_step_size
+						await self.progress_queue.put(msg)
+						await asyncio.sleep(0)
+				
+				if len(buffer) > 0:
+					self.calc_sds_batch(buffer, testfile)
+					if self.progress_queue is not None:
+						now = datetime.datetime.utcnow()
+						td = (now - self.progress_last_updated).total_seconds()
+						self.progress_last_updated = now
+						msg = GathererProgress()
+						msg.type = GathererProgressType.SDCALC
+						msg.msg_type = MSGTYPE.PROGRESS
+						msg.adid = self.ad_id
+						msg.domain_name = self.domain_name
+						msg.total = total
+						msg.total_finished = last_stat_cnt + len(buffer)
+						msg.speed = str(len(buffer) // td)
+						msg.step_size = len(buffer)
+						await self.progress_queue.put(msg)
+						await asyncio.sleep(0)
+
+					buffer = []
 
 				if self.progress_queue is not None:
 					msg = GathererProgress()
@@ -344,7 +370,11 @@ class EdgeCalc:
 				sdcalcupload_pbar = tqdm(desc = 'Writing SD edge file contents to DB', total = cnt)
 
 			testfile.seek(0,0)
-			for i, line in enumerate(testfile):
+			last_stat_cnt = 0
+			i = 0
+
+			for line in testfile:
+				i += 1
 				line = line.strip()
 				src_id, dst_id, label, _ = line.split(',')
 				edge = Edge(self.ad_id, self.graph_id, src_id, dst_id, label)
@@ -355,7 +385,8 @@ class EdgeCalc:
 				if self.show_progress is True:
 					sdcalcupload_pbar.update()
 
-				if i % self.progress_step_size == 0 and self.progress_queue is not None:
+				if self.progress_queue is not None and i % self.progress_step_size == 0:
+					last_stat_cnt += self.progress_step_size
 					now = datetime.datetime.utcnow()
 					td = (now - self.progress_last_updated).total_seconds()
 					self.progress_last_updated = now
@@ -364,7 +395,7 @@ class EdgeCalc:
 					msg.msg_type = MSGTYPE.PROGRESS
 					msg.adid = self.ad_id
 					msg.domain_name = self.domain_name
-					msg.total = cnt
+					msg.total = self.sd_edges_written
 					msg.total_finished = i
 					msg.speed = str(self.progress_step_size // td)
 					msg.step_size = self.progress_step_size
@@ -372,6 +403,22 @@ class EdgeCalc:
 					await asyncio.sleep(0)
 
 			self.session.commit()
+
+			if self.progress_queue is not None:
+				now = datetime.datetime.utcnow()
+				td = (now - self.progress_last_updated).total_seconds()
+				self.progress_last_updated = now
+				msg = GathererProgress()
+				msg.type = GathererProgressType.SDCALCUPLOAD
+				msg.msg_type = MSGTYPE.PROGRESS
+				msg.adid = self.ad_id
+				msg.domain_name = self.domain_name
+				msg.total = cnt
+				msg.total_finished = i
+				msg.speed = str((i - last_stat_cnt) // td)
+				msg.step_size = i - last_stat_cnt
+				await self.progress_queue.put(msg)
+				await asyncio.sleep(0)
 
 			if self.progress_queue is not None:
 				msg = GathererProgress()
@@ -411,13 +458,20 @@ class EdgeCalc:
 			_, err = await self.calc_sds_mp()
 			if err is not None:
 				raise err
-
+			
+			adinfo = self.session.query(ADInfo).get(self.ad_id)
+			adinfo.edges_finished = True
+			self.session.commit()
 			return True, None
 
 		except Exception as e:
 			logger.exception('edge calculation error!')
 			return False, e
-
+		finally:
+			try:
+				self.session.close()
+			except:
+				pass
 
 def main():
 	import argparse

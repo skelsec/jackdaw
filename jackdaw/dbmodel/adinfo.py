@@ -7,7 +7,7 @@
 from . import Basemodel, lf
 import datetime
 from sqlalchemy.orm import relationship
-from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, BigInteger
+from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, BigInteger, Boolean
 from jackdaw._version import __version__
 from jackdaw.dbmodel.utils.serializer import Serializer
 
@@ -47,6 +47,9 @@ class ADInfo(Basemodel, Serializer):
 	jdversion = Column(String)
 	ldap_enumeration_state = Column(String)
 	smb_enumeration_state = Column(String)
+	ldap_members_finished = Column(Boolean)
+	ldap_sds_finished = Column(Boolean)
+	edges_finished = Column(Boolean)
 	
 	def to_dict(self):
 		return {

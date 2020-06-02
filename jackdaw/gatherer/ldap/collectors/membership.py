@@ -142,6 +142,7 @@ class MembershipCollector:
 
 			self.token_file.close()
 			cnt = 0
+			last_stat_cnt = 0
 			with gzip.GzipFile(self.token_file_path, 'r') as f:
 				for line in f:
 					sd = JackDawTokenGroup.from_json(line.strip())
@@ -159,7 +160,8 @@ class MembershipCollector:
 					if self.show_progress is True:
 						self.upload_pbar.update()
 					
-					if cnt % self.progress_step_size == 0 and self.progress_queue is not None:
+					if self.progress_queue is not None and cnt % self.progress_step_size == 0:
+						last_stat_cnt += self.progress_step_size
 						now = datetime.datetime.utcnow()
 						td = (now - self.progress_last_updated).total_seconds()
 						self.progress_last_updated = now
@@ -174,7 +176,20 @@ class MembershipCollector:
 						msg.step_size = self.progress_step_size
 						await self.progress_queue.put(msg)
 						
-					
+			if self.progress_queue is not None:
+				now = datetime.datetime.utcnow()
+				td = (now - self.progress_last_updated).total_seconds()
+				self.progress_last_updated = now
+				msg = GathererProgress()
+				msg.type = GathererProgressType.MEMBERSUPLOAD
+				msg.msg_type = MSGTYPE.PROGRESS
+				msg.adid = self.ad_id
+				msg.domain_name = self.domain_name
+				msg.total = self.member_finish_ctr
+				msg.total_finished = cnt
+				msg.speed = str((self.member_finish_ctr - last_stat_cnt) // td)
+				msg.step_size = self.member_finish_ctr - last_stat_cnt
+				await self.progress_queue.put(msg)
 
 			self.session.commit()
 			if self.progress_queue is not None:
@@ -270,6 +285,7 @@ class MembershipCollector:
 				await asyncio.sleep(0)
 
 			acnt = self.total_members_to_poll
+			last_stat_cnt = 0
 			while acnt > 0:
 				try:
 					res = await self.agent_out_q.get()
@@ -283,24 +299,24 @@ class MembershipCollector:
 						await asyncio.sleep(0)
 					
 					elif res_type == LDAPAgentCommand.MEMBERSHIP_FINISHED:
-						if self.progress_queue is None:
+						if self.show_progress is True:
 							self.member_progress.update()
 						
-						else:
-							if acnt % self.progress_step_size == 0:
-								now = datetime.datetime.utcnow()
-								td = (now - self.progress_last_updated).total_seconds()
-								self.progress_last_updated = now
-								msg = GathererProgress()
-								msg.type = GathererProgressType.MEMBERS
-								msg.msg_type = MSGTYPE.PROGRESS
-								msg.adid = self.ad_id
-								msg.domain_name = self.domain_name
-								msg.total = self.total_members_to_poll
-								msg.total_finished = self.total_members_to_poll - acnt
-								msg.speed = str(self.progress_step_size // td)
-								msg.step_size = self.progress_step_size
-								await self.progress_queue.put(msg)
+						if acnt % self.progress_step_size == 0 and self.progress_queue is not None:
+							last_stat_cnt += self.progress_step_size
+							now = datetime.datetime.utcnow()
+							td = (now - self.progress_last_updated).total_seconds()
+							self.progress_last_updated = now
+							msg = GathererProgress()
+							msg.type = GathererProgressType.MEMBERS
+							msg.msg_type = MSGTYPE.PROGRESS
+							msg.adid = self.ad_id
+							msg.domain_name = self.domain_name
+							msg.total = self.total_members_to_poll
+							msg.total_finished = self.total_members_to_poll - acnt
+							msg.speed = str(self.progress_step_size // td)
+							msg.step_size = self.progress_step_size
+							await self.progress_queue.put(msg)
 						acnt -= 1
 
 					elif res_type == LDAPAgentCommand.EXCEPTION:
@@ -310,9 +326,37 @@ class MembershipCollector:
 					logger.exception('Members enumeration error!')
 					raise e
 			
+			
+			if self.progress_queue is not None:
+				now = datetime.datetime.utcnow()
+				td = (now - self.progress_last_updated).total_seconds()
+				self.progress_last_updated = now
+				msg = GathererProgress()
+				msg.type = GathererProgressType.MEMBERS
+				msg.msg_type = MSGTYPE.PROGRESS
+				msg.adid = self.ad_id
+				msg.domain_name = self.domain_name
+				msg.total = self.total_members_to_poll
+				msg.total_finished = self.total_members_to_poll
+				msg.speed = str((self.total_members_to_poll - last_stat_cnt) // td)
+				msg.step_size = (self.total_members_to_poll - last_stat_cnt)
+				await self.progress_queue.put(msg)
+
+
 			await self.stop_memberships_collection()
+
+			adinfo = self.session.query(ADInfo).get(self.ad_id)
+			adinfo.ldap_members_finished = True
+			self.session.commit()
+
 			return True, None
 		except Exception as e:
 			logger.exception('Members enumeration error main!')
 			await self.stop_memberships_collection()
 			return False, e
+		
+		finally:
+			try:
+				self.session.close()
+			except:
+				pass
