@@ -9,6 +9,7 @@ class GathererProgressType(enum.Enum):
 	SMB = 'SMB'
 	SDCALC = 'SDCALC'
 	SDCALCUPLOAD = 'SDCALCUPLOAD'
+	INFO = 'INFO'
 
 class MSGTYPE(enum.Enum):
 	STARTED = 'STARTED'
@@ -38,6 +39,9 @@ class GathererProgress:
 		self.sessions = None
 		self.shares = None
 		self.groups = None
+
+		#FOR INFO
+		self.text = None
 
 
 	def __str__(self):

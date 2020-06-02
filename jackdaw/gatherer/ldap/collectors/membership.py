@@ -153,7 +153,7 @@ class MembershipCollector:
 					self.session.add(edge)
 					await asyncio.sleep(0)
 					cnt += 1
-					if cnt % 1000 == 0:
+					if cnt % 10000 == 0:
 						self.session.commit()
 
 					if self.show_progress is True:
@@ -242,7 +242,7 @@ class MembershipCollector:
 
 			qs = self.agent_cnt
 			self.agent_in_q = asyncio.Queue(qs)
-			self.agent_out_q = asyncio.Queue(qs*4)
+			self.agent_out_q = asyncio.Queue(qs*40)
 
 			self.token_file_path = 'token_' + datetime.datetime.utcnow().strftime("%Y%m%d_%H%M%S") + '.gzip'
 			self.token_file = gzip.GzipFile(self.token_file_path, 'w')	

@@ -54,6 +54,8 @@ class Gatherer:
 	async def print_progress(self):
 		logger.debug('Setting up progress bars')
 		pos = 0
+		ldap_info_pbar        = tqdm(desc = 'MSG:  ', ascii=True, position=pos)
+		pos += 1
 		if self.ldap_url is not None:
 			ldap_basic_pbar        = tqdm(desc = 'LDAP basic enum       ', ascii=True, position=pos)
 			pos += 1
@@ -159,6 +161,9 @@ class Gatherer:
 
 					if msg.msg_type == MSGTYPE.FINISHED:
 						sdcalcupload_pbar.refresh()
+
+				elif msg.type == GathererProgressType.INFO:
+					ldap_info_pbar.display('MSG: %s' % str(msg.text))
 
 			except Exception as e:
 				print(e)

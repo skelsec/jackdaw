@@ -179,7 +179,7 @@ class SDCollector:
 						buffer.append(JackDawSD.from_json(line.strip()))
 						await asyncio.sleep(0)
 						cnt += 1
-						if cnt % 1000000 == 0:
+						if cnt % 100 == 0:
 							self.session.bulk_save_objects(buffer)
 							buffer = []
 						if self.show_progress is True:

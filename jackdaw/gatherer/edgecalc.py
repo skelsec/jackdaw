@@ -94,8 +94,18 @@ class EdgeCalc:
 
 		edge = Edge(self.ad_id, self.graph_id, src_id, dst_id, label)
 		self.session.add(edge)
-		if self.total_edges % 100 == 0:
+		if self.total_edges % 10000 == 0:
 			self.session.commit()
+
+	async def log_msg(self, text):
+		if self.progress_queue is not None:
+			msg = GathererProgress()
+			msg.type = GathererProgressType.INFO
+			msg.msg_type = MSGTYPE.FINISHED
+			msg.adid = self.ad_id
+			msg.domain_name = self.domain_name
+			msg.text = text
+			await self.progress_queue.put(msg)
 
 	def trust_edges(self):
 		logger.debug('Adding trusts edges')
@@ -238,6 +248,8 @@ class EdgeCalc:
 		#logger.info('Added %s groupmembership edges' % cnt)
 
 	async def calc_sds_mp(self):
+		await self.log_msg('Calculating SD edges')
+
 		try:
 			cnt = 0
 			total = self.session.query(func.count(JackDawSD.id)).filter_by(ad_id = self.ad_id).scalar()
@@ -279,7 +291,7 @@ class EdgeCalc:
 						if sdcalc_pbar is not None:
 							sdcalc_pbar.update(self.buffer_size)
 								
-						if self.progress_queue is not None and cnt % self.progress_step_size == 0:
+						if self.progress_queue is not None and tf % self.progress_step_size == 0:
 							now = datetime.datetime.utcnow()
 							td = (now - self.progress_last_updated).total_seconds()
 							self.progress_last_updated = now
@@ -290,8 +302,8 @@ class EdgeCalc:
 							msg.domain_name = self.domain_name
 							msg.total = total
 							msg.total_finished = tf
-							msg.speed = str(self.buffer_size // td)
-							msg.step_size = self.buffer_size
+							msg.speed = str(self.progress_step_size // td)
+							msg.step_size = self.progress_step_size
 							await self.progress_queue.put(msg)
 							await asyncio.sleep(0)
 
@@ -322,6 +334,7 @@ class EdgeCalc:
 				msg.domain_name = self.domain_name
 				await self.progress_queue.put(msg)
 			
+			await self.log_msg('Writing SD edge file contents to DB')
 			sdcalcupload_pbar = None
 			if self.show_progress is True:
 				sdcalcupload_pbar = tqdm(desc = 'Writing SD edge file contents to DB', total = cnt)
@@ -332,7 +345,7 @@ class EdgeCalc:
 				src_id, dst_id, label, _ = line.split(',')
 				edge = Edge(self.ad_id, self.graph_id, src_id, dst_id, label)
 				self.session.add(edge)
-				if i % (self.buffer_size*1000) == 0:
+				if i % (self.buffer_size*100) == 0:
 					self.session.commit()
 
 				if self.show_progress is True:
@@ -373,13 +386,19 @@ class EdgeCalc:
 	async def run(self):
 		try:
 			self.session = get_session(self.db_conn)
-
+			await self.log_msg('Adding gplink edges')
 			self.gplink_edges()
-			self.groupmembership_edges()
+			#await self.log_msg()
+			#self.groupmembership_edges()
+			await self.log_msg('Adding trusts edges')
 			self.trust_edges()
+			await self.log_msg('Adding sqladmin edges')
 			self.sqladmin_edges()
+			await self.log_msg('Adding hassession edges')
 			self.hasession_edges()
+			await self.log_msg('Adding localgroup edges')
 			self.localgroup_edges()
+			await self.log_msg('Adding password sharing edges')
 			self.passwordsharing_edges()
 			self.session.commit()
 			await self.calc_sds_mp()
