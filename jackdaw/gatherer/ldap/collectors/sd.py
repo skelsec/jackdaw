@@ -139,8 +139,9 @@ class SDCollector:
 		for _ in range(len(self.agents)):
 			await self.agent_in_q.put(None)
 
-		for agent in self.agents:
-			agent.cancel()
+		await asyncio.wait_for(asyncio.gather(*self.agents), 10)
+		#for agent in self.agents:
+		#	agent.cancel()
 
 		if self.show_progress is True and self.sds_progress is not None:
 			self.sds_progress.refresh()
@@ -197,7 +198,8 @@ class SDCollector:
 							msg.domain_name = self.domain_name
 							msg.total = self.total_targets
 							msg.total_finished = cnt
-							msg.speed = str(self.progress_step_size // td)
+							if td > 0:
+								msg.speed = str(self.progress_step_size // td)
 							msg.step_size = self.progress_step_size
 							await self.progress_queue.put(msg)
 							await asyncio.sleep(0)
@@ -218,7 +220,8 @@ class SDCollector:
 					msg.domain_name = self.domain_name
 					msg.total = self.total_targets
 					msg.total_finished = cnt
-					msg.speed = str((self.total_targets - last_stat_cnt) // td)
+					if td > 0:
+						msg.speed = str((self.total_targets - last_stat_cnt) // td)
 					msg.step_size = self.total_targets - last_stat_cnt
 					await self.progress_queue.put(msg)
 					await asyncio.sleep(0)
@@ -316,7 +319,8 @@ class SDCollector:
 								msg.domain_name = self.domain_name
 								msg.total = self.total_targets
 								msg.total_finished = self.total_targets - acnt
-								msg.speed = str(self.progress_step_size // td)
+								if td > 0:
+									msg.speed = str(self.progress_step_size // td)
 								msg.step_size = self.progress_step_size
 								await self.progress_queue.put(msg)
 
@@ -339,7 +343,8 @@ class SDCollector:
 				msg.domain_name = self.domain_name
 				msg.total = self.total_targets
 				msg.total_finished = self.total_targets
-				msg.speed = str((self.total_targets - last_stat_cnt) // td)
+				if td > 0:
+					msg.speed = str((self.total_targets - last_stat_cnt) // td)
 				msg.step_size = self.total_targets - last_stat_cnt
 				await self.progress_queue.put(msg)
 			

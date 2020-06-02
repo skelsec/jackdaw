@@ -108,8 +108,9 @@ class MembershipCollector:
 		for _ in range(len(self.agents)):
 			await self.agent_in_q.put(None)
 
-		for agent in self.agents:
-			agent.cancel()
+		await asyncio.wait_for(asyncio.gather(*self.agents), 10)
+		#for agent in self.agents:
+		#	agent.cancel()
 		
 		
 		if self.show_progress is True:
@@ -172,7 +173,8 @@ class MembershipCollector:
 						msg.domain_name = self.domain_name
 						msg.total = self.member_finish_ctr
 						msg.total_finished = cnt
-						msg.speed = str(self.progress_step_size // td)
+						if td > 0:
+							msg.speed = str(self.progress_step_size // td)
 						msg.step_size = self.progress_step_size
 						await self.progress_queue.put(msg)
 						
@@ -187,7 +189,8 @@ class MembershipCollector:
 				msg.domain_name = self.domain_name
 				msg.total = self.member_finish_ctr
 				msg.total_finished = cnt
-				msg.speed = str((self.member_finish_ctr - last_stat_cnt) // td)
+				if td > 0:
+					msg.speed = str((self.member_finish_ctr - last_stat_cnt) // td)
 				msg.step_size = self.member_finish_ctr - last_stat_cnt
 				await self.progress_queue.put(msg)
 
@@ -314,7 +317,8 @@ class MembershipCollector:
 							msg.domain_name = self.domain_name
 							msg.total = self.total_members_to_poll
 							msg.total_finished = self.total_members_to_poll - acnt
-							msg.speed = str(self.progress_step_size // td)
+							if td > 0:
+								msg.speed = str(self.progress_step_size // td)
 							msg.step_size = self.progress_step_size
 							await self.progress_queue.put(msg)
 						acnt -= 1
@@ -338,7 +342,8 @@ class MembershipCollector:
 				msg.domain_name = self.domain_name
 				msg.total = self.total_members_to_poll
 				msg.total_finished = self.total_members_to_poll
-				msg.speed = str((self.total_members_to_poll - last_stat_cnt) // td)
+				if td > 0:
+					msg.speed = str((self.total_members_to_poll - last_stat_cnt) // td)
 				msg.step_size = (self.total_members_to_poll - last_stat_cnt)
 				await self.progress_queue.put(msg)
 

@@ -310,7 +310,8 @@ class EdgeCalc:
 						msg.domain_name = self.domain_name
 						msg.total = total
 						msg.total_finished = tf
-						msg.speed = str(self.progress_step_size // td)
+						if td > 0:
+							msg.speed = str(self.progress_step_size // td)
 						msg.step_size = self.progress_step_size
 						await self.progress_queue.put(msg)
 						await asyncio.sleep(0)
@@ -328,7 +329,8 @@ class EdgeCalc:
 						msg.domain_name = self.domain_name
 						msg.total = total
 						msg.total_finished = last_stat_cnt + len(buffer)
-						msg.speed = str(len(buffer) // td)
+						if td > 0:
+							msg.speed = str(len(buffer) // td)
 						msg.step_size = len(buffer)
 						await self.progress_queue.put(msg)
 						await asyncio.sleep(0)
@@ -397,7 +399,8 @@ class EdgeCalc:
 					msg.domain_name = self.domain_name
 					msg.total = self.sd_edges_written
 					msg.total_finished = i
-					msg.speed = str(self.progress_step_size // td)
+					if td > 0:
+						msg.speed = str(self.progress_step_size // td)
 					msg.step_size = self.progress_step_size
 					await self.progress_queue.put(msg)
 					await asyncio.sleep(0)
@@ -415,7 +418,8 @@ class EdgeCalc:
 				msg.domain_name = self.domain_name
 				msg.total = cnt
 				msg.total_finished = i
-				msg.speed = str((i - last_stat_cnt) // td)
+				if td > 0:
+					msg.speed = str((i - last_stat_cnt) // td)
 				msg.step_size = i - last_stat_cnt
 				await self.progress_queue.put(msg)
 				await asyncio.sleep(0)
