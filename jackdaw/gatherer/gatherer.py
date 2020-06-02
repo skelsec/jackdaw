@@ -307,6 +307,16 @@ class Gatherer:
 				_, err = await self.calc_edges()
 				if err is not None:
 					raise err
+
+			if self.progress_queue is not None:
+				msg = GathererProgress()
+				msg.type = GathererProgressType.INFO
+				msg.msg_type = MSGTYPE.FINISHED
+				msg.adid = self.ad_id
+				msg.text = 'Gatherer finished!'
+				await self.progress_queue.put(msg)
+
+
 			return True, None
 		except Exception as e:
 			print(e)
