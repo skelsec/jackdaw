@@ -150,7 +150,7 @@ class EdgeCalc:
 			.filter(func.lower(NetSession.source) == func.lower(Machine.dNSHostName))\
 			.distinct(NetSession.username)
 		
-		for res in windowed_query(q, ADUser.id, self.buffer_size):
+		for res in windowed_query(q, ADUser.id, self.buffer_size, False):
 			self.add_edge(res[0], res[1],'hasSession')
 			self.add_edge(res[1], res[0],'hasSession')
 			cnt += 2
@@ -160,7 +160,7 @@ class EdgeCalc:
 			.filter(func.lower(NetSession.source) == func.lower(Machine.dNSHostName))\
 			.distinct(NetSession.username)
 
-		for res in windowed_query(q, Machine.id, self.buffer_size):
+		for res in windowed_query(q, Machine.id, self.buffer_size, False):
 			
 			self.add_edge(res[0], res[1],'hasSession')
 			self.add_edge(res[1], res[0],'hasSession')
@@ -176,7 +176,7 @@ class EdgeCalc:
 					).filter(ADUser.ad_id == self.ad_id
 					).filter(ADUser.objectSid == LocalGroup.sid
 					)
-		for res in windowed_query(q, ADUser.id, self.buffer_size):
+		for res in windowed_query(q, ADUser.id, self.buffer_size, False):
 			label = None
 			if res[2] == 'Remote Desktop Users':
 				label = 'canRDP'
@@ -237,7 +237,7 @@ class EdgeCalc:
 				.filter(ADOU.objectGUID == Gplink.ou_guid)\
 				.filter(Gplink.gpo_dn == GPO.cn)
 		cnt = 0
-		for res in windowed_query(q, GPO.id, self.buffer_size):
+		for res in windowed_query(q, GPO.id, self.buffer_size, False):
 				self.add_edge(res[0], res[1], 'gplink')
 				cnt += 1
 		logger.debug('Added %s gplink edges' % cnt)
