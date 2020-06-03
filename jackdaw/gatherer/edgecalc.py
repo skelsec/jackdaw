@@ -145,19 +145,22 @@ class EdgeCalc:
 		logger.debug('Adding hassession edges')
 		cnt = 0
 		#for user sessions
-		for res in self.session.query(ADUser.objectSid, Machine.objectSid)\
+		q = self.session.query(ADUser.objectSid, Machine.objectSid)\
 			.filter(NetSession.username == ADUser.sAMAccountName)\
 			.filter(func.lower(NetSession.source) == func.lower(Machine.dNSHostName))\
-			.distinct(NetSession.username).all():
-			
+			.distinct(NetSession.username)
+		
+		for res in windowed_query(q, ADUser.id, self.buffer_size):
 			self.add_edge(res[0], res[1],'hasSession')
 			self.add_edge(res[1], res[0],'hasSession')
 			cnt += 2
 		#for machine account sessions
-		for res in self.session.query(Machine.objectSid, Machine.objectSid)\
+		q = self.session.query(Machine.objectSid, Machine.objectSid)\
 			.filter(NetSession.username == Machine.sAMAccountName)\
 			.filter(func.lower(NetSession.source) == func.lower(Machine.dNSHostName))\
-			.distinct(NetSession.username).all():
+			.distinct(NetSession.username)
+
+		for res in windowed_query(q, Machine.id, self.buffer_size):
 			
 			self.add_edge(res[0], res[1],'hasSession')
 			self.add_edge(res[1], res[0],'hasSession')
@@ -167,12 +170,13 @@ class EdgeCalc:
 	def localgroup_edges(self):
 		logger.debug('Adding localgroup edges')
 		cnt = 0
-		for res in self.session.query(ADUser.objectSid, Machine.objectSid, LocalGroup.groupname
+		q = self.session.query(ADUser.objectSid, Machine.objectSid, LocalGroup.groupname
 					).filter(Machine.objectSid == LocalGroup.machine_sid
 					).filter(Machine.ad_id == self.ad_id
 					).filter(ADUser.ad_id == self.ad_id
 					).filter(ADUser.objectSid == LocalGroup.sid
-					).all():
+					)
+		for res in windowed_query(q, ADUser.id, self.buffer_size):
 			label = None
 			if res[2] == 'Remote Desktop Users':
 				label = 'canRDP'
@@ -233,7 +237,7 @@ class EdgeCalc:
 				.filter(ADOU.objectGUID == Gplink.ou_guid)\
 				.filter(Gplink.gpo_dn == GPO.cn)
 		cnt = 0
-		for res in q.all():
+		for res in windowed_query(q, GPO.id, self.buffer_size):
 				self.add_edge(res[0], res[1], 'gplink')
 				cnt += 1
 		logger.debug('Added %s gplink edges' % cnt)
