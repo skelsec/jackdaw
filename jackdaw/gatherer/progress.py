@@ -10,6 +10,7 @@ class GathererProgressType(enum.Enum):
 	SDCALC = 'SDCALC'
 	SDCALCUPLOAD = 'SDCALCUPLOAD'
 	INFO = 'INFO'
+	REFRESH = 'REFRESH'
 
 class MSGTYPE(enum.Enum):
 	STARTED = 'STARTED'

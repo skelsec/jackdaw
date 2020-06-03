@@ -50,38 +50,64 @@ class Gatherer:
 
 		self.smb_early_task = None
 		self.ldap_gatherer = None
+		self.progress_refresh_task = None
+		self.progress_bars = []
 	
+	async def progress_refresh(self):
+		while True:
+			msg = GathererProgress()
+			msg.type = GathererProgressType.REFRESH
+			msg.msg_type = MSGTYPE.PROGRESS
+			await self.progress_queue.put(msg)
+			await asyncio.sleep(10)
+
 	async def print_progress(self):
 		logger.debug('Setting up progress bars')
 		pos = 0
 		ldap_info_pbar        = tqdm(desc = 'MSG:  ', ascii=True, position=pos)
+		self.progress_bars.append(ldap_info_pbar)
 		pos += 1
 		if self.ldap_url is not None:
 			ldap_basic_pbar        = tqdm(desc = 'LDAP basic enum       ', ascii=True, position=pos)
+			self.progress_bars.append(ldap_basic_pbar)
 			pos += 1
 			ldap_sd_pbar           = tqdm(desc = 'LDAP SD enum          ', ascii=True, position=pos)
+			self.progress_bars.append(ldap_sd_pbar)
 			pos += 1
 			if self.store_to_db is True:
 				ldap_sdupload_pbar     = tqdm(desc = 'LDAP SD upload        ', ascii=True, position=pos)
+				self.progress_bars.append(ldap_sdupload_pbar)
 				pos += 1
 			ldap_member_pbar       = tqdm(desc = 'LDAP membership enum  ', ascii=True, position=pos)
+			self.progress_bars.append(ldap_member_pbar)
 			pos += 1
 			if self.store_to_db is True:
 				ldap_memberupload_pbar = tqdm(desc = 'LDAP membership upload', ascii=True, position=pos)
+				self.progress_bars.append(ldap_memberupload_pbar)
 				pos += 1
 		if self.smb_url is not None:
 			smb_pbar               = tqdm(desc = 'SMB enum              ', ascii=True, position=pos)
+			self.progress_bars.append(smb_pbar)
 			pos += 1
 		if self.calculate_edges is True:
 			sdcalc_pbar            = tqdm(desc = 'SD edges calc         ', ascii=True, position=pos)
+			self.progress_bars.append(sdcalc_pbar)
 			pos += 1
 			sdcalcupload_pbar      = tqdm(desc = 'SD edges upload       ', ascii=True, position=pos)
+			self.progress_bars.append(sdcalcupload_pbar)
 			pos += 1
 
+		self.progress_refresh_task = asyncio.create_task(self.progress_refresh())
+		
 		logger.debug('waiting for progress messages')
-		while True:
-			msg = await self.progress_queue.get()
-			try:
+		try:
+			while True:
+				msg = await self.progress_queue.get()
+				if msg is None:
+					for pbar in self.progress_bars:
+						pbar.refresh()
+					return
+			
 				if msg.type == GathererProgressType.BASIC:
 					if msg.msg_type == MSGTYPE.PROGRESS:
 						if ldap_basic_pbar.total is None:
@@ -165,8 +191,12 @@ class Gatherer:
 				elif msg.type == GathererProgressType.INFO:
 					ldap_info_pbar.display('MSG: %s' % str(msg.text))
 
-			except Exception as e:
-				print(e)
+				elif msg.type == GathererProgressType.REFRESH:
+					for pbar in self.progress_bars:
+						pbar.refresh()
+
+		except Exception as e:
+			logger.exception('Progress bar crashed')
 
 	async def gather_ldap(self):
 		try:
@@ -321,6 +351,12 @@ class Gatherer:
 		except Exception as e:
 			print(e)
 			return False, e
+
+		finally:
+			if self.show_progress is True and self.progress_queue is None:
+				await self.progress_queue.put(None)
+				await asyncio.wait_for(asyncio.gather(*[self.progress_task]), 1)
+				self.progress_refresh_task.cancel()
 
 
 
