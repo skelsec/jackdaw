@@ -14,7 +14,6 @@ from jackdaw.dbmodel.adcomp import Machine
 from jackdaw.dbmodel.adou import ADOU
 from jackdaw.dbmodel.adinfo import ADInfo
 from jackdaw.dbmodel.adgpo import GPO
-from jackdaw.dbmodel.constrained import MachineConstrainedDelegation, JackDawUserConstrainedDelegation
 from jackdaw.dbmodel.adgplink import Gplink
 from jackdaw.dbmodel.adtrust import ADTrust
 from jackdaw.dbmodel.adspn import JackDawSPN
@@ -261,6 +260,7 @@ class BaseCollector:
 		#self.session.refresh(machine)
 		for d in delegations:
 			d.machine_sid = machine.objectSid
+			d.ad_id = self.ad_id
 			self.session.add(d)
 		#self.session.commit()
 		#self.session.flush()

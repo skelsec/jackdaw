@@ -27,15 +27,3 @@ class MachineConstrainedDelegation(Basemodel, Serializer):
 			d.target_server, d.target_port = d.target_server.split(':')
 		
 		return d
-
-
-
-
-class JackDawUserConstrainedDelegation(Basemodel):
-	__tablename__ = 'constraineduser'
-
-	id = Column(Integer, primary_key=True)
-	user_id = Column(Integer, ForeignKey('users.id'))
-	#user = relationship("ADUser", back_populates="allowedtodelegateto", lazy = True)
-	spn = Column(String, index=True)
-	targetaccount = Column(String, index=True)

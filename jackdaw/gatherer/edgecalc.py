@@ -18,7 +18,7 @@ from jackdaw.dbmodel.adou import ADOU
 from jackdaw.dbmodel.adinfo import ADInfo
 from jackdaw.dbmodel.adtrust import ADTrust
 from jackdaw.dbmodel.adgpo import GPO
-from jackdaw.dbmodel.constrained import MachineConstrainedDelegation, JackDawUserConstrainedDelegation
+from jackdaw.dbmodel.constrained import MachineConstrainedDelegation
 from jackdaw.dbmodel.adgplink import Gplink
 from jackdaw.dbmodel.adspn import JackDawSPN
 from jackdaw.dbmodel.edge import Edge

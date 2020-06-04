@@ -188,12 +188,6 @@ class LDAPEnumerator:
 				acl.ad_id = info.id
 				session.add(acl)
 			
-			for spn in getattr(obj,'allowedtodelegateto',[]):
-				con = JackDawUserConstrainedDelegation()
-				con.spn = spn
-				con.targetaccount = self.spn_to_account(spn)
-				user.allowedtodelegateto.append(con)
-			
 			session.commit()
 		
 		logger.info('Enumerating machines...')
