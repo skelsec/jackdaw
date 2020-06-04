@@ -58,7 +58,7 @@ class SMBGatherer:
 		self.out_q = None
 		self.smb_mgr = smb_mgr
 		self.gathering_type = ['all']
-		self.localgroups = ['Administrators', 'Distributed COM Users','Remote Desktop Users']
+		self.localgroups = ['Administrators', 'Distributed COM Users','Remote Desktop Users','Remote Management Users']
 		self.concurrent_connections = worker_cnt if worker_cnt is not None else len(os.sched_getaffinity(0))
 		self.db_conn = db_conn
 		self.progress_queue = progress_queue

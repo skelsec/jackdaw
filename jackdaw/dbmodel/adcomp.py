@@ -3,6 +3,7 @@ import datetime
 from . import Basemodel, lf, dt
 
 from sqlalchemy.orm import relationship
+from sqlalchemy import Index, func
 from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Boolean
 from jackdaw.dbmodel.utils.serializer import Serializer
 from jackdaw.dbmodel.utils.uacflags import calc_uac_flags
@@ -75,7 +76,7 @@ class Machine(Basemodel, Serializer):
 	UAC_TRUSTED_TO_AUTHENTICATE_FOR_DELEGATION = Column(Boolean)
 
 
-	#Index('dnslower', func.lower(mytable.c.somecol))
+	Index('machinednslower', func.lower(dNSHostName))
 
 	def to_dict(self):
 		return {

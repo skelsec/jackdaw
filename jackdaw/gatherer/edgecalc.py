@@ -189,6 +189,10 @@ class EdgeCalc:
 			elif res[2] == 'Administrators':
 				label = 'adminTo'
 				weight = 1
+
+			elif res[2] == 'Remote Management Users':
+				label = 'psremote'
+				weight = 1
 					
 			self.add_edge(res[0], res[1], label)
 			cnt += 1
