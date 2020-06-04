@@ -448,6 +448,15 @@ class EdgeCalc:
 	async def run(self):
 		try:
 			self.session = get_session(self.db_conn)
+			if self.ad_id is None and self.graph_id is not None:
+				#recalc!
+				self.session.query(Edge).filter_by(graph_id = self.graph_id).filter(Edge.label != 'member').delete()
+				self.session.commit()
+
+				res = self.session.query(GraphInfo).get(self.graph_id)
+				self.ad_id = res.ad_id
+
+
 			await self.log_msg('Adding gplink edges')
 			self.gplink_edges()
 			#await self.log_msg()

@@ -240,6 +240,23 @@ async def run(args):
 			creds = JackDawCredentials(args.db_conn, args.domain_id)
 			creds.get_cracked_info()
 
+		elif args.command == 'recalc':
+			with multiprocessing.Pool() as mp_pool:
+				gatherer = Gatherer(
+					db_conn, 
+					work_dir, 
+					None, 
+					None, 
+					mp_pool=mp_pool, 
+					progress_queue=None, 
+					show_progress=True,
+					calc_edges=True,
+					store_to_db=True,
+					ad_id=None,
+					graph_id=args.graphid
+				)
+				await gatherer.run()
+
 		elif args.command == 'nest':
 			from jackdaw.nest.wrapper import NestServer
 
@@ -290,6 +307,9 @@ def main():
 	auto_group.add_argument('--ldap-workers', type=int, default = 4, help='LDAP worker count for parallelization')
 	auto_group.add_argument('--smb-workers', type=int, default = 50, help='SMB worker count for parallelization')
 	auto_group.add_argument('-d','--dns', help='DNS server for resolving IPs')
+
+	recalc_group = subparsers.add_parser('recalc', help='Recalculate edges from SDs')
+	recalc_group.add_argument('graphid', help='graph id from DB.')
 	
 	
 	enum_group = subparsers.add_parser('enum', formatter_class=argparse.RawDescriptionHelpFormatter, help='Enumerate all stuffs', epilog = MSLDAPURLDecoder.help_epilog)

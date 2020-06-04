@@ -196,6 +196,14 @@ class LDAPGatherer:
 					self.base_collection_finish_evt.set()
 				self.members_file_handle.close()
 				self.sd_file_handle.close()
+
+				_, err = await self.collect_sd()
+				if err is not None:
+					raise err
+				
+				_, err = await self.collect_members()
+				if err is not None:
+					raise err
 			
 			else:
 				adinfo = self.session.query(ADInfo).get(self.ad_id)
@@ -292,14 +300,6 @@ class LDAPGatherer:
 				if adinfo.ldap_sds_finished is False:
 					self.sd_file_handle.close()
 				
-			if adinfo.ldap_sds_finished is False:
-				_, err = await self.collect_sd()
-				if err is not None:
-					raise err
-			if adinfo.ldap_members_finished is False:
-				_, err = await self.collect_members()
-				if err is not None:
-					raise err
 
 			logger.debug('[+] LDAP information acqusition finished!')
 			return self.ad_id, self.graph_id, None

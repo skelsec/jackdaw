@@ -15,7 +15,7 @@ from tqdm import tqdm
 from jackdaw.gatherer.progress import *
 
 class Gatherer:
-	def __init__(self, db_url, work_dir, ldap_url, smb_url, ad_id = None, calc_edges = True, ldap_worker_cnt = 4, smb_worker_cnt = 100, mp_pool = None, smb_enum_shares = False, smb_gather_types = ['all'], progress_queue = None, show_progress = True, dns = None, store_to_db = True):
+	def __init__(self, db_url, work_dir, ldap_url, smb_url, ad_id = None, calc_edges = True, ldap_worker_cnt = 4, smb_worker_cnt = 100, mp_pool = None, smb_enum_shares = False, smb_gather_types = ['all'], progress_queue = None, show_progress = True, dns = None, store_to_db = True, graph_id = None):
 		self.db_url = db_url
 		self.work_dir = work_dir
 		self.mp_pool = mp_pool
@@ -37,7 +37,7 @@ class Gatherer:
 		self.show_progress = show_progress
 		self.smb_folder_depth = 1
 
-		self.graph_id = None
+		self.graph_id = graph_id
 		self.ldap_task = None
 		self.ldap_mgr = None
 		self.ldap_work_dir = None
