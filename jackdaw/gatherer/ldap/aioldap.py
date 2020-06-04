@@ -198,12 +198,23 @@ class LDAPGatherer:
 				self.sd_file_handle.close()
 			
 			else:
-				self.session.query(JackDawSD).delete()
-				self.session.query(Edge).delete()
-				self.session.commit()
+				adinfo = self.session.query(ADInfo).get(self.ad_id)
+				self.graph_id = adinfo.graph_id
+				if adinfo.ldap_sds_finished is True and adinfo.ldap_members_finished is True:
+					return self.ad_id, self.graph_id, None
 
-				self.members_file_handle = gzip.GzipFile(self.members_target_file_name,mode='wb')
-				self.sd_file_handle = gzip.GzipFile(self.sd_target_file_name,mode='wb')
+				if adinfo.ldap_sds_finished is False:
+					self.session.query(JackDawSD).filter_by(ad_id = self.ad_id).delete()
+					self.session.commit()
+
+				if adinfo.ldap_members_finished is False:
+					self.session.query(Edge).delete()
+					self.session.commit()
+
+				if adinfo.ldap_members_finished is False:
+					self.members_file_handle = gzip.GzipFile(self.members_target_file_name,mode='wb')
+				if adinfo.ldap_sds_finished is False:
+					self.sd_file_handle = gzip.GzipFile(self.sd_target_file_name,mode='wb')
 
 				res = self.session.query(ADInfo).get(self.ad_id)
 				data = {
@@ -212,7 +223,8 @@ class LDAPGatherer:
 					'guid' : res.objectGUID,
 					'object_type' : 'domain'
 				}
-				self.sd_file_handle.write(json.dumps(data).encode() + b'\r\n')
+				if adinfo.ldap_sds_finished is False:
+					self.sd_file_handle.write(json.dumps(data).encode() + b'\r\n')
 
 				q = self.session.query(ADUser).filter_by(ad_id = self.ad_id)
 				for res in windowed_query(q, ADUser.id, 100):
@@ -222,8 +234,10 @@ class LDAPGatherer:
 						'guid' : res.objectGUID,
 						'object_type' : 'user'
 					}
-					self.sd_file_handle.write(json.dumps(data).encode() + b'\r\n')
-					self.members_file_handle.write(json.dumps(data).encode() + b'\r\n')
+					if adinfo.ldap_sds_finished is False:
+						self.sd_file_handle.write(json.dumps(data).encode() + b'\r\n')
+					if adinfo.ldap_members_finished is False:
+						self.members_file_handle.write(json.dumps(data).encode() + b'\r\n')
 
 				q = self.session.query(Machine).filter_by(ad_id = self.ad_id)
 				for res in windowed_query(q, Machine.id, 100):
@@ -233,8 +247,10 @@ class LDAPGatherer:
 						'guid' : res.objectGUID,
 						'object_type' : 'machine'
 					}
-					self.sd_file_handle.write(json.dumps(data).encode() + b'\r\n')
-					self.members_file_handle.write(json.dumps(data).encode() + b'\r\n')
+					if adinfo.ldap_sds_finished is False:
+						self.sd_file_handle.write(json.dumps(data).encode() + b'\r\n')
+					if adinfo.ldap_members_finished is False:
+						self.members_file_handle.write(json.dumps(data).encode() + b'\r\n')
 
 				q = self.session.query(Group).filter_by(ad_id = self.ad_id)
 				for res in windowed_query(q, Group.id, 100):
@@ -244,8 +260,10 @@ class LDAPGatherer:
 						'guid' : res.objectGUID,
 						'object_type' : 'group'
 					}
-					self.sd_file_handle.write(json.dumps(data).encode() + b'\r\n')
-					self.members_file_handle.write(json.dumps(data).encode() + b'\r\n')
+					if adinfo.ldap_sds_finished is False:
+						self.sd_file_handle.write(json.dumps(data).encode() + b'\r\n')
+					if adinfo.ldap_members_finished is False:
+						self.members_file_handle.write(json.dumps(data).encode() + b'\r\n')
 
 				q = self.session.query(ADOU).filter_by(ad_id = self.ad_id)
 				for res in windowed_query(q, ADOU.id, 100):
@@ -255,7 +273,8 @@ class LDAPGatherer:
 						'guid' : res.objectGUID,
 						'object_type' : 'ou'
 					}
-					self.sd_file_handle.write(json.dumps(data).encode() + b'\r\n')
+					if adinfo.ldap_sds_finished is False:
+						self.sd_file_handle.write(json.dumps(data).encode() + b'\r\n')
 
 				q = self.session.query(GPO).filter_by(ad_id = self.ad_id)
 				for res in windowed_query(q, GPO.id, 100):
@@ -265,26 +284,22 @@ class LDAPGatherer:
 						'guid' : res.objectGUID,
 						'object_type' : 'gpo'
 					}
-					self.sd_file_handle.write(json.dumps(data).encode() + b'\r\n')
+					if adinfo.ldap_sds_finished is False:
+						self.sd_file_handle.write(json.dumps(data).encode() + b'\r\n')
 
-
-				self.members_file_handle.close()
-				self.sd_file_handle.close()
+				if adinfo.ldap_members_finished is False:
+					self.members_file_handle.close()
+				if adinfo.ldap_sds_finished is False:
+					self.sd_file_handle.close()
 				
-			
-			_, err = await self.collect_sd()
-			if err is not None:
-				raise err
-			_, err = await self.collect_members()
-			if err is not None:
-				raise err
-			#res = await asyncio.gather(*[self.collect_sd(), self.collect_members()])
-			#if res[0][1] is not None:
-			#	raise res[0][1]
-			#
-			#if res[1][1] is not None:
-			#	raise res[1][1]
-
+			if adinfo.ldap_sds_finished is False:
+				_, err = await self.collect_sd()
+				if err is not None:
+					raise err
+			if adinfo.ldap_members_finished is False:
+				_, err = await self.collect_members()
+				if err is not None:
+					raise err
 
 			logger.debug('[+] LDAP information acqusition finished!')
 			return self.ad_id, self.graph_id, None

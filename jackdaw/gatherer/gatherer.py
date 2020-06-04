@@ -301,17 +301,6 @@ class Gatherer:
 		except Exception as e:
 			return False, e
 
-	async def smb_early_start(self):
-		try:
-			await self.base_collection_finish_evt.wait()
-			self.ad_id = self.ldap_gatherer.ad_id
-			self.graph_id = self.ldap_gatherer.graph_id
-			_, err = await self.gather_smb()
-			if err is not None:
-				raise err
-		except Exception as e:
-			logger.exception('smb_early_start')
-
 	async def run(self):
 		try:
 			_, err = await self.setup()

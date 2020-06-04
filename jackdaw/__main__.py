@@ -14,12 +14,15 @@ import datetime
 from sqlalchemy import exc
 
 from aiosmb import logger as smblogger
+from aiosmb._version import __version__ as smbversion
 from msldap import logger as msldaplogger
+from msldap._version import __version__ as ldapversion
 
 from jackdaw.dbmodel import create_db, get_session
 from jackdaw.gatherer.gatherer import Gatherer
 
 from jackdaw._version import __banner__
+from jackdaw._version import  __version__ as jdversion
 from jackdaw import logger as jdlogger
 from jackdaw.utils.argshelper import construct_ldapdef, construct_smbdef
 from jackdaw.credentials.credentials import JackDawCredentials
@@ -49,6 +52,12 @@ async def run(args):
 			jdlogger.setLevel(1)
 			smblogger.setLevel(1)
 		
+		if args.version is True:
+			print('Jackdaw version: %s' % jdversion)
+			print('MSLDAP version : %s' % ldapversion)
+			print('AIOSMB version : %s' % smbversion)
+			sys.exit()
+
 		if not args.sql and args.command != 'auto':
 			print('SQL connection identification is missing! You need to provide the --sql parameter')
 			sys.exit()
@@ -84,7 +93,7 @@ async def run(args):
 					progress_queue=None, 
 					show_progress=True,
 					calc_edges=True,
-					ad_id=args.resumption,
+					ad_id=None,
 					dns=args.dns
 				)
 				res, err = await gatherer.run()
@@ -254,7 +263,8 @@ def main():
 	parser = argparse.ArgumentParser(description='Gather gather gather')
 	parser.add_argument('-v', '--verbose', action='count', default=0, help='Increase verbosity, can be stacked')
 	parser.add_argument('--sql', help='SQL connection string. When using SQLITE it works best with FULL FILE PATH!!!')
-	
+	parser.add_argument('-V', '--version', action='store_true', help='Prints out version info and exits')
+
 	subparsers = parser.add_subparsers(help = 'commands')
 	subparsers.required = True
 	subparsers.dest = 'command'
@@ -290,7 +300,6 @@ def main():
 	enum_group.add_argument('--smb-workers', type=int, default = 50, help='SMB worker count for parallelization')
 	enum_group.add_argument('--smb-folder-depth', type=int, default = 1, help='Files enumeration folder depth')
 	enum_group.add_argument('--smb-share-enum', action='store_true', help='Enables file enumeration in shares')
-	enum_group.add_argument('-r','--resumption', help='AD ID for resuming a broken collection. WARINING! this will drop all SD and Membership info!')
 	enum_group.add_argument('-d','--dns', help='DNS server for resolving IPs')
 	enum_group.add_argument('-n','--do-not-store', action='store_false', help='Skip storing membership and SD info to DB. Will skip edge calculation, and will leave the raw file on disk')
 
