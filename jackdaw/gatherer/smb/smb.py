@@ -53,7 +53,7 @@ async def rdns_worker(resolver, in_q, out_q):
 		await out_q.put((None, None, None, e))
 
 class SMBGatherer:
-	def __init__(self, db_conn, ad_id, smb_mgr, worker_cnt = 50, progress_queue = None, show_progress = True, rdns_resolver = None):
+	def __init__(self, db_conn, ad_id, smb_mgr, worker_cnt = None, progress_queue = None, show_progress = True, rdns_resolver = None):
 		self.in_q = None
 		self.out_q = None
 		self.smb_mgr = smb_mgr
@@ -226,7 +226,7 @@ class SMBGatherer:
 
 		if self.rdns_task is not None:
 			await self.rdns_in_q.put(None)
-			self.rdns_task.cancel()
+			await asyncio.wait_for(asyncio.gather(*[self.rdns_task]), 10)
 
 
 		logger.debug('[+] SMB information acquisition finished!')
