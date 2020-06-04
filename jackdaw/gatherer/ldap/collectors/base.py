@@ -147,10 +147,11 @@ class BaseCollector:
 		for _ in range(self.agent_cnt):
 			await self.agent_in_q.put(None)
 
-		await asyncio.wait_for(asyncio.gather(*self.agents), 10)
-		#await asyncio.sleep(1)
-		#for agent in self.agents:
-		#	agent.cancel()
+		try:
+			await asyncio.wait_for(asyncio.gather(*self.agents), 10)
+		except asyncio.TimeoutError:
+			for agent in self.agents:
+				agent.cancel()
 
 		self.session.close()
 		if self.total_progress is not None:

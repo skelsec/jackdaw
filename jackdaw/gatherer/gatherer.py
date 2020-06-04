@@ -232,8 +232,8 @@ class Gatherer:
 			)
 			mgr.gathering_type = self.smb_gather_types
 			mgr.target_ad = self.ad_id
-			await mgr.run()
-			return True, None
+			res, err = await mgr.run()
+			return res, err
 		except Exception as e:
 			return None, e
 
@@ -344,7 +344,11 @@ class Gatherer:
 		finally:
 			if self.show_progress is True and self.progress_queue is None:
 				await self.progress_queue.put(None)
-				await asyncio.wait_for(asyncio.gather(*[self.progress_task]), 1)
+				try:
+					await asyncio.wait_for(asyncio.gather(*[self.progress_task]), 1)
+				except asyncio.TimeoutError:
+					self.progress_task.cancel()
+				
 				self.progress_refresh_task.cancel()
 
 

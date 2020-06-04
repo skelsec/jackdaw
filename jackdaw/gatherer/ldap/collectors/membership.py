@@ -108,9 +108,12 @@ class MembershipCollector:
 		for _ in range(len(self.agents)):
 			await self.agent_in_q.put(None)
 
-		await asyncio.wait_for(asyncio.gather(*self.agents), 10)
-		#for agent in self.agents:
-		#	agent.cancel()
+
+		try:
+			await asyncio.wait_for(asyncio.gather(*self.agents), 10)
+		except asyncio.TimeoutError:
+			for agent in self.agents:
+				agent.cancel()
 		
 		
 		if self.show_progress is True:
