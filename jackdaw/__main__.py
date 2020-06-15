@@ -153,11 +153,10 @@ async def run(args):
 		elif args.command == 'auto':
 			_, err = await run_auto(
 				ldap_worker_cnt=args.ldap_workers,
-				smb_worker_cnt=args.smbworkers,
+				smb_worker_cnt=args.smb_workers,
 				dns=args.dns,
 				work_dir=work_dir
 			)
-
 			if err is not None:
 				print(err)
 			
