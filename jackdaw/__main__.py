@@ -43,14 +43,15 @@ async def run_auto(ldap_worker_cnt = None, smb_worker_cnt = None, dns = None, wo
 			db_loc = '%s_%s.db' % (logon['domain'], datetime.datetime.utcnow().strftime("%Y%m%d_%H%M%S"))
 			db_conn = 'sqlite:///%s' % db_loc
 			create_db(db_conn)
-		ldap_url = 'ldap+sspi-ntlm://%s\\%s:jackdaw@%s' % (logon['domain'], logon['username'], logon['logoserver'])
-		smb_url = 'smb2+sspi-ntlm://%s\\%s:jackdaw@%s' % (logon['domain'], logon['username'], logon['logoserver'])
+		ldap_url = 'ldap+sspi-ntlm://%s\\%s:jackdaw@%s' % (logon['domain'], logon['username'], logon['logonserver'])
+		smb_url = 'smb2+sspi-ntlm://%s\\%s:jackdaw@%s' % (logon['domain'], logon['username'], logon['logonserver'])
 
 		jdlogger.debug('LDAP connection: %s' % ldap_url)
 		jdlogger.debug('SMB  connection: %s' % smb_url)
 		if dns is None:
 			from jackdaw.gatherer.rdns.dnstest import get_correct_dns_win
-			dns = await get_correct_dns_win(logon['logoserver'])
+			srv_domain = '%s.%s' % (logon['logonserver'], logon['dnsdomainname'])
+			dns = await get_correct_dns_win(srv_domain)
 			if dns is None:
 				jdlogger.debug('Failed to identify DNS server!')
 			else:

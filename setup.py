@@ -57,7 +57,7 @@ setup(
 		'werkzeug==0.16.1',
 		'bidict',
 		'colorama; platform_system=="Windows"',
-		'winacl>=0.0.5; platform_system=="Windows"',
+		'winacl>=0.0.6; platform_system=="Windows"',
 	],
 	entry_points={
 		'console_scripts': [
