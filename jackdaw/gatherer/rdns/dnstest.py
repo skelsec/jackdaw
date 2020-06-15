@@ -1,5 +1,5 @@
 
-from jackdaw.gatherer.rnds.rnds import RDNS
+from jackdaw.gatherer.rdns.rdns import RDNS
 
 
 async def get_correct_dns_win(root_domain):
@@ -10,9 +10,8 @@ async def get_correct_dns_win(root_domain):
 
 	for dns_ip in get_nameserver_candidates():
 		rdns = RDNS(dns_ip)
-		res, err = await rnds.lookup(root_domain)
+		res, err = await rdns.lookup(root_domain)
 		if res is not None:
 			return dns_ip
 	
 	return None
-	

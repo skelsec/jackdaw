@@ -31,7 +31,7 @@ from msldap.commons.url import MSLDAPURLDecoder
 import multiprocessing
 
 
-async def run_auto(ldap_worker_cnt = None, smb_worker_cnt = None, dns = None, work_dir = './workdir'):
+async def run_auto(ldap_worker_cnt = None, smb_worker_cnt = None, dns = None, work_dir = './workdir', db_conn = None):
 	try:
 		if platform.system() != 'Windows':
 			raise Exception('auto mode only works on windows!')
@@ -148,12 +148,16 @@ async def run(args):
 					raise err
 
 		elif args.command == 'auto':
-			await run_auto(
+			_, err = await run_auto(
 				ldap_worker_cnt=args.ldap_workers,
 				smb_worker_cnt=args.smbworkers,
 				dns=args.dns,
 				work_dir=work_dir
 			)
+			
+			if err is not None:
+				print(err)
+			
 
 		elif args.command == 'dbinit':
 			create_db(db_conn)
@@ -289,7 +293,9 @@ async def run(args):
 def main():
 	if platform.system().upper() == 'WINDOWS' and len(sys.argv) == 1:
 		#auto start on double click with default settings
-		asyncio.run(run_auto())
+		_, err = asyncio.run(run_auto())
+		if err is not None:
+			print(err)
 		return
 
 	import argparse
