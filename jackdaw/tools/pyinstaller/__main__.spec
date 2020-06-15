@@ -3,10 +3,10 @@
 block_cipher = None
 
 
-a = Analysis(['__main__.py'],
-             pathex=['C:\\Users\\VirtualClient\\Desktop\\jackdaw-devel'],
+a = Analysis(['..\..\__main__.py'],
+             pathex=['jackdaw-devel'],
              binaries=[],
-             datas=[('jackdaw/','jackdaw/')],
+             datas=[('..\..\..\jackdaw/','jackdaw/')],
              hiddenimports=[],
              hookspath=[],
              runtime_hooks=[],
@@ -23,7 +23,7 @@ exe = EXE(pyz,
           a.zipfiles,
           a.datas,
           [],
-          name='__main__',
+          name='jackdaw',
           debug=False,
           bootloader_ignore_signals=False,
           strip=False,
@@ -31,4 +31,4 @@ exe = EXE(pyz,
           upx_exclude=[],
           runtime_tmpdir=None,
           console=True,
-          icon='jackdaw/tools/pyinstaller/jackdaw.ico')
+          icon='jackdaw.ico')
