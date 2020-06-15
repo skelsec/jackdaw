@@ -289,7 +289,7 @@ async def run(args):
 def main():
 	if platform.system().upper() == 'WINDOWS' and len(sys.argv) == 1:
 		#auto start on double click with default settings
-		asyncio.run(run(run_auto()))
+		asyncio.run(run_auto())
 		return
 
 	import argparse
