@@ -49,10 +49,10 @@ async def run_auto(ldap_worker_cnt = None, smb_worker_cnt = None, dns = None, wo
 		if dns is None:
 			from jackdaw.gatherer.rdns.dnstest import get_correct_dns_win
 			dns = await get_correct_dns_win(logon['domain'])
-			dns = str(dns)
 			if dns is None:
 				jdlogger.info('Failed to identify DNS server!')
 			else:
+				dns = str(dns)
 				jdlogger.info('DNS server selected: %s' % str(dns))
 
 
@@ -154,7 +154,7 @@ async def run(args):
 				dns=args.dns,
 				work_dir=work_dir
 			)
-			
+
 			if err is not None:
 				print(err)
 			
