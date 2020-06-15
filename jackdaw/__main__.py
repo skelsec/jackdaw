@@ -102,12 +102,6 @@ async def run(args):
 			msldaplogger.setLevel(logging.DEBUG)
 			jdlogger.setLevel(1)
 			smblogger.setLevel(1)
-		
-		if args.version is True:
-			print('Jackdaw version: %s' % jdversion)
-			print('MSLDAP version : %s' % ldapversion)
-			print('AIOSMB version : %s' % smbversion)
-			sys.exit()
 
 		if not args.sql and args.command != 'auto':
 			print('SQL connection identification is missing! You need to provide the --sql parameter')
@@ -216,31 +210,25 @@ async def run(args):
 			)
 			await gatherer.run()
 
+		elif args.command == 'version':
+			print('Jackdaw version: %s' % jdversion)
+			print('MSLDAP version : %s' % ldapversion)
+			print('AIOSMB version : %s' % smbversion)
+
 		elif args.command == 'files':
 			raise Exception('not yet implemented!')
-			if args.src == 'domain':
-				if not args.ad_id:
-					raise Exception('ad-id parameter is mandatory in ldap mode')
-				
-				mgr = SMBConnectionURL(args.smb_url)
-				settings_base = SMBShareGathererSettings(args.ad_id, mgr, None, None, None)
-				settings_base.dir_depth = args.smb_folder_depth
-				settings_base.dir_with_sd = args.with_sid
-				settings_base.file_with_sd = args.with_sid
-
-				mgr = ShareGathererManager(settings_base, db_conn = db_conn, worker_cnt = args.smb_workers)
-				mgr.run()
-
-		#	elif args.src == 'file':
-		#		if not args.target_file:
-		#			raise Exception('target-file parameter is mandatory in file mode')
-		#		
-		#		args.target_file
-		#		args.lookup_ad
-		#		args.with_sid
-		#		args.smb_workers
-		#
-				
+			#if args.src == 'domain':
+			#	if not args.ad_id:
+			#		raise Exception('ad-id parameter is mandatory in ldap mode')
+			#	
+			#	mgr = SMBConnectionURL(args.smb_url)
+			#	settings_base = SMBShareGathererSettings(args.ad_id, mgr, None, None, None)
+			#	settings_base.dir_depth = args.smb_folder_depth
+			#	settings_base.dir_with_sd = args.with_sid
+			#	settings_base.file_with_sd = args.with_sid
+			#
+			#	mgr = ShareGathererManager(settings_base, db_conn = db_conn, worker_cnt = args.smb_workers)
+			#	mgr.run()
 			
 		elif args.command == 'creds':
 			creds = JackDawCredentials(args.db_conn, args.domain_id)
@@ -301,12 +289,14 @@ def main():
 			print(err)
 		return
 
+	if sys.version_info[0]==3 and sys.version_info[1] >= 8 and sys.platform.startswith('win'):
+		asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
+
 	import argparse
 	
 	parser = argparse.ArgumentParser(description='Gather gather gather')
 	parser.add_argument('-v', '--verbose', action='count', default=0, help='Increase verbosity, can be stacked')
 	parser.add_argument('--sql', help='SQL connection string. When using SQLITE it works best with FULL FILE PATH!!!')
-	parser.add_argument('-V', '--version', action='store_true', help='Prints out version info and exits')
 
 	subparsers = parser.add_subparsers(help = 'commands')
 	subparsers.required = True
@@ -321,6 +311,7 @@ def main():
 	adinfo_group = subparsers.add_parser('adinfo', help='Get a list of AD info entries')
 	dbinit_group = subparsers.add_parser('dbinit', help='Creates database')
 	
+	version_group = subparsers.add_parser('version', help='version info')
 
 	ldap_group = subparsers.add_parser('ldap', formatter_class=argparse.RawDescriptionHelpFormatter, help='Enumerate potentially vulnerable users via LDAP', epilog = MSLDAPURLDecoder.help_epilog)
 	ldap_group.add_argument('ldap_url',  help='Connection specitication in URL format')
