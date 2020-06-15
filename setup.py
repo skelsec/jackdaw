@@ -43,8 +43,8 @@ setup(
 		"Operating System :: OS Independent",
 	),
 	install_requires=[
-		'aiosmb>=0.2.18',
-		'msldap>=0.3.5',
+		'aiosmb>=0.2.19',
+		'msldap>=0.3.6',
 		'sqlalchemy',
 		'dnspython',
 		'tqdm',
@@ -57,7 +57,7 @@ setup(
 		'werkzeug==0.16.1',
 		'bidict',
 		'colorama; platform_system=="Windows"',
-		'winacl>=0.0.4; platform_system=="Windows"',
+		'winacl>=0.0.5; platform_system=="Windows"',
 	],
 	entry_points={
 		'console_scripts': [

@@ -285,9 +285,9 @@ class Anomalies:
 		}
 		machines = []
 		qry = self.db_session.session.query(
-			Machine.id, Machine.sAMAccountName, SMBFinger.id
+			Machine.id, Machine.sAMAccountName, SMBFinger.objectSid
 			).filter(Machine.ad_id == domainid
-			).filter(SMBFinger.machine_id == Machine.id
+			).filter(SMBFinger.machine_sid == Machine.id
 			).filter(SMBFinger.signing_required == False
 			)
 

@@ -70,9 +70,11 @@ class NestServer:
 		pathlib.Path(self.work_dir).mkdir(parents=True, exist_ok=True)
 		pathlib.Path(self.work_dir).joinpath('graphcache').mkdir(parents=True, exist_ok=True)
 
+		app.config['DEBUG'] = False 
 		app.config['SQLALCHEMY_ECHO'] = False 
 		app.config['SQLALCHEMY_DATABASE_URI'] = self.db_conn_string
 		app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+		app.config['SQLALCHEMY_RECORD_QUERIES'] = False
 		app.config['JACKDAW_WORK_DIR'] = self.work_dir
 		app.config['JACKDAW_GRAPH_BACKEND'] = self.graph_backend
 		app.config['JACKDAW_GRAPH_BACKEND_OBJ'] = graph_type

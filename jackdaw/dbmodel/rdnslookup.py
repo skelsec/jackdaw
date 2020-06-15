@@ -12,7 +12,10 @@ class RDNSLookup(Basemodel, Serializer):
 	ip = Column(String, index=True)
 	domain = Column(String, index=True)
 
-	def __init__(self, ad_id, ip, domain):
+	def __init__(self, ad_id, ip, domain, fetched_at = None):
 		self.ad_id = ad_id
 		self.ip = str(ip)
 		self.domain = str(domain)
+		self.fetched_at = fetched_at
+		if self.fetched_at is None:
+			self.fetched_at = datetime.datetime.utcnow()

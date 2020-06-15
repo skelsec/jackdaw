@@ -2093,25 +2093,189 @@ paths:
                 type: string
                 description: Placeholder TODO 
 
-  /database/upload:
-    put:
-      operationId: jackdaw.nest.api.database.upload
+  /props/{graphid}/{oid}/hvt/set:
+    get:
+      operationId: jackdaw.nest.api.props.set_hvt
       tags:
-        - Database
-      summary: Uploads and merges SQLite database file with the current database
-      description: Uploads and merges SQLite database file with the current database
+        - Props
+      summary: Sets the object as a high-value-target
+      description: Sets the object as a high-value-target
       parameters:
-        - name: dbfile
-          in: formData
-          description: File to upload
-          type: file
+        - name: graphid
+          in: path
+          description: Graphid
+          type: integer
+          required: True
+        - name: oid
+          in: path
+          description: oid of the object (sid or guid)
+          type: integer
           required: True
       responses:
         200:
-          description: TODO
+          description: Nah
           schema:
             type: object
             properties:
               graph:
                 type: string
                 description: Placeholder TODO
+
+  /props/{graphid}/{oid}/hvt/clear:
+    get:
+      operationId: jackdaw.nest.api.props.clear_hvt
+      tags:
+        - Props
+      summary: Sets the object as a high-value-target
+      description: Sets the object as a high-value-target
+      parameters:
+        - name: graphid
+          in: path
+          description: Graphid
+          type: integer
+          required: True
+        - name: oid
+          in: path
+          description: oid of the object (sid or guid)
+          type: integer
+          required: True
+      responses:
+        200:
+          description: Nah
+          schema:
+            type: object
+            properties:
+              graph:
+                type: string
+                description: Placeholder TODO
+
+  /props/{graphid}/{oid}/owned/set:
+    get:
+      operationId: jackdaw.nest.api.props.set_owned
+      tags:
+        - Props
+      summary: Sets the object as owned
+      description: Sets the object as owned
+      parameters:
+        - name: graphid
+          in: path
+          description: Graphid
+          type: integer
+          required: True
+        - name: oid
+          in: path
+          description: oid of the object (sid or guid)
+          type: integer
+          required: True
+      responses:
+        200:
+          description: Nah
+          schema:
+            type: object
+            properties:
+              graph:
+                type: string
+                description: Placeholder TODO
+
+  /props/{graphid}/{oid}/owned/clear:
+    get:
+      operationId: jackdaw.nest.api.props.clear_owned
+      tags:
+        - Props
+      summary: Clears the owned status of the object
+      description: Clears the owned status of the object
+      parameters:
+        - name: graphid
+          in: path
+          description: Graphid
+          type: integer
+          required: True
+        - name: oid
+          in: path
+          description: oid of the object (sid or guid)
+          type: integer
+          required: True
+      responses:
+        200:
+          description: Nah
+          schema:
+            type: object
+            properties:
+              graph:
+                type: string
+                description: Placeholder TODO
+
+  /shares/{domainid}/interesting:
+    get:
+      operationId: jackdaw.nest.api.share.list_interesting
+      tags:
+        - Shares
+      summary: Lists shares which are not the default ones
+      description: Lists shares which are not the default ones
+      parameters:
+        - name: domainid
+          in: path
+          description: ID of the domain
+          type: integer
+          required: True
+      responses:
+        200:
+          description: Nah
+          schema:
+            type: object
+            properties:
+              graph:
+                type: string
+                description: Placeholder TODO
+
+  /shares/{domainid}/bymachinesid/{machinesid}:
+    get:
+      operationId: jackdaw.nest.api.share.get_by_machinesid
+      tags:
+        - Shares
+      summary: Lists shares for given domainid and machinesid
+      description: Lists shares for given domainid and machinesid
+      parameters:
+        - name: domainid
+          in: path
+          description: ID of the domain
+          type: integer
+          required: True
+        - name: machinesid
+          in: path
+          description: ID of the domain
+          type: integer
+          required: True
+      responses:
+        200:
+          description: Nah
+          schema:
+            type: object
+            properties:
+              graph:
+                type: string
+                description: Placeholder TODO
+
+  /shares/id/{shareid}:
+    get:
+      operationId: jackdaw.nest.api.share.get_by_id
+      tags:
+        - Shares
+      summary: Returns one share referred by the shareid
+      description: Returns one share referred by the shareid
+      parameters:
+        - name: shareid
+          in: path
+          description: ID of the share
+          type: integer
+          required: True
+      responses:
+        200:
+          description: Nah
+          schema:
+            type: object
+            properties:
+              graph:
+                type: string
+                description: Placeholder TODO
+  

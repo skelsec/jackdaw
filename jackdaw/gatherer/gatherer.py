@@ -1,6 +1,7 @@
 
 import pathlib
 import asyncio
+import platform
 
 from jackdaw import logger
 from jackdaw.gatherer.smb.smb import SMBGatherer
@@ -277,9 +278,10 @@ class Gatherer:
 
 
 			logger.debug('Setting up connection objects')
+			
 			if self.dns_server is not None:
 				self.rdns_resolver = RDNS(server = self.dns_server, protocol = 'TCP', cache = True)
-
+			
 			if self.ldap_url is not None:
 				self.ldap_mgr = MSLDAPURLDecoder(self.ldap_url)
 				if self.rdns_resolver is None:

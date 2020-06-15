@@ -42,3 +42,8 @@ class Edge(Basemodel, Serializer):
 
 	def to_json(self):
 		return json.dumps(self.to_dict())
+
+	@staticmethod
+	def from_csv_line(line):
+		row = line.split(',')
+		return Edge(int(row[1]), int(row[2]), int(row[3]), int(row[4]), row[5])

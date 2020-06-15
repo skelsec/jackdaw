@@ -30,6 +30,50 @@ from msldap.commons.url import MSLDAPURLDecoder
 
 import multiprocessing
 
+
+async def run_auto(ldap_worker_cnt = None, smb_worker_cnt = None, dns = None, work_dir = './workdir'):
+	try:
+		if platform.system() != 'Windows':
+			raise Exception('auto mode only works on windows!')
+
+		from winacl.functions.highlevel import get_logon_info
+		logon = get_logon_info()
+
+		if db_conn is None:
+			db_loc = '%s_%s.db' % (logon['domain'], datetime.datetime.utcnow().strftime("%Y%m%d_%H%M%S"))
+			db_conn = 'sqlite:///%s' % db_loc
+			create_db(db_conn)
+		ldap_url = 'ldap+sspi-ntlm://%s\\%s:jackdaw@%s' % (logon['domain'], logon['username'], logon['logoserver'])
+		smb_url = 'smb2+sspi-ntlm://%s\\%s:jackdaw@%s' % (logon['domain'], logon['username'], logon['logoserver'])
+
+		if dns is None:
+			from jackdaw.gatherer.rdns.dnstest import get_correct_dns_win
+			dns = await get_correct_dns_win(logon['domain'])
+			if dns is None:
+				logger.info('Failed to identify DNS server!')
+
+
+		with multiprocessing.Pool() as mp_pool:
+			gatherer = Gatherer(
+				db_conn, 
+				work_dir, 
+				ldap_url, 
+				smb_url, 
+				ldap_worker_cnt=ldap_worker_cnt, 
+				smb_worker_cnt=smb_worker_cnt, 
+				mp_pool=mp_pool, 
+				smb_gather_types=['all'], 
+				progress_queue=None, 
+				show_progress=True,
+				calc_edges=True,
+				dns=dns
+			)
+			res, err = await gatherer.run()
+			if err is not None:
+				raise err
+	except Exception as e:
+		return None, e
+
 async def run(args):
 	try:
 		
@@ -101,37 +145,12 @@ async def run(args):
 					raise err
 
 		elif args.command == 'auto':
-			if platform.system() != 'Windows':
-				raise Exception('auto mode only works on windows!')
-
-			from winacl.functions.highlevel import get_logon_info
-			logon = get_logon_info()
-
-			if db_conn is None:
-				db_loc = '%s_%s.db' % (logon['domain'], datetime.datetime.utcnow().strftime("%Y%m%d_%H%M%S"))
-				db_conn = 'sqlite:///%s' % db_loc
-				create_db(db_conn)
-			ldap_url = 'ldap+sspi-ntlm://%s\\%s:hehe@%s' % (logon['domain'], logon['username'], logon['logoserver'])
-			smb_url = 'smb2+sspi-ntlm://%s\\%s:hehe@%s' % (logon['domain'], logon['username'], logon['logoserver'])
-
-			with multiprocessing.Pool() as mp_pool:
-				gatherer = Gatherer(
-					db_conn, 
-					work_dir, 
-					ldap_url, 
-					smb_url, 
-					ldap_worker_cnt=args.ldap_workers, 
-					smb_worker_cnt=args.smb_workers, 
-					mp_pool=mp_pool, 
-					smb_gather_types=['all'], 
-					progress_queue=None, 
-					show_progress=True,
-					calc_edges=True,
-					dns=args.dns
-				)
-				res, err = await gatherer.run()
-				if err is not None:
-					raise err
+			await run_auto(
+				ldap_worker_cnt=args.ldap_workers,
+				smb_worker_cnt=args.smbworkers,
+				dns=args.dns,
+				work_dir=work_dir
+			)
 
 		elif args.command == 'dbinit':
 			create_db(db_conn)
@@ -211,16 +230,6 @@ async def run(args):
 		#		args.with_sid
 		#		args.smb_workers
 		#
-		#	elif args.src == 'ldap':
-		#		if not args.ldap_url:
-		#			raise Exception('ldap-url parameter is mandatory in ldap mode')
-		#		args.lookup_ad
-		#		args.with_sid
-		#		args.smb_workers
-		#
-		#	
-		#
-		#	elif args.src == 'cmd':
 				
 			
 		elif args.command == 'creds':
@@ -275,6 +284,11 @@ async def run(args):
 		jdlogger.exception('main')
 	
 def main():
+	if platform.system().upper() == 'WINDOWS' and len(sys.argv) == 1:
+		#auto start on double click with default settings
+		asyncio.run(run(run_auto()))
+		return
+
 	import argparse
 	
 	parser = argparse.ArgumentParser(description='Gather gather gather')

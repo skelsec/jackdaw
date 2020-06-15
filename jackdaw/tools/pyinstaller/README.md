@@ -6,3 +6,4 @@ Steps:
 3. copy __main__.py and __main__.spec files to the git project's root dir.
 4. ```pyinstaller -F __main__.spec```
 5. executable will appear in the ./dist/ folder
+6. rename exe to jackdaw.exe

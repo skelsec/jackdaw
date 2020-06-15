@@ -20,7 +20,7 @@ class NetShare(Basemodel, Serializer):
 	def to_dict(self):
 		return {
 			'id' : self.id , 
-			'machine_id' : self.machine_id , 
+			'machine_sid' : self.machine_sid , 
 			'ip' : self.ip , 
 			'rdns' : self.rdns , 
 			'netname' : self.netname , 
