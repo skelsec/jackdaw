@@ -38,9 +38,17 @@ async def run_auto(ldap_worker_cnt = None, smb_worker_cnt = None, dns = None, wo
 
 		from winacl.functions.highlevel import get_logon_info
 		logon = get_logon_info()
-
+		
+		jdlogger.debug(str(logon))
 		if logon['domain'] == '' or logon['logonserver'] == '':
 			return False, Exception("Failed to find user's settings! Is this a domain user?")
+		
+		try:
+			#checking connection can be made over ldap...
+			reader, writer = await asyncio.wait_for(asyncio.open_connection(logon['logonserver'], 389), 2)
+			writer.close()
+		except:
+			return False, Exception("Failed to connect to server %s over LDAP" % (logon['logonserver']))
 
 		if db_conn is None:
 			db_loc = '%s_%s.db' % (logon['domain'], datetime.datetime.utcnow().strftime("%Y%m%d_%H%M%S"))
