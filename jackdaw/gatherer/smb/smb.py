@@ -25,6 +25,7 @@ from jackdaw.dbmodel.adcomp import Machine
 from jackdaw.dbmodel.neterror import NetError
 from jackdaw.dbmodel.rdnslookup import RDNSLookup
 
+from jackdaw.common.cpucount import get_cpu_count
 from jackdaw.gatherer.smb.agent.agent import AIOSMBGathererAgent
 from jackdaw.gatherer.progress import *
 
@@ -59,7 +60,7 @@ class SMBGatherer:
 		self.smb_mgr = smb_mgr
 		self.gathering_type = ['all']
 		self.localgroups = ['Administrators', 'Distributed COM Users','Remote Desktop Users','Remote Management Users']
-		self.concurrent_connections = worker_cnt if worker_cnt is not None else len(os.sched_getaffinity(0))
+		self.concurrent_connections = worker_cnt if worker_cnt is not None else get_cpu_count())
 		self.db_conn = db_conn
 		self.progress_queue = progress_queue
 		self.rdns_resolver = rdns_resolver

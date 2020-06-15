@@ -1,6 +1,7 @@
 
 import base64
 from hashlib import sha1
+from jackdaw.common.cpucount import get_cpu_count
 from jackdaw.dbmodel.adsd import JackDawSD
 from jackdaw.dbmodel import windowed_query
 from jackdaw import logger
@@ -44,7 +45,7 @@ class SDCollector:
 		self.sd_upload_pbar = None
 
 		if self.agent_cnt is None:
-			self.agent_cnt = min(len(os.sched_getaffinity(0)), 4)
+			self.agent_cnt = min(get_cpu_count(), 4)
 
 		self.progress_last_updated = datetime.datetime.utcnow()
 		self.agent_in_q = None

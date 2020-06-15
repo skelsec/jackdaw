@@ -39,12 +39,11 @@ from jackdaw.dbmodel import windowed_query
 from jackdaw.wintypes.lookup_tables import *
 from jackdaw import logger
 
-from jackdaw.common.apq import AsyncProcessQueue
-
 from msldap.ldap_objects import *
 from winacl.dtyp.security_descriptor import SECURITY_DESCRIPTOR
 from tqdm import tqdm
 
+from jackdaw.common.cpucount import get_cpu_count
 from jackdaw.gatherer.progress import *
 from jackdaw.gatherer.ldap.agent.common import *
 from jackdaw.gatherer.ldap.agent.agent import LDAPGathererAgent
@@ -70,7 +69,7 @@ class LDAPGatherer:
 
 		self.agent_cnt = agent_cnt
 		if agent_cnt is None:
-			self.agent_cnt = min(len(os.sched_getaffinity(0)), 3)
+			self.agent_cnt = min(get_cpu_count(), 4)
 		
 		self.graph_id = graph_id
 		self.resumption = False

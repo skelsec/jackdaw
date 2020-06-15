@@ -5,6 +5,7 @@ import json
 import datetime
 import asyncio
 
+from jackdaw.common.cpucount import get_cpu_count
 from jackdaw.gatherer.progress import *
 from jackdaw.gatherer.ldap.agent.common import *
 from jackdaw.gatherer.ldap.agent.agent import LDAPGathererAgent
@@ -42,7 +43,7 @@ class MembershipCollector:
 		self.show_progress = show_progress
 
 		if self.agent_cnt is None:
-			self.agent_cnt = min(len(os.sched_getaffinity(0)), 8)
+			self.agent_cnt = min(get_cpu_count(), 8)
 
 		self.member_finish_ctr = 0
 		self.agent_in_q = None

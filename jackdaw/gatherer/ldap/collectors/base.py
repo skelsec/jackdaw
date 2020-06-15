@@ -23,6 +23,7 @@ from jackdaw.dbmodel.edgelookup import EdgeLookup
 
 
 from jackdaw import logger
+from jackdaw.common.cpucount import get_cpu_count
 from jackdaw.gatherer.progress import *
 from jackdaw.gatherer.ldap.agent.common import *
 from jackdaw.gatherer.ldap.agent.agent import LDAPGathererAgent
@@ -37,7 +38,7 @@ class BaseCollector:
 		
 		self.agent_cnt = agent_cnt
 		if self.agent_cnt is None:
-			self.agent_cnt = min(len(os.sched_getaffinity(0)), 4)
+			self.agent_cnt = min(get_cpu_count(), 4)
 		
 		self.progress_queue = progress_queue
 		self.show_progress = show_progress
