@@ -46,14 +46,16 @@ async def run_auto(ldap_worker_cnt = None, smb_worker_cnt = None, dns = None, wo
 		ldap_url = 'ldap+sspi-ntlm://%s\\%s:jackdaw@%s' % (logon['domain'], logon['username'], logon['logoserver'])
 		smb_url = 'smb2+sspi-ntlm://%s\\%s:jackdaw@%s' % (logon['domain'], logon['username'], logon['logoserver'])
 
+		jdlogger.debug('LDAP connection: %s' % ldap_url)
+		jdlogger.debug('SMB  connection: %s' % smb_url)
 		if dns is None:
 			from jackdaw.gatherer.rdns.dnstest import get_correct_dns_win
-			dns = await get_correct_dns_win(logon['domain'])
+			dns = await get_correct_dns_win(logon['logoserver'])
 			if dns is None:
-				jdlogger.info('Failed to identify DNS server!')
+				jdlogger.debug('Failed to identify DNS server!')
 			else:
 				dns = str(dns)
-				jdlogger.info('DNS server selected: %s' % str(dns))
+				jdlogger.debug('DNS server selected: %s' % str(dns))
 
 
 		with multiprocessing.Pool() as mp_pool:
@@ -74,8 +76,9 @@ async def run_auto(ldap_worker_cnt = None, smb_worker_cnt = None, dns = None, wo
 			res, err = await gatherer.run()
 			if err is not None:
 				raise err
+			return True, None
 	except Exception as e:
-		return None, e
+		return False, e
 
 async def run(args):
 	try:
