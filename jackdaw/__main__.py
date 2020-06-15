@@ -39,6 +39,9 @@ async def run_auto(ldap_worker_cnt = None, smb_worker_cnt = None, dns = None, wo
 		from winacl.functions.highlevel import get_logon_info
 		logon = get_logon_info()
 
+		if logon['domain'] == '' or logon['logonserver'] == '':
+			return False, Exception("Failed to find user's settings! Is this a domain user?")
+
 		if db_conn is None:
 			db_loc = '%s_%s.db' % (logon['domain'], datetime.datetime.utcnow().strftime("%Y%m%d_%H%M%S"))
 			db_conn = 'sqlite:///%s' % db_loc
