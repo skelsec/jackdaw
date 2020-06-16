@@ -31,7 +31,7 @@ from msldap.commons.url import MSLDAPURLDecoder
 import multiprocessing
 
 
-async def run_auto(ldap_worker_cnt = None, smb_worker_cnt = None, dns = None, work_dir = './workdir', db_conn = None):
+async def run_auto(ldap_worker_cnt = None, smb_worker_cnt = None, dns = None, work_dir = './workdir', db_conn = None, show_progress = True):
 	try:
 		if platform.system() != 'Windows':
 			raise Exception('auto mode only works on windows!')
@@ -81,7 +81,7 @@ async def run_auto(ldap_worker_cnt = None, smb_worker_cnt = None, dns = None, wo
 				mp_pool=mp_pool, 
 				smb_gather_types=['all'], 
 				progress_queue=None, 
-				show_progress=True,
+				show_progress=show_progress,
 				calc_edges=True,
 				dns=dns
 			)
@@ -94,8 +94,8 @@ async def run_auto(ldap_worker_cnt = None, smb_worker_cnt = None, dns = None, wo
 
 async def run(args):
 	try:
-		
-		print(__banner__)
+		if args.silent is True:
+			print(__banner__)
 		if args.verbose == 0:
 			logging.basicConfig(level=logging.INFO)
 			jdlogger.setLevel(logging.INFO)
@@ -147,7 +147,7 @@ async def run(args):
 					mp_pool=mp_pool, 
 					smb_gather_types=['all'], 
 					progress_queue=None, 
-					show_progress=True,
+					show_progress=args.silent,
 					calc_edges=True,
 					ad_id=None,
 					dns=args.dns
@@ -161,7 +161,8 @@ async def run(args):
 				ldap_worker_cnt=args.ldap_workers,
 				smb_worker_cnt=args.smb_workers,
 				dns=args.dns,
-				work_dir=work_dir
+				work_dir=work_dir,
+				show_progress=args.silent,
 			)
 			if err is not None:
 				print(err)
@@ -194,7 +195,7 @@ async def run(args):
 					mp_pool=mp_pool, 
 					smb_gather_types=['all'], 
 					progress_queue=None, 
-					show_progress=True,
+					show_progress=args.silent,
 					calc_edges=args.calculate_edges,
 					ad_id=args.resumption
 				)
@@ -215,7 +216,7 @@ async def run(args):
 				mp_pool=None, 
 				smb_gather_types=args.command, 
 				progress_queue=None, 
-				show_progress=True,
+				show_progress=args.silent,
 				calc_edges=False,
 				dns=args.dns,
 			)
@@ -267,7 +268,7 @@ async def run(args):
 					None, 
 					mp_pool=mp_pool, 
 					progress_queue=None, 
-					show_progress=True,
+					show_progress=args.silent,
 					calc_edges=True,
 					store_to_db=True,
 					ad_id=None,
@@ -307,6 +308,7 @@ def main():
 	
 	parser = argparse.ArgumentParser(description='Gather gather gather')
 	parser.add_argument('-v', '--verbose', action='count', default=0, help='Increase verbosity, can be stacked')
+	parser.add_argument('-s','--silent', action='store_false', help='Silent mode')
 	parser.add_argument('--sql', help='SQL connection string. When using SQLITE it works best with FULL FILE PATH!!!')
 
 	subparsers = parser.add_subparsers(help = 'commands')

@@ -63,6 +63,16 @@ class Gatherer:
 			await asyncio.sleep(10)
 
 	async def print_progress(self):
+		if self.show_progress is False:
+			try:
+				while True:
+					msg = await self.progress_queue.get()
+					if msg is None:
+						return
+					continue
+			except Exception as e:
+				logger.exception('Progress bar crashed')
+
 		logger.debug('Setting up progress bars')
 		pos = 0
 		ldap_info_pbar        = tqdm(desc = 'MSG:  ', ascii=True, position=pos)
@@ -295,7 +305,7 @@ class Gatherer:
 
 			logger.debug('Setting up database connection')
 
-			if self.show_progress is True and self.progress_queue is None:
+			if self.progress_queue is None:
 				self.progress_queue = asyncio.Queue()
 				self.progress_task = asyncio.create_task(self.print_progress())
 			
