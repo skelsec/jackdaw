@@ -167,7 +167,7 @@ class DomainListComponent extends ApiClient {
                             variant="contained"
                             onClick={(e) => this.generateGraph(row.id)}
                         >
-                            Generate Graph
+                            Generate Graph Cache
                         </Button>
                     </TableCell>
                 </TableRow>

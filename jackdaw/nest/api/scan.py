@@ -6,8 +6,8 @@ from flask import current_app
 
 from aiosmb.commons.connection.url import SMBConnectionURL
 from msldap.commons.url import MSLDAPURLDecoder
-from jackdaw.gatherer.smb.smb import SMBGathererManager
-from jackdaw.gatherer.ldap.aioldap import LDAPEnumeratorManager
+from jackdaw.gatherer.smb.smb import SMBGatherer
+from jackdaw.gatherer.ldap.aioldap import LDAPGatherer
 
 
 def scan_enum(params):
@@ -21,11 +21,11 @@ def scan_enum(params):
 	smb_mgr = SMBConnectionURL(smb_url)
 	ldap_mgr = MSLDAPURLDecoder(ldap_url)
 
-	mgr = LDAPEnumeratorManager(db_conn, ldap_mgr, agent_cnt=ldap_workers)
+	mgr = LDAPGatherer(db_conn, ldap_mgr, agent_cnt=ldap_workers)
 	adifo_id = mgr.run()
 	#print('ADInfo entry successfully created with ID %s' % adifo_id)
 		
-	mgr = SMBGathererManager(smb_mgr, worker_cnt=smb_workers)
+	mgr = SMBGatherer(smb_mgr, worker_cnt=smb_workers)
 	mgr.gathering_type = ['all']
 	mgr.db_conn = db_conn
 	mgr.target_ad = adifo_id

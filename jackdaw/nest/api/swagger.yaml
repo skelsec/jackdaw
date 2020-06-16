@@ -58,14 +58,14 @@ paths:
 
   /graph:
     get:
-      operationId: jackdaw.nest.api.graph.list_all
+      operationId: jackdaw.nest.api.graph.list_graphs
       tags:
         - Graph
-      summary: Returns all graph IDs
-      description: Returns all graph IDs
+      summary: Returns all loaded graph IDs
+      description: Returns all loaded graph IDs
       responses:
         200:
-          description: Returns list of graph IDs
+          description: Returns list of loaded graph IDs
           schema:
             type: array
     post:
@@ -212,6 +212,231 @@ paths:
               graph:
                 type: string
                 description: Placeholder TODO
+  
+  /graph/{graphid}/query/path/dcsync/:
+    get:
+      operationId: jackdaw.nest.api.graph.query_path_dcsync
+      tags:
+        - Graph
+      summary: TODO
+      description: TODO
+      parameters:
+        - name: graphid
+          in: path
+          description: ID of the graph view
+          type: integer
+          required: True
+        - name: format
+          in: query
+          description: return format. either vis or d3
+          type: string
+          required: False
+      responses:
+        200:
+          description: TODO
+          schema:
+            type: object
+            properties:
+              graph:
+                type: string
+                description: TODO
+
+  /graph/{graphid}/query/path/kerberoasttoda/:
+    get:
+      operationId: jackdaw.nest.api.graph.query_path_kerberoastda
+      tags:
+        - Graph
+      summary: TODO
+      description: TODO
+      parameters:
+        - name: graphid
+          in: path
+          description: ID of the graph view
+          type: integer
+          required: True
+        - name: format
+          in: query
+          description: return format. either vis or d3
+          type: string
+          required: False
+      responses:
+        200:
+          description: TODO
+          schema:
+            type: object
+            properties:
+              graph:
+                type: string
+                description: TODO
+
+  /graph/{graphid}/query/path/kerberoastany/:
+    get:
+      operationId: jackdaw.nest.api.graph.query_path_kerberoastany
+      tags:
+        - Graph
+      summary: TODO
+      description: TODO
+      parameters:
+        - name: graphid
+          in: path
+          description: ID of the graph view
+          type: integer
+          required: True
+        - name: format
+          in: query
+          description: return format. either vis or d3
+          type: string
+          required: False
+      responses:
+        200:
+          description: TODO
+          schema:
+            type: object
+            properties:
+              graph:
+                type: string
+                description: TODO
+
+
+  /graph/{graphid}/query/path/asreproastda/:
+    get:
+      operationId: jackdaw.nest.api.graph.query_path_asreproast
+      tags:
+        - Graph
+      summary: TODO
+      description: TODO
+      parameters:
+        - name: graphid
+          in: path
+          description: ID of the graph view
+          type: integer
+          required: True
+        - name: format
+          in: query
+          description: return format. either vis or d3
+          type: string
+          required: False
+      responses:
+        200:
+          description: TODO
+          schema:
+            type: object
+            properties:
+              graph:
+                type: string
+                description: TODO
+
+  /graph/{graphid}/query/path/ownedtoda/:
+    get:
+      operationId: jackdaw.nest.api.graph.query_path_ownedda
+      tags:
+        - Graph
+      summary: TODO
+      description: TODO
+      parameters:
+        - name: graphid
+          in: path
+          description: ID of the graph view
+          type: integer
+          required: True
+        - name: format
+          in: query
+          description: return format. either vis or d3
+          type: string
+          required: False
+      responses:
+        200:
+          description: TODO
+          schema:
+            type: object
+            properties:
+              graph:
+                type: string
+                description: TODO
+
+  /graph/{graphid}/query/path/fromowned/:
+    get:
+      operationId: jackdaw.nest.api.graph.query_path_fromowned
+      tags:
+        - Graph
+      summary: TODO
+      description: TODO
+      parameters:
+        - name: graphid
+          in: path
+          description: ID of the graph view
+          type: integer
+          required: True
+        - name: format
+          in: query
+          description: return format. either vis or d3
+          type: string
+          required: False
+      responses:
+        200:
+          description: TODO
+          schema:
+            type: object
+            properties:
+              graph:
+                type: string
+                description: TODO
+
+  /graph/{graphid}/query/path/tohighvalue/:
+    get:
+      operationId: jackdaw.nest.api.graph.query_path_tohighvalue
+      tags:
+        - Graph
+      summary: TODO
+      description: TODO
+      parameters:
+        - name: graphid
+          in: path
+          description: ID of the graph view
+          type: integer
+          required: True
+        - name: format
+          in: query
+          description: return format. either vis or d3
+          type: string
+          required: False
+      responses:
+        200:
+          description: TODO
+          schema:
+            type: object
+            properties:
+              graph:
+                type: string
+                description: TODO
+
+#  /graph/{graphid}/query/path/kerberoast/:
+#    get:
+#      operationId: jackdaw.nest.api.graph.query_path_kerberoast
+#      tags:
+#        - Graph
+#      summary: All paths to domain admins group
+#      description: All paths to domain admins group
+#      parameters:
+#        - name: graphid
+#          in: path
+#          description: ID of the graph view
+#          type: integer
+#          required: True
+#        - name: format
+#          in: query
+#          description: return format. either vis or d3
+#          type: string
+#          required: False
+#      responses:
+#        200:
+#          description: All paths to domain admins group
+#          schema:
+#            type: object
+#            properties:
+#              graph:
+#                type: string
+#                description: Placeholder TODO
 
   /graph/{graphid}/node/{nodeid}:
     get:
@@ -468,9 +693,9 @@ paths:
           schema:
             type: file
 
-  /graph/load:
+  /graph/upload:
     put:
-      operationId: jackdaw.nest.api.graph.load
+      operationId: jackdaw.nest.api.graph.upload
       tags:
         - Graph
       summary: Loads the graph from the supplied file
@@ -490,8 +715,29 @@ paths:
               graph:
                 type: string
                 description: Placeholder TODO
-
-        
+  
+  /graph/load:
+    put:
+      operationId: jackdaw.nest.api.graph.load
+      tags:
+        - Graph
+      summary: Loads the graph from the disk
+      description: a
+      parameters:
+        - name: graphid
+          in: query
+          description: ID of the stored graph to be loaded in to memory
+          type: integer
+          required: True
+      responses:
+        200:
+          description: TODO
+          schema:
+            type: object
+            properties:
+              graph:
+                type: string
+                description: Placeholder TODO
 
   /domain/list:
     get:
@@ -1847,4 +2093,189 @@ paths:
                 type: string
                 description: Placeholder TODO 
 
+  /props/{graphid}/{oid}/hvt/set:
+    get:
+      operationId: jackdaw.nest.api.props.set_hvt
+      tags:
+        - Props
+      summary: Sets the object as a high-value-target
+      description: Sets the object as a high-value-target
+      parameters:
+        - name: graphid
+          in: path
+          description: Graphid
+          type: integer
+          required: True
+        - name: oid
+          in: path
+          description: oid of the object (sid or guid)
+          type: integer
+          required: True
+      responses:
+        200:
+          description: Nah
+          schema:
+            type: object
+            properties:
+              graph:
+                type: string
+                description: Placeholder TODO
 
+  /props/{graphid}/{oid}/hvt/clear:
+    get:
+      operationId: jackdaw.nest.api.props.clear_hvt
+      tags:
+        - Props
+      summary: Sets the object as a high-value-target
+      description: Sets the object as a high-value-target
+      parameters:
+        - name: graphid
+          in: path
+          description: Graphid
+          type: integer
+          required: True
+        - name: oid
+          in: path
+          description: oid of the object (sid or guid)
+          type: integer
+          required: True
+      responses:
+        200:
+          description: Nah
+          schema:
+            type: object
+            properties:
+              graph:
+                type: string
+                description: Placeholder TODO
+
+  /props/{graphid}/{oid}/owned/set:
+    get:
+      operationId: jackdaw.nest.api.props.set_owned
+      tags:
+        - Props
+      summary: Sets the object as owned
+      description: Sets the object as owned
+      parameters:
+        - name: graphid
+          in: path
+          description: Graphid
+          type: integer
+          required: True
+        - name: oid
+          in: path
+          description: oid of the object (sid or guid)
+          type: integer
+          required: True
+      responses:
+        200:
+          description: Nah
+          schema:
+            type: object
+            properties:
+              graph:
+                type: string
+                description: Placeholder TODO
+
+  /props/{graphid}/{oid}/owned/clear:
+    get:
+      operationId: jackdaw.nest.api.props.clear_owned
+      tags:
+        - Props
+      summary: Clears the owned status of the object
+      description: Clears the owned status of the object
+      parameters:
+        - name: graphid
+          in: path
+          description: Graphid
+          type: integer
+          required: True
+        - name: oid
+          in: path
+          description: oid of the object (sid or guid)
+          type: integer
+          required: True
+      responses:
+        200:
+          description: Nah
+          schema:
+            type: object
+            properties:
+              graph:
+                type: string
+                description: Placeholder TODO
+
+  /shares/{domainid}/interesting:
+    get:
+      operationId: jackdaw.nest.api.share.list_interesting
+      tags:
+        - Shares
+      summary: Lists shares which are not the default ones
+      description: Lists shares which are not the default ones
+      parameters:
+        - name: domainid
+          in: path
+          description: ID of the domain
+          type: integer
+          required: True
+      responses:
+        200:
+          description: Nah
+          schema:
+            type: object
+            properties:
+              graph:
+                type: string
+                description: Placeholder TODO
+
+  /shares/{domainid}/bymachinesid/{machinesid}:
+    get:
+      operationId: jackdaw.nest.api.share.get_by_machinesid
+      tags:
+        - Shares
+      summary: Lists shares for given domainid and machinesid
+      description: Lists shares for given domainid and machinesid
+      parameters:
+        - name: domainid
+          in: path
+          description: ID of the domain
+          type: integer
+          required: True
+        - name: machinesid
+          in: path
+          description: ID of the domain
+          type: integer
+          required: True
+      responses:
+        200:
+          description: Nah
+          schema:
+            type: object
+            properties:
+              graph:
+                type: string
+                description: Placeholder TODO
+
+  /shares/id/{shareid}:
+    get:
+      operationId: jackdaw.nest.api.share.get_by_id
+      tags:
+        - Shares
+      summary: Returns one share referred by the shareid
+      description: Returns one share referred by the shareid
+      parameters:
+        - name: shareid
+          in: path
+          description: ID of the share
+          type: integer
+          required: True
+      responses:
+        200:
+          description: Nah
+          schema:
+            type: object
+            properties:
+              graph:
+                type: string
+                description: Placeholder TODO
+  

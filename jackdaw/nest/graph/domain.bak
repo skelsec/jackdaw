@@ -1,5 +1,5 @@
 
-from jackdaw.dbmodel.adinfo import JackDawADInfo
+from jackdaw.dbmodel.adinfo import ADInfo
 from jackdaw.dbmodel.tokengroup import JackDawTokenGroup
 from jackdaw.dbmodel import *
 from jackdaw.wintypes.well_known_sids import get_name_or_sid, get_sid_for_name
@@ -320,7 +320,7 @@ class DomainGraph:
 		"""
 		#self.ad_id = ad_id
 		session = self.get_session()
-		adinfo = session.query(JackDawADInfo).get(construct.ad_id)
+		adinfo = session.query(ADInfo).get(construct.ad_id)
 		
 		self.domain_sid = str(adinfo.objectSid)
 	
@@ -336,16 +336,16 @@ class DomainGraph:
 			self.add_sid_to_node(user.objectSid, 'machine', construct, name=user.sAMAccountName)
 		
 		
-		for res in session.query(JackDawADUser.objectSid, JackDawADMachine.objectSid).filter(NetSession.username == JackDawADUser.sAMAccountName).filter(NetSession.source == JackDawADMachine.sAMAccountName).distinct(NetSession.username):
+		for res in session.query(ADUser.objectSid, Machine.objectSid).filter(NetSession.username == ADUser.sAMAccountName).filter(NetSession.source == Machine.sAMAccountName).distinct(NetSession.username):
 			self.add_edge(res[0], res[1], construct, label='hasSession')
 			self.add_edge(res[1], res[0], construct, label='hasSession')
 		
 
-		for res in session.query(JackDawADUser.objectSid, JackDawADMachine.objectSid, LocalGroup.groupname
-					).filter(JackDawADMachine.id == LocalGroup.machine_id
-					).filter(JackDawADMachine.ad_id == construct.ad_id
-					).filter(JackDawADUser.ad_id == construct.ad_id
-					).filter(JackDawADUser.objectSid == LocalGroup.sid
+		for res in session.query(ADUser.objectSid, Machine.objectSid, LocalGroup.groupname
+					).filter(Machine.id == LocalGroup.machine_id
+					).filter(Machine.ad_id == construct.ad_id
+					).filter(ADUser.ad_id == construct.ad_id
+					).filter(ADUser.objectSid == LocalGroup.sid
 					).all():
 			label = None
 			if res[2] == 'Remote Desktop Users':
@@ -403,9 +403,9 @@ class DomainGraph:
 
 
 		def get_sid_by_nthash(ad_id, nt_hash):
-			return session.query(JackDawADUser.objectSid, Credential.username
+			return session.query(ADUser.objectSid, Credential.username
 				).filter_by(ad_id = ad_id
-				).filter(Credential.username == JackDawADUser.sAMAccountName
+				).filter(Credential.username == ADUser.sAMAccountName
 				).filter(Credential.nt_hash == nt_hash
 				)
 

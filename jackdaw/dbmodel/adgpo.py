@@ -2,13 +2,13 @@ from . import Basemodel, lf, dt, bc
 import datetime
 from sqlalchemy.orm import relationship
 from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Boolean
+from jackdaw.dbmodel.utils.serializer import Serializer
 
-class JackDawADGPO(Basemodel):
+class GPO(Basemodel, Serializer):
 	__tablename__ = 'adgpo'
 
 	id = Column(Integer, primary_key=True)
-	ad_id = Column(Integer, ForeignKey('ads.id'))
-	ad = relationship("JackDawADInfo", back_populates="gpos", lazy = True)
+	ad_id = Column(Integer, ForeignKey('adinfo.id'))
 	
 	name = Column(String, index=True)
 	dn = Column(String, index=True)
@@ -21,6 +21,9 @@ class JackDawADGPO(Basemodel):
 	systemFlags = Column(Integer, index=True)
 	whenChanged = Column(String, index=True)
 	whenCreated = Column(String, index=True)
+	gPCMachineExtensionNames = Column(String, index=True)
+	gPCUserExtensionNames = Column(String, index=True)
+	versionNumber = Column(String, index=True)
 	
 	def to_dict(self):
 		return {
@@ -32,22 +35,28 @@ class JackDawADGPO(Basemodel):
 			'path' : self.path,
 			'guid' : self.objectGUID,
 			'whenChanged' : self.whenChanged ,
-			'whenCreated' : self.whenCreated ,	
+			'whenCreated' : self.whenCreated ,
+			'gPCMachineExtensionNames' : self.gPCMachineExtensionNames ,
+			'gPCUserExtensionNames' : self.gPCUserExtensionNames ,
+			'versionNumber' : self.versionNumber ,
 		}
 	
 	@staticmethod
 	def from_adgpo(u):
-		adou = JackDawADGPO()
-		adou.name = lf(getattr(u,'displayName'))
-		adou.dn = lf(getattr(u,'distinguishedName'))
-		adou.cn = lf(getattr(u,'cn'))
-		adou.path = lf(getattr(u,'gPCFileSysPath'))
-		adou.flags = lf(getattr(u,'flags'))
-		adou.objectClass = lf(getattr(u,'objectClass'))
-		adou.objectGUID = lf(getattr(u,'objectGUID'))
-		adou.systemFlags = lf(getattr(u,'systemFlags'))
-		adou.whenChanged = dt(lf(getattr(u,'whenChanged')))
-		adou.whenCreated = dt(lf(getattr(u,'whenCreated')))
+		adou = GPO()
+		adou.name = lf(u.displayName)
+		adou.dn = lf(u.distinguishedName)
+		adou.cn = lf(u.cn)
+		adou.path = lf(u.gPCFileSysPath)
+		adou.flags = lf(u.flags)
+		adou.objectClass = lf(u.objectClass)
+		adou.objectGUID = lf(u.objectGUID)
+		adou.systemFlags = lf(u.systemFlags)
+		adou.whenChanged = dt(lf(u.whenChanged))
+		adou.whenCreated = dt(lf(u.whenCreated))
+		adou.gPCMachineExtensionNames = lf(u.gPCMachineExtensionNames)
+		adou.gPCUserExtensionNames = lf(u.gPCUserExtensionNames)
+		adou.versionNumber = lf(u.versionNumber)
 			
 		return adou
 		

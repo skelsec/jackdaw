@@ -1,8 +1,8 @@
 
 from flask import current_app
-from jackdaw.dbmodel.aduser import JackDawADUser
-from jackdaw.dbmodel.adcomp import JackDawADMachine
-from jackdaw.dbmodel.adinfo import JackDawADInfo
+from jackdaw.dbmodel.aduser import ADUser
+from jackdaw.dbmodel.adcomp import Machine
+from jackdaw.dbmodel.adinfo import ADInfo
 from jackdaw.dbmodel.smbfinger import SMBFinger
 
 def list_machines(domainid, page, maxcnt):
@@ -12,12 +12,12 @@ def list_machines(domainid, page, maxcnt):
 		'page': {},
 	}
 	qry = db.session.query(
-		JackDawADMachine
+		Machine
 		).filter_by(ad_id = domainid
 		).with_entities(
-			JackDawADMachine.id, 
-			JackDawADMachine.objectSid, 
-			JackDawADMachine.sAMAccountName
+			Machine.id, 
+			Machine.objectSid, 
+			Machine.sAMAccountName
 		)
 	
 	qry = qry.paginate(page = page, max_per_page = maxcnt)
@@ -33,7 +33,7 @@ def list_machines(domainid, page, maxcnt):
 		)
 
 	page = dict(
-		total=qry.total, 
+		total=qry.total,
 		current_page=qry.page,
 		per_page=qry.per_page
 	)
@@ -45,21 +45,21 @@ def list_machines(domainid, page, maxcnt):
 
 def get(domainid, machineid):
 	db = current_app.db
-	machine = db.session.query(JackDawADMachine).get(machineid)
+	machine = db.session.query(Machine).get(machineid)
 	return machine.to_dict()
 
 def get_sid(domainid, sid):
 	db = current_app.db
-	for machine in db.session.query(JackDawADMachine).filter_by(objectSid = sid).filter(JackDawADMachine.ad_id == domainid).all():
+	for machine in db.session.query(Machine).filter_by(objectSid = sid).filter(Machine.ad_id == domainid).all():
 		return machine.to_dict()
 
 def get_os_versions(domainid):
 	db = current_app.db
 	qry = db.session.query(
-		JackDawADMachine.operatingSystemVersion
+		Machine.operatingSystemVersion
 		).filter_by(ad_id = domainid
-		).group_by(JackDawADMachine.operatingSystemVersion
-		).distinct(JackDawADMachine.operatingSystemVersion)
+		).group_by(Machine.operatingSystemVersion
+		).distinct(Machine.operatingSystemVersion)
 
 	versions = {}
 	for version in qry.all():
@@ -71,9 +71,9 @@ def get_domains(domainid):
 	db = current_app.db
 	qry = db.session.query(
 			SMBFinger.domainname
-			).filter(JackDawADMachine.ad_id == domainid
-			).filter(JackDawADInfo.id == domainid
-			).filter(SMBFinger.machine_id == JackDawADMachine.id
+			).filter(Machine.ad_id == domainid
+			).filter(ADInfo.id == domainid
+			).filter(SMBFinger.machine_id == Machine.id
 			).group_by(SMBFinger.domainname)
 
 	domains = {}

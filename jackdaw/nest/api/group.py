@@ -1,6 +1,6 @@
 
 from flask import current_app
-from jackdaw.dbmodel.adgroup import JackDawADGroup
+from jackdaw.dbmodel.adgroup import Group
 
 def list_groups(domainid, page, maxcnt):
 	db = current_app.db
@@ -9,12 +9,12 @@ def list_groups(domainid, page, maxcnt):
 		'page': {},
 	}
 	qry = db.session.query(
-        JackDawADGroup
+        Group
         ).filter_by(ad_id = domainid
         ).with_entities(
-            JackDawADGroup.id, 
-            JackDawADGroup.sid, 
-            JackDawADGroup.sAMAccountName
+            Group.id, 
+            Group.objectSid, 
+            Group.sAMAccountName
             )
         
 	
@@ -43,10 +43,10 @@ def list_groups(domainid, page, maxcnt):
 
 def get(domainid, groupid):
     db = current_app.db
-    user = db.session.query(JackDawADGroup).get(groupid)
+    user = db.session.query(Group).get(groupid)
     return user.to_dict()
 
 def get_sid(domainid, sid):
     db = current_app.db
-    for user in db.session.query(JackDawADGroup).filter_by(sid = sid).filter(JackDawADGroup.ad_id == domainid).all():
+    for user in db.session.query(Group).filter_by(objectSid = sid).filter(Group.ad_id == domainid).all():
         return user.to_dict()

@@ -267,6 +267,27 @@ class GraphPageComponent extends ApiClient {
             case "path":
                 url = `/graph/${this.state.graph}/query/path?dst=${this.state.dstsid}&src=${this.state.srcsid}&format=vis`;
                 break;
+            case "ownedtoda":
+                url = `/graph/${this.state.graph}/query/path/ownedtoda`;
+                break;
+            case "fromowned":
+                url = `/graph/${this.state.graph}/query/path/fromowned`;
+                break;
+            case "dcsync":
+                url = `/graph/${this.state.graph}/query/path/dcsync`;
+                break;
+            case "kerberoasttoda":
+                url = `/graph/${this.state.graph}/query/path/kerberoasttoda`;
+                break;
+            case "kerberoastany":
+                url = `/graph/${this.state.graph}/query/path/kerberoastany`;
+                break;
+            case "asreproastda":
+                url = `/graph/${this.state.graph}/query/path/asreproastda`;
+                break;
+            case "highvalue":
+                url = `/graph/${this.state.graph}/query/path/tohighvalue`;
+                break;
             default:
                 return;
         }
@@ -398,6 +419,78 @@ class GraphPageComponent extends ApiClient {
                             onClick={(e) => this.fetchGraph('path')}
                         >
                             Draw Path
+                        </Button>
+                    </Box>
+                    <Box className="margin-top">
+                        <Button
+                            color="primary"
+                            variant="contained"
+                            onClick={(e) => this.fetchGraph('ownedtoda')}
+                        >
+                            Draw Path from Owned users to DA
+                        </Button>
+                    </Box>
+                    <Box className="margin-top">
+                        <Button
+                            color="primary"
+                            variant="contained"
+                            onClick={(e) => this.fetchGraph('fromowned')}
+                        >
+                            Draw Path from Owned users to anywhere
+                        </Button>
+                    </Box>
+                    <Box className="margin-top">
+                        <Button
+                            color="primary"
+                            variant="contained"
+                            onClick={(e) => this.fetchGraph('dcsync')}
+                        >
+                            List users with DCSYNC rights
+                        </Button>
+                    </Box>
+                    <Box className="margin-top">
+                        <Button
+                            color="primary"
+                            variant="contained"
+                            onClick={(e) => this.fetchGraph('kerberoasttoda')}
+                        >
+                            Drwaw Path from Kerberoastable users to DA
+                        </Button>
+                    </Box>
+                    <Box className="margin-top">
+                        <Button
+                            color="primary"
+                            variant="contained"
+                            onClick={(e) => this.fetchGraph('kerberoastany')}
+                        >
+                            Drwaw Path from Kerberoastable users to anywhere
+                        </Button>
+                    </Box>
+                    <Box className="margin-top">
+                        <Button
+                            color="primary"
+                            variant="contained"
+                            onClick={(e) => this.fetchGraph('asreproastda')}
+                        >
+                            Drwaw Path from ASREProastable users to DA
+                        </Button>
+                    </Box>
+                    <Box className="margin-top">
+                        <Button
+                            color="primary"
+                            variant="contained"
+                            onClick={(e) => this.fetchGraph('asreproast')}
+                        >
+                            Drwaw Path from ASREProastable users to DA
+                        </Button>
+                    </Box>
+                    <Box className="margin-top">
+                        <Button
+                            color="primary"
+                            variant="contained"
+                            onClick={(e) => this.fetchGraph('highvalue')}
+                        >
+                            Draw user paths to High Value targets
                         </Button>
                     </Box>
                 </VBox>

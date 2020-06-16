@@ -1,7 +1,7 @@
 from flask import current_app
-from jackdaw.dbmodel.aduser import JackDawADUser
-from jackdaw.dbmodel.adcomp import JackDawADMachine
-from jackdaw.dbmodel.adinfo import JackDawADInfo
+from jackdaw.dbmodel.aduser import ADUser
+from jackdaw.dbmodel.adcomp import Machine
+from jackdaw.dbmodel.adinfo import ADInfo
 from jackdaw.dbmodel.smbfinger import SMBFinger
 from jackdaw.nest.anomalies.anomalies import Anomalies
 

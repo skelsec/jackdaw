@@ -43,8 +43,8 @@ setup(
 		"Operating System :: OS Independent",
 	),
 	install_requires=[
-		'aiosmb>=0.2.14',
-		'msldap>=0.3.3',
+		'aiosmb>=0.2.19',
+		'msldap>=0.3.6',
 		'sqlalchemy',
 		'dnspython',
 		'tqdm',
@@ -54,7 +54,10 @@ setup(
 		'connexion[swagger-ui]',
 		'pypykatz>=0.3.6',
         'swagger-ui-bundle>=0.0.2',
-		'werkzeug==0.16.1'
+		'werkzeug==0.16.1',
+		'bidict',
+		'colorama; platform_system=="Windows"',
+		'winacl>=0.0.6; platform_system=="Windows"',
 	],
 	entry_points={
 		'console_scripts': [

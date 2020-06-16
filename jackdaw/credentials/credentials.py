@@ -1,5 +1,5 @@
 
-from jackdaw.dbmodel import create_db, get_session, Credential, HashEntry, JackDawADUser
+from jackdaw.dbmodel import create_db, get_session, Credential, HashEntry, ADUser
 from sqlalchemy import exc, func
 from jackdaw import logger
 import string
@@ -145,13 +145,13 @@ class JackDawCredentials:
 			self.dbsession.close()
 
 	def get_cracked_users(self):
-		qry = self.dbsession.query(JackDawADUser, Credential, HashEntry
+		qry = self.dbsession.query(ADUser, Credential, HashEntry
 						).outerjoin(HashEntry, Credential.nt_hash == HashEntry.nt_hash
 						).filter(HashEntry.nt_hash != None
 						).filter(Credential.history_no == 0
-						).filter(JackDawADUser.ad_id == self.domain_id
+						).filter(ADUser.ad_id == self.domain_id
 						).filter(Credential.ad_id == self.domain_id
-						).filter(JackDawADUser.sAMAccountName == Credential.username
+						).filter(ADUser.sAMAccountName == Credential.username
 						)
 
 		cracked_users = []

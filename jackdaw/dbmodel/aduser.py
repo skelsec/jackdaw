@@ -1,18 +1,18 @@
 from . import Basemodel, lf, dt, bc
-from jackdaw.dbmodel.utils import *
+from jackdaw.dbmodel.utils.uacflags import calc_uac_flags
 import datetime
 from sqlalchemy.orm import relationship
 from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Boolean
 import json
 from jackdaw.utils.encoder import UniversalEncoder
+from jackdaw.dbmodel.utils.serializer import Serializer
 
-class JackDawADUser(Basemodel):
+class ADUser(Basemodel, Serializer):
 	__tablename__ = 'users'
 
 	# Now for the attributes
 	id = Column(Integer, primary_key=True)
-	ad_id = Column(Integer, ForeignKey('ads.id'))
-	ad = relationship("JackDawADInfo", back_populates="users", lazy = True)
+	ad_id = Column(Integer, ForeignKey('adinfo.id'))
 	sn = Column(String)
 	cn = Column(String)
 	dn = Column(String)
@@ -80,11 +80,7 @@ class JackDawADUser(Basemodel):
 	UAC_USE_DES_KEY_ONLY = Column(Boolean)
 	UAC_DONT_REQUIRE_PREAUTH = Column(Boolean)
 	UAC_PASSWORD_EXPIRED = Column(Boolean)
-	UAC_TRUSTED_TO_AUTHENTICATE_FOR_DELEGATION = Column(Boolean)
-
-	#credential = relationship("Credential", back_populates="user", lazy = True)
-	allowedtodelegateto = relationship("JackDawUserConstrainedDelegation", back_populates="user", lazy = True)
-	
+	UAC_TRUSTED_TO_AUTHENTICATE_FOR_DELEGATION = Column(Boolean)	
 
 	def to_dict(self):
 		return {
@@ -145,7 +141,7 @@ class JackDawADUser(Basemodel):
 
 	@staticmethod
 	def from_aduser(u):
-		user = JackDawADUser()
+		user = ADUser()
 		user.sn = u.sn
 		user.cn = u.cn
 		user.dn = u.distinguishedName

@@ -1,8 +1,11 @@
 from . import Basemodel
 import datetime
 from sqlalchemy import Column, Integer, String, DateTime
+from jackdaw.dbmodel.utils.serializer import Serializer
+from sqlalchemy import Index, func
 
-class NetSession(Basemodel):
+
+class NetSession(Basemodel, Serializer):
 	__tablename__ = 'netsession'
 	
 	id = Column(Integer, primary_key=True)
@@ -13,3 +16,4 @@ class NetSession(Basemodel):
 	rdns = Column(String, index=True)
 	username = Column(String, index=True)
 	
+	Index('netsessionlower', func.lower(source))

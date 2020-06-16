@@ -1,7 +1,7 @@
 from flask import current_app
-from jackdaw.dbmodel.aduser import JackDawADUser
-from jackdaw.dbmodel.adcomp import JackDawADMachine
-from jackdaw.dbmodel.adinfo import JackDawADInfo
+from jackdaw.dbmodel.aduser import ADUser
+from jackdaw.dbmodel.adcomp import Machine
+from jackdaw.dbmodel.adinfo import ADInfo
 from jackdaw.dbmodel.smbfinger import SMBFinger
 import base64
 
@@ -20,10 +20,10 @@ class Anomalies:
 		pw_notreq_users = []
 
 		qry = self.db_session.session.query(
-			JackDawADUser
+			ADUser
 			).filter_by(ad_id = domainid
-			).filter(JackDawADUser.UAC_PASSWD_NOTREQD == True
-			).with_entities(JackDawADUser.id, JackDawADUser.sAMAccountName
+			).filter(ADUser.UAC_PASSWD_NOTREQD == True
+			).with_entities(ADUser.id, ADUser.sAMAccountName
 			)
 			
 		qry = qry.paginate(page = page, max_per_page = maxcnt)
@@ -52,10 +52,10 @@ class Anomalies:
 		}
 		plaintext_pw_users = []
 		qry = self.db_session.session.query(
-			JackDawADUser
+			ADUser
 			).filter_by(ad_id = domainid
-			).filter(JackDawADUser.UAC_ENCRYPTED_TEXT_PASSWORD_ALLOWED == True
-			).with_entities(JackDawADUser.id, JackDawADUser.sAMAccountName
+			).filter(ADUser.UAC_ENCRYPTED_TEXT_PASSWORD_ALLOWED == True
+			).with_entities(ADUser.id, ADUser.sAMAccountName
 			)
 
 		qry = qry.paginate(page = page, max_per_page = maxcnt)
@@ -86,10 +86,10 @@ class Anomalies:
 		}
 		pw_notexp = []
 		qry = self.db_session.session.query(
-			JackDawADUser
+			ADUser
 			).filter_by(ad_id = domainid
-			).filter(JackDawADUser.UAC_DONT_EXPIRE_PASSWD == True
-			).with_entities(JackDawADUser.id, JackDawADUser.sAMAccountName
+			).filter(ADUser.UAC_DONT_EXPIRE_PASSWD == True
+			).with_entities(ADUser.id, ADUser.sAMAccountName
 			)
 
 		qry = qry.paginate(page = page, max_per_page = maxcnt)
@@ -119,10 +119,10 @@ class Anomalies:
 		}
 		des_only = []
 		qry = self.db_session.session.query(
-			JackDawADUser
+			ADUser
 			).filter_by(ad_id = domainid
-			).filter(JackDawADUser.UAC_USE_DES_KEY_ONLY == True
-			).with_entities(JackDawADUser.id, JackDawADUser.sAMAccountName
+			).filter(ADUser.UAC_USE_DES_KEY_ONLY == True
+			).with_entities(ADUser.id, ADUser.sAMAccountName
 			)
 
 		qry = qry.paginate(page = page, max_per_page = maxcnt)
@@ -152,10 +152,10 @@ class Anomalies:
 		}
 		asrep = []
 		qry = self.db_session.session.query(
-			JackDawADUser
+			ADUser
 			).filter_by(ad_id = domainid
-			).filter(JackDawADUser.UAC_DONT_REQUIRE_PREAUTH == True
-			).with_entities(JackDawADUser.id, JackDawADUser.sAMAccountName
+			).filter(ADUser.UAC_DONT_REQUIRE_PREAUTH == True
+			).with_entities(ADUser.id, ADUser.sAMAccountName
 			)
 
 		qry = qry.paginate(page = page, max_per_page = maxcnt)
@@ -186,10 +186,10 @@ class Anomalies:
 		}
 		users = []
 		qry = self.db_session.session.query(
-			JackDawADUser.id, JackDawADUser.sAMAccountName, JackDawADUser.description
-			).filter(JackDawADUser.ad_id == domainid
-			).filter(JackDawADUser.description != None
-			).filter(JackDawADUser.description != ""
+			ADUser.id, ADUser.sAMAccountName, ADUser.description
+			).filter(ADUser.ad_id == domainid
+			).filter(ADUser.description != None
+			).filter(ADUser.description != ""
 			)
 
 		qry = qry.paginate(page = page, max_per_page = maxcnt)
@@ -218,10 +218,10 @@ class Anomalies:
 		}
 		machines = []
 		qry = self.db_session.session.query(
-			JackDawADMachine.id, JackDawADMachine.sAMAccountName, JackDawADMachine.description
-			).filter(JackDawADMachine.ad_id == domainid
-			).filter(JackDawADMachine.description != None
-			).filter(JackDawADMachine.description != ""
+			Machine.id, Machine.sAMAccountName, Machine.description
+			).filter(Machine.ad_id == domainid
+			).filter(Machine.description != None
+			).filter(Machine.description != ""
 			)
 
 		qry = qry.paginate(page = page, max_per_page = maxcnt)
@@ -252,10 +252,10 @@ class Anomalies:
 		# TODO: input filtering more? not sure if needed here...
 		machines = []
 		qry = self.db_session.session.query(
-			JackDawADMachine
+			Machine
 			).filter_by(ad_id = domainid
-			).filter(JackDawADMachine.operatingSystemVersion == version
-			).with_entities(JackDawADMachine.id, JackDawADMachine.sAMAccountName, JackDawADMachine.objectSid
+			).filter(Machine.operatingSystemVersion == version
+			).with_entities(Machine.id, Machine.sAMAccountName, Machine.objectSid
 			)
 		
 		qry = qry.paginate(page = page, max_per_page = maxcnt)
@@ -285,9 +285,9 @@ class Anomalies:
 		}
 		machines = []
 		qry = self.db_session.session.query(
-			JackDawADMachine.id, JackDawADMachine.sAMAccountName, SMBFinger.id
-			).filter(JackDawADMachine.ad_id == domainid
-			).filter(SMBFinger.machine_id == JackDawADMachine.id
+			Machine.id, Machine.sAMAccountName, SMBFinger.objectSid
+			).filter(Machine.ad_id == domainid
+			).filter(SMBFinger.machine_sid == Machine.id
 			).filter(SMBFinger.signing_required == False
 			)
 
@@ -317,11 +317,11 @@ class Anomalies:
 		}
 		machines = []
 		qry = self.db_session.session.query(
-			JackDawADInfo.id, JackDawADMachine.id, JackDawADMachine.sAMAccountName , SMBFinger.domainname
-			).filter(JackDawADMachine.ad_id == domainid
-			).filter(JackDawADInfo.id == domainid
-			).filter(SMBFinger.machine_id == JackDawADMachine.id
-			).filter(SMBFinger.domainname != JackDawADInfo.name
+			ADInfo.id, Machine.id, Machine.sAMAccountName , SMBFinger.domainname
+			).filter(Machine.ad_id == domainid
+			).filter(ADInfo.id == domainid
+			).filter(SMBFinger.machine_sid == Machine.objectSid
+			).filter(SMBFinger.domainname != ADInfo.name
 			).filter(SMBFinger.domainname != None
 			)
 

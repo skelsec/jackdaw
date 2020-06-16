@@ -1,6 +1,6 @@
 
 from flask import current_app
-from jackdaw.dbmodel.aduser import JackDawADUser
+from jackdaw.dbmodel.aduser import ADUser
 
 def list_users(domainid, page, maxcnt):
 	db = current_app.db
@@ -9,12 +9,12 @@ def list_users(domainid, page, maxcnt):
 		'page': {},
 	}
 	qry = db.session.query(
-        JackDawADUser
+        ADUser
         ).filter_by(ad_id = domainid
         ).with_entities(
-            JackDawADUser.id, 
-            JackDawADUser.objectSid, 
-            JackDawADUser.sAMAccountName
+            ADUser.id, 
+            ADUser.objectSid, 
+            ADUser.sAMAccountName
             )
         
 	
@@ -43,21 +43,21 @@ def list_users(domainid, page, maxcnt):
 
 def get(domainid, userid):
     db = current_app.db
-    user = db.session.query(JackDawADUser).get(userid)
+    user = db.session.query(ADUser).get(userid)
     return user.to_dict()
 
 def get_sid(domainid, usersid):
     db = current_app.db
-    for user in db.session.query(JackDawADUser).filter_by(objectSid = usersid).filter(JackDawADUser.ad_id == domainid).all():
+    for user in db.session.query(ADUser).filter_by(objectSid = usersid).filter(ADUser.ad_id == domainid).all():
         return user.to_dict()
 
 def filter(domainid, proplist):
     #TODO: add other properties to search for!
     db = current_app.db
-    query = db.session.query(JackDawADUser).filter_by(ad_id = domainid)
+    query = db.session.query(ADUser).filter_by(ad_id = domainid)
     for elem in proplist:
         if 'sAMAccountName' in elem:
-            query = query.filter(JackDawADUser.sAMAccountName == elem['sAMAccountName'])
+            query = query.filter(ADUser.sAMAccountName == elem['sAMAccountName'])
     
     user = query.first()
     if user is None:

@@ -8,11 +8,11 @@ clean:
 	rm -f -r jackdaw/nest/site/nui/node_modules
 
 publish: clean
-	python3.7 setup.py sdist bdist_wheel
-	python3.7 -m twine upload dist/*
+	python3 setup.py sdist bdist_wheel
+	python3 -m twine upload dist/*
 
 rebuild: clean
-	python3.7 setup.py install
+	python3 setup.py install
 
 build:
-	python3.7 setup.py install
+	python3 setup.py install

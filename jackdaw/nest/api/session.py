@@ -1,13 +1,13 @@
 
 from jackdaw.dbmodel.netsession import NetSession
-from jackdaw.dbmodel.adcomp import JackDawADMachine
-from jackdaw.dbmodel.aduser import JackDawADUser
+from jackdaw.dbmodel.adcomp import Machine
+from jackdaw.dbmodel.aduser import ADUser
 from flask import current_app
 
 def session_list(domainid):
 	db = current_app.db
 	sessions = {}
-	for mid, mname, session in db.session.query(JackDawADMachine.id, JackDawADMachine.sAMAccountName, NetSession).filter(JackDawADMachine.ad_id == domainid).filter(NetSession.machine_id == JackDawADMachine.id).distinct(NetSession.username):
+	for mid, mname, session in db.session.query(Machine.id, Machine.sAMAccountName, NetSession).filter(Machine.ad_id == domainid).filter(NetSession.machine_id == Machine.id).distinct(NetSession.username):
 		if mid not in sessions:
 			sessions[mid] = {}
 			sessions[mid]['sessions'] = []
@@ -23,11 +23,11 @@ def session_add(domainid, session):
 	cname = session['hostname']
 	if cname[-1] != '$':
 		cname = session['hostname'] + '$'
-	comp = db.session.query(JackDawADMachine.id, JackDawADMachine.sAMAccountName).filter_by(ad_id = domainid).filter(JackDawADMachine.sAMAccountName == cname).first()
+	comp = db.session.query(Machine.id, Machine.sAMAccountName).filter_by(ad_id = domainid).filter(Machine.sAMAccountName == cname).first()
 	if comp is None:
 		return 'Machine not found!', 404
 	uname = session['username']
-	user = db.session.query(JackDawADUser.sAMAccountName).filter_by(ad_id = domainid).filter(JackDawADUser.sAMAccountName == uname).first()
+	user = db.session.query(ADUser.sAMAccountName).filter_by(ad_id = domainid).filter(ADUser.sAMAccountName == uname).first()
 	if user is None:
 		return 'User not found!', 404
 
