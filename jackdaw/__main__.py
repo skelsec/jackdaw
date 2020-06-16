@@ -35,7 +35,8 @@ async def run_auto(ldap_worker_cnt = None, smb_worker_cnt = None, dns = None, wo
 	try:
 		if platform.system() != 'Windows':
 			raise Exception('auto mode only works on windows!')
-
+		
+		smblogger.setLevel(100)
 		from winacl.functions.highlevel import get_logon_info
 		logon = get_logon_info()
 		
@@ -99,14 +100,14 @@ async def run(args):
 		if args.verbose == 0:
 			logging.basicConfig(level=logging.INFO)
 			jdlogger.setLevel(logging.INFO)
-			msldaplogger.setLevel(logging.WARNING)
-			smblogger.setLevel(logging.CRITICAL)
+			msldaplogger.setLevel(logging.CRITICAL)
+			smblogger.setLevel(100)
 			
 		elif args.verbose == 1:
 			logging.basicConfig(level=logging.DEBUG)
 			jdlogger.setLevel(logging.DEBUG)
-			msldaplogger.setLevel(logging.INFO)
-			smblogger.setLevel(logging.INFO)
+			msldaplogger.setLevel(logging.WARNING)
+			smblogger.setLevel(logging.CRITICAL)
 			
 		elif args.verbose > 1:
 			logging.basicConfig(level=1)

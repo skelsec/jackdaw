@@ -14,7 +14,7 @@ import ipaddress
 from tqdm import tqdm
 
 from jackdaw import logger
-from jackdaw.dbmodel import get_session
+from jackdaw.dbmodel import get_session, windowed_query
 from jackdaw.common.apq import AsyncProcessQueue
 from jackdaw.dbmodel.netshare import NetShare
 from jackdaw.dbmodel.netsession import NetSession
@@ -102,12 +102,22 @@ class SMBGatherer:
 			self.gatherer_task.cancel()
 			
 	async def generate_targets(self):
-		for target_id, dns in self.session.query(Machine).filter_by(ad_id = self.ad_id).with_entities(Machine.objectSid, Machine.dNSHostName):
-			await self.in_q.put((target_id, dns))
+		try:
+			q = self.session.query(Machine).filter_by(ad_id = self.ad_id)
+			for machine in windowed_query(q, Machine.id, 100):
+				try:
+					dns_name = machine.dNSHostName
+					if dns_name is None or dns_name == '':
+						dns_name = '%s.%s' % (str(machine.sAMAccountName), str(self.domain_name))
+					await self.in_q.put((machine.objectSid, dns_name))
+				except:
+					continue
 
-		#signaling the ed of target generation
-		await self.in_q.put(None)
-	
+			#signaling the ed of target generation
+			await self.in_q.put(None)
+		except Exception as e:
+			logger.exception('smb generate_targets')
+		
 	async def run(self):
 		try:
 			logger.debug('[+] Starting SMB information acqusition. This might take a while...')
