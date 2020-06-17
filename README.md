@@ -7,14 +7,17 @@ Jackdaw is here to collect all information in your domain, store it in a SQL dat
 It also comes with a handy feature to help you in a password-cracking project by storing/looking up/reporting hashes/passowrds/users.
 
 # Example commands
+
+#### Automatic enumeration - windows only, with domain-joined user -
+No need to pre-initialise the database, it will be done automatically.
+Using the distributed binary you can just double-click on `jackdaw.exe`  
+Using as a python script `jackdaw auto`
+
 Most of these commands are available already from the webapi, except for the database init.
 ### DB init
 `jackdaw --sql sqlite:///<full path here>/test.db dbinit`  
 
 ### Enumeration
-#### Automatic enumeration - windows only, with domain-joined user -
-Using the distributed binary you can just double-click on `jackdaw.exe`  
-Using as a python script `jackdaw auto`
 #### Full enumeration with integrated sspi - windows only
 `jackdaw --sql sqlite:///test.db enum 'ldap+sspi://10.10.10.2' 'smb+sspi-ntlm://10.10.10.2'`
 #### Full enumeration with username and password - platform independent
