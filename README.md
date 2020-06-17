@@ -12,6 +12,9 @@ Most of these commands are available already from the webapi, except for the dat
 `jackdaw --sql sqlite:///<full path here>/test.db dbinit`  
 
 ### Enumeration
+#### Automatic enumeration - windows only, with domain-joined user -
+Using the distributed binary you can just double-click on `jackdaw.exe`  
+Using as a python script `jackdaw auto`
 #### Full enumeration with integrated sspi - windows only
 `jackdaw --sql sqlite:///test.db enum 'ldap+sspi://10.10.10.2' 'smb+sspi-ntlm://10.10.10.2'`
 #### Full enumeration with username and password - platform independent
