@@ -8,7 +8,7 @@ It also comes with a handy feature to help you in a password-cracking project by
 
 # Example commands
 
-#### Automatic enumeration - windows only, with domain-joined user -
+### Automatic enumeration - windows only, with domain-joined user -
 No need to pre-initialise the database, it will be done automatically.
 Using the distributed binary you can just double-click on `jackdaw.exe`  
 Using as a python script `jackdaw auto`
