@@ -261,7 +261,8 @@ class MembershipCollector:
 
 	async def run(self):
 		try:
-
+			adinfo = self.session.query(ADInfo).get(self.ad_id)
+			self.domain_name = str(adinfo.distinguishedName).replace(',','.').replace('DC=','')
 			qs = self.agent_cnt
 			self.agent_in_q = asyncio.Queue(qs)
 			self.agent_out_q = asyncio.Queue(qs*40)

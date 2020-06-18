@@ -460,6 +460,9 @@ class EdgeCalc:
 				res = self.session.query(GraphInfo).get(self.graph_id)
 				self.ad_id = res.ad_id
 
+			adinfo = self.session.query(ADInfo).get(self.ad_id)
+			self.domain_name = str(adinfo.distinguishedName).replace(',','.').replace('DC=','')
+			
 
 			await self.log_msg('Adding gplink edges')
 			self.gplink_edges()
