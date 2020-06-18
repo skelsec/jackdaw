@@ -6,7 +6,7 @@ def get_cpu_count():
 	cpu_count = None
 	if hasattr(os, 'sched_getaffinity'):
 		try:
-			cpu_count = os.sched_getaffinity(0)
+			cpu_count = len(os.sched_getaffinity(0))
 			return cpu_count
 		except:
 			pass
