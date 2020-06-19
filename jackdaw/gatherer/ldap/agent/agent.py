@@ -140,7 +140,11 @@ class LDAPGathererAgent:
 			async for user_data, err in self.ldap.get_all_users():
 				if err is not None:
 					raise err
-				user = ADUser.from_aduser(user_data)
+				try:
+					user = ADUser.from_aduser(user_data)
+				except:
+					await self.agent_out_q.put((LDAPAgentCommand.EXCEPTION, str(traceback.format_exc())))
+					continue
 				spns = []
 				if user_data.servicePrincipalName is not None:
 					for spn in user_data.servicePrincipalName:

@@ -172,8 +172,11 @@ class ADUser(Basemodel, Serializer):
 		user.badPwdCount = u.badPwdCount
 		user.logonCount = u.logonCount
 		user.sAMAccountType = u.sAMAccountType
-		user.userAccountControl = int(u.userAccountControl)
-	
+		try:
+			user.userAccountControl = int(u.userAccountControl)
+		except:
+			pass
+		
 		user.codePage = u.codePage
 		user.countryCode = u.countryCode
 		user.when_pw_change = dt(u.when_pw_change)
