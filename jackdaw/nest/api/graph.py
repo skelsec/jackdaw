@@ -122,10 +122,14 @@ def get(graphid):
 
 def query_path(graphid, src = None, dst = None, format = 'd3'):
 	if graphid not in graphs:
-		return 'Graph Not Found', 404
+		load(graphid)
+	if src == '':
+		src = None
+	if dst == '':
+		dst = None
 	if src is None and dst is None:
 		return {}
-	res = graphs[graphid].all_shortest_paths(src, dst)
+	res = graphs[graphid].shortest_paths(src, dst)
 	return res.to_dict(format = format)
 
 def query_path_da(graphid, format = 'vis'):
