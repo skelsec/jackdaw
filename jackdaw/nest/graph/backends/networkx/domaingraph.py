@@ -71,7 +71,7 @@ class JackDawDomainGraphNetworkx:
 		gi = self.dbsession.query(GraphInfo).get(self.graph_id)
 		domaininfo = self.dbsession.query(ADInfo).get(gi.ad_id)
 		self.domain_sid = domaininfo.objectSid
-		self.domain_id = gi.ad_id
+		self.domain_id = gi.id
 
 	@staticmethod
 	def create(dbsession, ad_id, graph_id, graph_dir):
