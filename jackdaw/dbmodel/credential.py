@@ -59,6 +59,14 @@ class Credential(Basemodel, Serializer):
 		return cred
 
 	@staticmethod
+	def get_rid_from_sid(sid):
+		if sid is None or sid == 'None':
+			return None
+		t = str(sid)
+		_, rid = t.rsplit('-',1)
+		return rid
+
+	@staticmethod
 	def from_aiosmb_secret(secret, ad_id = -1):
 		# returns a complex touple in the format of (currentcred, [nthist], [lmhist], [cleartextcred], [pwds])
 		creds = []
@@ -303,30 +311,38 @@ class Credential(Basemodel, Serializer):
 	def from_aiosmb_line(line, ad_id = -1):
 		cred = Credential()
 		line = line.strip()
+		if line.find(':') == -1:
+			continue
 		data = line.split(':')
 		pw = None
 		if data[0] == 'ntlm':
 			cred.ad_id = ad_id
+			uac = data[3]
 			cred.domain = data[1]
 			cred.username = data[2]
-			cred.nt_hash = data[5]
-			cred.lm_hash = data[4]
+			cred.nt_hash = data[6]
+			cred.lm_hash = data[5]
+			cred.object_sid = data[4]
+			cred.object_rid = Credential.get_rid_from_sid(data[4])
 			cred.history_no = 0
 			cred.cred_type = 'aiosmb-dcsync-ntlm'
-
+		
 		elif data[0] == 'ntlm_history':
 			cred.ad_id = ad_id
 			cred.domain = data[1]
 			cred.username = data[2]
-			cred.nt_hash = data[5]
-			cred.lm_hash = data[4]
-			cred.history_no = int(data[6].replace('history_',''))
+			cred.nt_hash = data[6]
+			cred.lm_hash = data[5]
+			cred.object_sid = data[4]
+			cred.object_rid = Credential.get_rid_from_sid(data[4])
+			cred.history_no = int(data[7].replace('history_',''))
 			cred.cred_type = 'aiosmb-dcsync-ntlm-history'
 
 		elif data[0] == 'cleartext':
 			cred.ad_id = ad_id
-			_, cred.domain, cred.username, pw = line.split(':', 4) #reparsing needed, pw might contain colon
+			_, cred.domain, cred.username, cred.object_sid, pw = line.split(':', 4) #reparsing needed, pw might contain colon
 			
+			cred.object_rid = Credential.get_rid_from_sid(cred.object_sid)
 			cred.nt_hash = NT(pw).hex()
 			cred.lm_hash = None
 			cred.history_no = 0
