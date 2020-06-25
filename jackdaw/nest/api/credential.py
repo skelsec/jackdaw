@@ -95,6 +95,8 @@ def aiosmb_upload(domainid):
 	ctr_plain = 0
 	fail_plain = 0
 	for cred, plaintext in Credential.from_aiosmb_stream(file_to_upload.stream, domainid):
+		if cred is None:
+			continue
 		try:
 			db.session.add(cred)
 			db.session.commit()

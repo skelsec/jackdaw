@@ -312,7 +312,7 @@ class Credential(Basemodel, Serializer):
 		cred = Credential()
 		line = line.strip()
 		if line.find(':') == -1:
-			continue
+			return None, None
 		data = line.split(':')
 		pw = None
 		if data[0] == 'ntlm':
