@@ -59,10 +59,20 @@ class AIOSMBGathererAgent:
 							if smbshare.remark is not None:
 								r = None
 								try:
-									r = smbshare.remark.decode()
+									r = smbshare.remark.decode('utf-16-le')
 								except:
-									r = smbshare.remark
-								share.remark = str(r)
+									try:
+										r = smbshare.remark.decode('latin-1')
+									except:
+										try:
+											r = smbshare.remark.decode('utf-8')
+										except:
+											r = smbshare.remark.hex()
+								
+								if isinstance(r, str):
+									r = r.replace('\x00','')
+									share.remark = r
+
 
 							await self.out_q.put((tid, connection.target, share, None))
 					
@@ -73,13 +83,16 @@ class AIOSMBGathererAgent:
 							await self.out_q.put((tid, connection.target, None, 'Failed to get sessions. Reason: %s' % format_exc(err)))
 							break
 						else:
-							sess = NetSession()
-							sess.machine_sid = tid
-							sess.source = connection.target.get_ip()
-							sess.ip = session.ip_addr.replace('\\','').strip()
-							sess.username = session.username
+							try:
+								sess = NetSession()
+								sess.machine_sid = tid
+								sess.source = connection.target.get_ip()
+								sess.ip = session.ip_addr.replace('\\','').strip()
+								sess.username = session.username
 
-							await self.out_q.put((tid, connection.target, sess, None))
+								await self.out_q.put((tid, connection.target, sess, None))
+							except Exception as e:
+								await self.out_q.put((tid, connection.target, None, 'Failed to format session. Reason: %s' % format_exc(e)))
 
 				if 'all' in self.gather or 'localgroups' in self.gather:
 					for group_name in self.localgroups:
