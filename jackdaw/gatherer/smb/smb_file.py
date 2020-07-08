@@ -9,7 +9,6 @@ import enum
 import copy
 
 from tqdm import tqdm
-from dns import resolver, reversename
 from aiosmb.commons.interfaces.share import SMBShare
 from aiosmb.commons.interfaces.file import SMBFile
 from aiosmb.commons.interfaces.directory import SMBDirectory

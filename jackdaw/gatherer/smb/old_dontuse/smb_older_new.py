@@ -13,7 +13,6 @@ import multiprocessing
 import threading
 
 from tqdm import tqdm
-from dns import resolver, reversename
 
 import aiosmb
 from aiosmb.commons.interfaces.machine import SMBMachine
