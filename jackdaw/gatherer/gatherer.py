@@ -329,7 +329,7 @@ class Gatherer:
 
 			logger.debug('Setting up database connection')
 
-			if self.progress_queue is None:
+			if self.progress_queue is None and self.show_progress is True:
 				self.progress_queue = asyncio.Queue()
 				self.progress_task = asyncio.create_task(self.print_progress())
 			
