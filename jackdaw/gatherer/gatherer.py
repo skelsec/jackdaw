@@ -208,6 +208,8 @@ class Gatherer:
 					for pbar in self.progress_bars:
 						pbar.refresh()
 
+		except asyncio.CancelledError:
+			return
 		except Exception as e:
 			logger.exception('Progress bar crashed')
 

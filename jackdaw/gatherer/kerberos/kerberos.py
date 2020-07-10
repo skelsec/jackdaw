@@ -200,7 +200,7 @@ class KerberoastGatherer:
 					_, err = await self.kerberoast_sspi()
 					if err is not None:
 						raise err
-					return
+					return True, None
 				else:
 					raise Exception('No kerberos URL was provided and not running on Windows!')
 			
