@@ -7,6 +7,7 @@ from jackdaw import logger
 from jackdaw.gatherer.smb.smb import SMBGatherer
 from jackdaw.gatherer.smb.smb_file import SMBShareGathererSettings, ShareGathererManager
 from jackdaw.gatherer.ldap.aioldap import LDAPGatherer
+from jackdaw.gatherer.kerberos.kerberos import KerberoastGatherer
 
 from aiosmb.commons.connection.url import SMBConnectionURL
 from msldap.commons.url import MSLDAPURLDecoder
@@ -16,7 +17,7 @@ from tqdm import tqdm
 from jackdaw.gatherer.progress import *
 
 class Gatherer:
-	def __init__(self, db_url, work_dir, ldap_url, smb_url, ad_id = None, calc_edges = True, ldap_worker_cnt = 4, smb_worker_cnt = 100, mp_pool = None, smb_enum_shares = False, smb_gather_types = ['all'], progress_queue = None, show_progress = True, dns = None, store_to_db = True, graph_id = None):
+	def __init__(self, db_url, work_dir, ldap_url, smb_url, kerb_url = None, ad_id = None, calc_edges = True, ldap_worker_cnt = 4, smb_worker_cnt = 100, mp_pool = None, smb_enum_shares = False, smb_gather_types = ['all'], progress_queue = None, show_progress = True, dns = None, store_to_db = True, graph_id = None):
 		self.db_url = db_url
 		self.work_dir = work_dir
 		self.mp_pool = mp_pool
@@ -34,6 +35,7 @@ class Gatherer:
 
 		self.smb_url = smb_url
 		self.ldap_url = ldap_url
+		self.kerb_url = kerb_url
 		self.progress_queue = progress_queue
 		self.show_progress = show_progress
 		self.smb_folder_depth = 1
@@ -230,6 +232,24 @@ class Gatherer:
 		except Exception as e:
 			return None, None, e
 
+	async def kerberoast(self):
+		try:
+			gatherer = KerberoastGatherer(
+				self.db_url, 
+				self.ad_id, 
+				progress_queue = self.progress_queue,
+				show_progress = False,
+				kerb_url = self.kerb_url,
+				domain_name = None
+			)
+			_, err = await gatherer.run()
+			if err is not None:
+				raise err
+
+			return True, None
+		except Exception as e:
+			return None, e
+
 	async def gather_smb(self):
 		try:
 			mgr = SMBGatherer(
@@ -323,6 +343,11 @@ class Gatherer:
 				self.ad_id, self.graph_id, err = await self.gather_ldap()
 				if err is not None:
 					raise err
+			
+			if self.kerb_url is not None:
+				_, err = await self.kerberoast()
+				if err is not None:
+					logger.exception('Kerberos did not work... %s' % err)
 
 			if self.smb_url is not None:
 				_, err = await self.gather_smb()
@@ -350,7 +375,6 @@ class Gatherer:
 
 			return True, None
 		except Exception as e:
-			print(e)
 			return False, e
 
 		finally:

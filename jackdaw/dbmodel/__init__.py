@@ -121,6 +121,7 @@ from .graphinfo import GraphInfo
 from .neterror import NetError
 from .rdnslookup import RDNSLookup
 from .adobjprops import ADObjProps
+from .kerberoast import Kerberoast
 
 
 
