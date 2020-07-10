@@ -113,9 +113,10 @@ class Gatherer:
 		self.progress_refresh_task = asyncio.create_task(self.progress_refresh())
 		
 		logger.debug('waiting for progress messages')
-		try:
-			while True:
+		while True:
+			try:
 				msg = await self.progress_queue.get()
+				
 				if msg is None:
 					for pbar in self.progress_bars:
 						pbar.refresh()
@@ -208,10 +209,10 @@ class Gatherer:
 					for pbar in self.progress_bars:
 						pbar.refresh()
 
-		except asyncio.CancelledError:
-			return
-		except Exception as e:
-			logger.exception('Progress bar crashed')
+			except asyncio.CancelledError:
+				return
+			except Exception as e:
+				logger.exception('Progress bar crashed')
 
 	async def gather_ldap(self):
 		try:
