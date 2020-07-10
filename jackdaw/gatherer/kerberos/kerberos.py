@@ -64,9 +64,9 @@ class KerberoastGatherer:
 		try:
 			from winsspi.sspi import KerberoastSSPI
 
-			for cred in self.targets_spn:
+			for uid in self.targets_spn:
 				try:
-					spn_name = '%s@%s' % (cred.username, cred.domain)
+					spn_name = '%s@%s' % (self.targets_spn[uid].username, self.targets_spn[uid].domain)
 					if spn_name[:6] == 'krbtgt':
 						continue
 					ksspi = KerberoastSSPI()

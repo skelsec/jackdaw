@@ -347,7 +347,7 @@ class Gatherer:
 			if self.kerb_url is not None:
 				_, err = await self.kerberoast()
 				if err is not None:
-					logger.exception('Kerberos did not work... %s' % err)
+					logger.error('Kerberos did not work... %s' % err)
 
 			if self.smb_url is not None:
 				_, err = await self.gather_smb()

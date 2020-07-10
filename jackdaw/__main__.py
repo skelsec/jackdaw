@@ -31,7 +31,7 @@ from msldap.commons.url import MSLDAPURLDecoder
 import multiprocessing
 
 
-async def run_auto(ldap_worker_cnt = None, smb_worker_cnt = None, dns = None, work_dir = './workdir', db_conn = None, show_progress = True):
+async def run_auto(ldap_worker_cnt = None, smb_worker_cnt = 500, dns = None, work_dir = './workdir', db_conn = None, show_progress = True):
 	try:
 		if platform.system() != 'Windows':
 			raise Exception('auto mode only works on windows!')
