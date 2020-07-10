@@ -213,6 +213,7 @@ class Gatherer:
 				return
 			except Exception as e:
 				logger.exception('Progress bar crashed')
+				return
 
 	async def gather_ldap(self):
 		try:
