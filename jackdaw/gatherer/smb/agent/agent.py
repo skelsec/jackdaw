@@ -55,23 +55,23 @@ class AIOSMBGathererAgent:
 							share.ip = connection.target.get_ip()
 							share.netname = smbshare.name
 							share.type = smbshare.type
-							share.remark = smbshare.remark
-							if smbshare.remark is not None:
-								r = None
-								try:
-									r = smbshare.remark.decode('utf-16-le')
-								except:
-									try:
-										r = smbshare.remark.decode('latin-1')
-									except:
-										try:
-											r = smbshare.remark.decode('utf-8')
-										except:
-											r = smbshare.remark.hex()
-								
-								if isinstance(r, str):
-									r = r.replace('\x00','')
-									share.remark = r
+							#share.remark = smbshare.remark
+							#if smbshare.remark is not None:
+							#	r = None
+							#	try:
+							#		r = smbshare.remark.decode('utf-16-le')
+							#	except:
+							#		try:
+							#			r = smbshare.remark.decode('latin-1')
+							#		except:
+							#			try:
+							#				r = smbshare.remark.decode('utf-8')
+							#			except:
+							#				r = smbshare.remark
+							#	
+							#	if isinstance(r, str):
+							#		r = r.replace('\x00','')
+							#		share.remark = r
 
 
 							await self.out_q.put((tid, connection.target, share, None))
