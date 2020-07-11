@@ -98,6 +98,10 @@ class Gatherer:
 				ldap_memberupload_pbar = tqdm(desc = 'LDAP membership upload', ascii=True, position=pos)
 				self.progress_bars.append(ldap_memberupload_pbar)
 				pos += 1
+		if self.kerb_url is not None:
+			kerb_pbar               = tqdm(desc = 'KERBEROAST            ', ascii=True, position=pos)
+			self.progress_bars.append(kerb_pbar)
+			pos += 1
 		if self.smb_url is not None:
 			smb_pbar               = tqdm(desc = 'SMB enum              ', ascii=True, position=pos)
 			self.progress_bars.append(smb_pbar)
@@ -171,6 +175,16 @@ class Gatherer:
 
 					if msg.msg_type == MSGTYPE.FINISHED:
 						ldap_memberupload_pbar.refresh()
+
+				elif msg.type == GathererProgressType.KERBEROAST:
+					if msg.msg_type == MSGTYPE.PROGRESS:
+						if kerb_pbar.total is None:
+							kerb_pbar.total = msg.total
+						
+						kerb_pbar.update(msg.step_size)
+
+					if msg.msg_type == MSGTYPE.FINISHED:
+						kerb_pbar.refresh()
 
 				elif msg.type == GathererProgressType.SMB:
 					if msg.msg_type == MSGTYPE.PROGRESS:

@@ -143,7 +143,8 @@ async def run(args):
 					db_conn, 
 					work_dir, 
 					ldap_url, 
-					smb_url, 
+					smb_url,
+					kerb_url=args.kerberoast,
 					ldap_worker_cnt=args.ldap_workers, 
 					smb_worker_cnt=args.smb_workers, 
 					mp_pool=mp_pool, 
@@ -220,6 +221,7 @@ async def run(args):
 				ad_id=args.ad_id
 			)
 			await gatherer.run()
+			print('Kerberoast Finished!')
 
 			
 		elif args.command in ['shares', 'sessions', 'localgroups', 'smball']:
@@ -373,6 +375,7 @@ def main():
 	enum_group.add_argument('--smb-share-enum', action='store_true', help='Enables file enumeration in shares')
 	enum_group.add_argument('-d','--dns', help='DNS server for resolving IPs')
 	enum_group.add_argument('-n','--do-not-store', action='store_false', help='Skip storing membership and SD info to DB. Will skip edge calculation, and will leave the raw file on disk')
+	enum_group.add_argument('-k','--kerberoast', help='Kerberos URL for kerberoasting')
 
 	share_group = subparsers.add_parser('shares', help='Enumerate shares on target')
 	share_group.add_argument('ad_id', help='ID of the domainfo to poll targets rom the DB')

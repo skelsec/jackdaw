@@ -20,6 +20,7 @@ from minikerberos.common.url import KerberosClientURL
 from msldap.authentication.kerberos.gssapi import get_gssapi, GSSWrapToken, KRB5_MECH_INDEP_TOKEN
 from minikerberos.protocol.asn1_structs import AP_REQ, TGS_REQ
 
+from jackdaw.gatherer.progress import *
 
 class KerberoastGatherer:
 	def __init__(self, db_conn, ad_id, progress_queue = None, show_progress = True, kerb_url = None, domain_name = None):
@@ -29,9 +30,13 @@ class KerberoastGatherer:
 		self.kerb_mgr = None
 		self.domain_name = domain_name
 		self.session = None
+		self.progress_queue = progress_queue
+		self.show_progress = show_progress
 
 		self.targets_spn = {}
 		self.targets_asreq = {}
+		self.total_targets = 0
+		self.total_targets_finished = 0
 
 	async def asreproast(self):
 		try:
@@ -54,7 +59,19 @@ class KerberoastGatherer:
 				res = await ar.run(self.targets_asreq[uid], override_etype = [23])
 				t = KerberoastTable.from_hash(self.ad_id, uid, res)
 				self.session.add(t)
-			
+				self.total_targets_finished += 1
+
+				if self.progress_queue is not None:
+					msg = GathererProgress()
+					msg.type = GathererProgressType.KERBEROAST
+					msg.msg_type = MSGTYPE.PROGRESS 
+					msg.adid = self.ad_id
+					msg.domain_name = self.domain_name
+					msg.total = self.total_targets
+					msg.total_finished = self.total_targets_finished
+					msg.step_size = 1
+					await self.progress_queue.put(msg)
+				
 			self.session.commit()
 			return True, None
 		except Exception as e:
@@ -78,6 +95,19 @@ class KerberoastGatherer:
 
 					t = KerberoastTable.from_hash(self.ad_id, uid, TGSTicket2hashcat(ticket))
 					self.session.add(t)
+
+					self.total_targets_finished += 1
+					if self.progress_queue is not None:
+						msg = GathererProgress()
+						msg.type = GathererProgressType.KERBEROAST
+						msg.msg_type = MSGTYPE.PROGRESS 
+						msg.adid = self.ad_id
+						msg.domain_name = self.domain_name
+						msg.total = self.total_targets
+						msg.total_finished = self.total_targets_finished
+						msg.step_size = 1
+						await self.progress_queue.put(msg)
+
 				except Exception as e:
 					logger.debug('Could not fetch tgs for %s' % uid)
 			self.session.commit()
@@ -119,6 +149,19 @@ class KerberoastGatherer:
 					
 					t = KerberoastTable.from_hash(self.ad_id, uid, TGSTicket2hashcat(aprep))
 					self.session.add(t)
+
+					self.total_targets_finished += 1
+					if self.progress_queue is not None:
+						msg = GathererProgress()
+						msg.type = GathererProgressType.KERBEROAST
+						msg.msg_type = MSGTYPE.PROGRESS 
+						msg.adid = self.ad_id
+						msg.domain_name = self.domain_name
+						msg.total = self.total_targets
+						msg.total_finished = self.total_targets_finished
+						msg.step_size = 1
+						await self.progress_queue.put(msg)
+
 				except Exception as e:
 					logger.debug('[SPN-MP] Error while roasting %s. %s' % (uid, e))
 				finally:
@@ -143,6 +186,19 @@ class KerberoastGatherer:
 					for h in hashes:
 						t = KerberoastTable.from_hash(self.ad_id, uid, h)
 						self.session.add(t)
+
+						self.total_targets_finished += 1
+						if self.progress_queue is not None:
+							msg = GathererProgress()
+							msg.type = GathererProgressType.KERBEROAST
+							msg.msg_type = MSGTYPE.PROGRESS 
+							msg.adid = self.ad_id
+							msg.domain_name = self.domain_name
+							msg.total = self.total_targets
+							msg.total_finished = self.total_targets_finished
+							msg.step_size = 1
+							await self.progress_queue.put(msg)
+
 				except Exception as e:
 					logger.debug('Could not fetch tgs for %s' % uid)
 			self.session.commit()
@@ -162,6 +218,7 @@ class KerberoastGatherer:
 				cred.username = user.sAMAccountName
 				cred.domain = self.domain_name
 				self.targets_asreq[user.id] = cred
+				self.total_targets += 1
 
 			for user in q_spn.all():
 				if user.sAMAccountName == 'krbtgt':
@@ -170,6 +227,7 @@ class KerberoastGatherer:
 				target.username = user.sAMAccountName
 				target.domain = self.domain_name
 				self.targets_spn[user.id] = target
+				self.total_targets += 1
 
 			return True, None
 		except Exception as e:
@@ -178,6 +236,14 @@ class KerberoastGatherer:
 
 	async def run(self):
 		try:
+			if self.progress_queue is not None:
+				msg = GathererProgress()
+				msg.type = GathererProgressType.KERBEROAST
+				msg.msg_type = MSGTYPE.STARTED
+				msg.adid = self.ad_id
+				msg.domain_name = self.domain_name
+				await self.progress_queue.put(msg)
+
 			self.session = get_session(self.db_conn)
 			if self.domain_name is None:
 				info = self.session.query(ADInfo).get(self.ad_id)
@@ -220,3 +286,11 @@ class KerberoastGatherer:
 			return True, None
 		except Exception as e:
 			return None, e
+		finally:
+			if self.progress_queue is not None:
+				msg = GathererProgress()
+				msg.type = GathererProgressType.KERBEROAST
+				msg.msg_type = MSGTYPE.FINISHED
+				msg.adid = self.ad_id
+				msg.domain_name = self.domain_name
+				await self.progress_queue.put(msg)
