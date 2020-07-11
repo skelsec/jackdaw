@@ -108,7 +108,7 @@ class SMBGatherer:
 				try:
 					dns_name = machine.dNSHostName
 					if dns_name is None or dns_name == '':
-						dns_name = '%s.%s' % (str(machine.sAMAccountName), str(self.domain_name))
+						dns_name = '%s.%s' % (str(machine.sAMAccountName[:-1]), str(self.domain_name))
 					await self.in_q.put((machine.objectSid, dns_name))
 				except:
 					continue
