@@ -51,6 +51,7 @@ setup(
 		'connexion',
 		'flask-sqlalchemy',
 		'connexion[swagger-ui]',
+		'websockets',
 		'pypykatz>=0.3.6',
         'swagger-ui-bundle>=0.0.2',
 		'werkzeug==0.16.1',
