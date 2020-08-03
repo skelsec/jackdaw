@@ -109,7 +109,6 @@ class JackdawPortScanner:
 
 	async def generate_targets(self):
 		try:
-			print('haha!')
 			for tg in self.target_generators:
 				async for target, err in tg.run():
 					if err is not None:
@@ -142,13 +141,12 @@ class JackdawPortScanner:
 
 				res = await self.result_q.get()
 				self.finished_target_cnt += 1
-				print(res)
 				
 				if self.progress_queue is not None:
 					await self.progress_queue.put(None)
 				
 				if self.results_queue is not None:
-					await self.results_queue.put(None)
+					await self.results_queue.put(res)
 
 			self.tgen_task.cancel()
 			for _ in range(len(self.workers)):

@@ -12,6 +12,8 @@ class GathererProgressType(enum.Enum):
 	SDCALCUPLOAD = 'SDCALCUPLOAD'
 	INFO = 'INFO'
 	REFRESH = 'REFRESH'
+	USER = 'USER'
+	MACHINE = 'MACHINE'
 
 class MSGTYPE(enum.Enum):
 	STARTED = 'STARTED'
@@ -45,44 +47,32 @@ class GathererProgress:
 		#FOR INFO
 		self.text = None
 
+		#FOR STREAMING
+		self.data = None
+
 
 	def __str__(self):
-		if self.msg_type == MSGTYPE.PROGRESS:
-			return '[%s][%s][%s][%s] FINISHED %s RUNNING %s TOTAL %s SPEED %s' % (
-				self.type.value, 
+		if self.type == GathererProgressType.BASIC:
+			if self.msg_type == MSGTYPE.PROGRESS:
+				return '[%s][%s][%s][%s] FINISHED %s RUNNING %s TOTAL %s SPEED %s' % (
+					self.type.value, 
+					self.domain_name, 
+					self.adid,
+					self.msg_type.value,
+					','.join(self.finished), 
+					','.join(self.running), 
+					self.total_finished, 
+					self.speed
+				)
+			else:
+				return '[%s][%s][%s][%s]' % (self.type.value, self.domain_name, self.adid, self.msg_type.value)
+		else:
+			return '[%s][%s][%s][%s] TOTAL %s SPEED %s' % (
+				self.type.value,
 				self.domain_name, 
 				self.adid,
 				self.msg_type.value,
-				','.join(self.finished), 
-				','.join(self.running), 
 				self.total_finished, 
 				self.speed
 			)
-		return '[%s][%s][%s][%s]' % (self.type.value, self.domain_name, self.adid, self.msg_type.value)
-
-
-
-class SMBEnumeratorProgress:
-	def __init__(self):
-		self.type = 'SMB'
-		self.msg_type = 'PROGRESS'
-		self.adid = None
-		self.domain_name = None
 		
-		
-	def __str__(self):
-		if self.msg_type == 'PROGRESS':
-			return '[%s][%s][%s][%s] HOSTS %s SHARES %s SESSIONS %s GROUPS %s ERRORS %s' % (
-				self.type, 
-				self.domain_name, 
-				self.adid,
-				self.msg_type,
-				self.hosts, 
-				self.shares, 
-				self.sessions, 
-				self.groups, 
-				self.errors
-			
-			)
-		
-		return '[%s][%s][%s][%s]' % (self.type, self.domain_name, self.adid, self.msg_type)

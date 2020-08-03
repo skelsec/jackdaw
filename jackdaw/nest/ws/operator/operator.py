@@ -9,9 +9,24 @@ from jackdaw.dbmodel import create_db, get_session
 
 from jackdaw.gatherer.gatherer import Gatherer
 from jackdaw.gatherer.scanner.scanner import *
-from jackdaw.nest.ws.operator.protocol import *
+from jackdaw.nest.ws.protocol import *
 
 from jackdaw.nest.graph.graphdata import GraphData
+from jackdaw import logger
+from jackdaw.gatherer.progress import GathererProgressType
+
+STANDARD_PROGRESS_MSG_TYPES = [
+	GathererProgressType.BASIC,  
+	GathererProgressType.SD,
+	GathererProgressType.SDUPLOAD,
+	GathererProgressType.MEMBERS,
+	GathererProgressType.MEMBERSUPLOAD,
+	GathererProgressType.SMB,
+	GathererProgressType.KERBEROAST,
+	GathererProgressType.SDCALC,
+	GathererProgressType.SDCALCUPLOAD,
+	GathererProgressType.INFO,
+]
 
 class NestOperator:
 	def __init__(self, websocket, db_url, global_msg_queue, work_dir, graph_type):
@@ -20,7 +35,6 @@ class NestOperator:
 		self.db_session = None
 		self.global_msg_queue = global_msg_queue
 		self.work_dir = work_dir
-		self.msg_queue = None
 		self.ad_id = None
 		self.show_progress = True #prints progress to console?
 		self.graphs = {}
@@ -88,60 +102,134 @@ class NestOperator:
 		reply.token = ocmd.token
 		await self.websocket.send(reply.to_json())
 
-	async def send_result(self, ocmd, data):
+	async def send_reply(self, ocmd, reply):
+		reply.token = ocmd.token
+		await self.websocket.send(reply.to_json())
+
+	async def __gathermonitor(self, cmd, results_queue):
 		try:
-			print('here')
-			reply = NestOpResult()
-			reply.restype = ocmd.cmd
-			reply.token = ocmd.token
-			reply.data = data
-			print(reply.to_json())
-			await self.websocket.send(reply.to_json())
+			while True:
+				try:
+					msg = await results_queue.get()
+					if msg is None:
+						return
+					
+					print(msg)
+					if msg.type in STANDARD_PROGRESS_MSG_TYPES:
+						reply = NestOpGatherStatus()
+						reply.token = cmd.token
+						reply.current_progress_type = msg.type.value
+						reply.msg_type = msg.msg_type.value
+						reply.adid = msg.adid
+						reply.domain_name = msg.domain_name
+						reply.total = msg.total
+						reply.step_size = msg.step_size
+						reply.basic_running = []
+						if msg.running is not None:
+							reply.basic_running = [x for x in msg.running]
+						reply.basic_finished = msg.finished
+						reply.smb_errors = msg.errors
+						reply.smb_sessions = msg.sessions
+						reply.smb_shares = msg.shares
+						reply.smb_groups = msg.groups
+						await self.websocket.send(reply.to_json())
+					
+					elif msg.type == GathererProgressType.USER:
+						reply = NestOpUserRes()
+						reply.token = cmd.token
+						reply.name = msg.data.sAMAccountName
+						reply.adid = msg.data.ad_id
+						reply.sid = msg.data.objectSid
+						reply.kerberoast = True if msg.data.servicePrincipalName is not None else False
+						reply.asreproast = msg.data.UAC_DONT_REQUIRE_PREAUTH
+						reply.nopassw = msg.data.UAC_PASSWD_NOTREQD
+						reply.cleartext = msg.data.UAC_ENCRYPTED_TEXT_PASSWORD_ALLOWED
+						reply.smartcard = msg.data.UAC_SMARTCARD_REQUIRED
+						reply.active = msg.data.canLogon
+
+						await self.websocket.send(reply.to_json())
+				except asyncio.CancelledError:
+					return
+				except Exception as e:
+					print('resmon died! %s' % e)
+
+		except asyncio.CancelledError:
+			return
 		except Exception as e:
-			print(e)
+			print('resmon died! %s' % e)
 	
 
 	async def do_gather(self, cmd):
-		with multiprocessing.Pool() as mp_pool:
-			gatherer = Gatherer(
-				self.db,
-				self.work_dir,
-				cmd.ldap_url, 
-				cmd.smb_url,
-				kerb_url=cmd.kerberos_url,
-				ldap_worker_cnt=cmd.ldap_workers, 
-				smb_worker_cnt=cmd.smb_workers, 
-				mp_pool=mp_pool, 
-				smb_gather_types=['all'], 
-				progress_queue=self.msg_queue, 
-				show_progress=self.show_progress,
-				calc_edges=True,
-				ad_id=None,
-				dns=cmd.dns
-			)
-			res, err = await gatherer.run()
-			if err is not None:
-				print('gatherer returned error')
-				await self.send_error()
+		try:
+			progress_queue = asyncio.Queue()
+			gatheringmonitor_task = asyncio.create_task(self.__gathermonitor(cmd, progress_queue))
+			with multiprocessing.Pool() as mp_pool:
+				gatherer = Gatherer(
+					self.db_url,
+					self.work_dir,
+					cmd.ldap_url, 
+					cmd.smb_url,
+					kerb_url=cmd.kerberos_url,
+					ldap_worker_cnt=cmd.ldap_workers, 
+					smb_worker_cnt=cmd.smb_worker_cnt, 
+					mp_pool=mp_pool, 
+					smb_gather_types=['all'], 
+					progress_queue=progress_queue, 
+					show_progress=self.show_progress,
+					calc_edges=True,
+					ad_id=None,
+					dns=cmd.dns,
+					stream_data=cmd.stream_data
+				)
+				res, err = await gatherer.run()
+				if err is not None:
+					print('gatherer returned error')
+					await self.send_error(cmd, str(err))
+					return
+				
+				await self.send_ok(cmd)
+		except Exception as e:
+			await self.send_error(cmd, str(e))
+		
+		finally:
+			if gatheringmonitor_task is not None:
+				gatheringmonitor_task.cancel()
+			progress_queue = None
 	
 	async def do_listads(self, cmd):
-		res = []
-		for i in self.db_session.query(ADInfo.id).all():
-			print(i)
-			res.append(i[0])
-		
-		await self.send_result(cmd, res)
-		#NestOpCmd.LISTADS : NestOpListAD,
+		"""
+		Lists all available adid in the DB
+		Sends back a NestOpListADRes reply or ERR in case of failure
+		"""
+		try:
+			reply = NestOpListADRes()
+			for i in self.db_session.query(ADInfo.id).all():
+				print(i)
+				reply.adids.append(i[0])
+			
+			await self.send_reply(cmd, reply)
+			await self.send_ok(cmd)
+		except Exception as e:
+			logger.exception('do_listads')
+			await self.send_error(cmd, e)
 	
 	async def do_changead(self, cmd):
-		res = self.db_session.query(ADInfo).get(cmd.adid)
-		print(res)
-		if res is None:
-			await self.send_error(cmd, 'No such AD in database')
-			return
-		
-		self.ad_id = res.id
-		await self.send_ok(cmd)
+		"""
+		Changes the current AD to another, specified by ad_id in the command.
+		Doesnt have a dedicated reply, OK means change is succsess, ERR means its not
+		"""
+		try:
+			res = self.db_session.query(ADInfo).get(cmd.adid)
+			print(res)
+			if res is None:
+				await self.send_error(cmd, 'No such AD in database')
+				return
+			
+			self.ad_id = res.id
+			await self.send_ok(cmd)
+		except Exception as e:
+			logger.exception('do_listads')
+			await self.send_error(cmd, e)
 
 	async def do_getobjinfo(self, cmd):
 		res = self.db_session.query(EdgeLookup).filter_by(oid = cmd.oid).filter(EdgeLookup.ad_id == self.ad_id).first()
@@ -185,14 +273,30 @@ class NestOperator:
 		await self.send_result(cmd, res)
 	
 	async def __scanmonitor(self, cmd, results_queue):
-		while True:
-			data = await results_queue.get()
-			if data is None:
-				return
-			
-			tid, ip, port, status, err = data
-			if status is True and err is None:
-				await self.send_result(cmd, [str(ip), int(port)])
+		try:
+			while True:
+				try:
+					data = await results_queue.get()
+					if data is None:
+						return
+					
+					tid, ip, port, status, err = data
+					if status is True and err is None:
+						reply = NestOpTCPScanRes()
+						reply.token = cmd.token
+						reply.host = str(ip)
+						reply.port = int(port)
+						reply.status = 'open'
+						await self.websocket.send(reply.to_json())
+				except asyncio.CancelledError:
+					return
+				except Exception as e:
+					print('resmon died! %s' % e)
+
+		except asyncio.CancelledError:
+			return
+		except Exception as e:
+			print('resmon died! %s' % e)
 			
 
 	async def do_tcpscan(self, cmd):

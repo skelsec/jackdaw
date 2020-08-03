@@ -17,7 +17,7 @@ from tqdm import tqdm
 from jackdaw.gatherer.progress import *
 
 class Gatherer:
-	def __init__(self, db_url, work_dir, ldap_url, smb_url, kerb_url = None, ad_id = None, calc_edges = True, ldap_worker_cnt = 4, smb_worker_cnt = 100, mp_pool = None, smb_enum_shares = False, smb_gather_types = ['all'], progress_queue = None, show_progress = True, dns = None, store_to_db = True, graph_id = None):
+	def __init__(self, db_url, work_dir, ldap_url, smb_url, kerb_url = None, ad_id = None, calc_edges = True, ldap_worker_cnt = 4, smb_worker_cnt = 100, mp_pool = None, smb_enum_shares = False, smb_gather_types = ['all'], progress_queue = None, show_progress = True, dns = None, store_to_db = True, graph_id = None, stream_data = False):
 		self.db_url = db_url
 		self.work_dir = work_dir
 		self.mp_pool = mp_pool
@@ -55,6 +55,8 @@ class Gatherer:
 		self.ldap_gatherer = None
 		self.progress_refresh_task = None
 		self.progress_bars = []
+		self.stream_data = stream_data
+
 	
 	async def progress_refresh(self):
 		while True:
@@ -240,7 +242,8 @@ class Gatherer:
 				show_progress = False,
 				ad_id = self.ad_id, #this should be none, or resumption is indicated!
 				store_to_db = self.store_to_db,
-				base_collection_finish_evt = self.base_collection_finish_evt
+				base_collection_finish_evt = self.base_collection_finish_evt,
+				stream_data = self.stream_data
 			)
 			ad_id, graph_id, err = await self.ldap_gatherer.run()
 			if err is not None:

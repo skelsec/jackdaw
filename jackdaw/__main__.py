@@ -200,7 +200,7 @@ async def run(args):
 					progress_queue=None, 
 					show_progress=args.silent,
 					calc_edges=args.calculate_edges,
-					ad_id=args.resumption
+					ad_id=args.ad_id
 				)
 				await gatherer.run()
 

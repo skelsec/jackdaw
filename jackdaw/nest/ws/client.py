@@ -7,19 +7,14 @@ import websockets
 from jackdaw.external.aiocmd.aiocmd import aiocmd
 from jackdaw import logger
 
-from jackdaw.nest.ws.operator.protocol import *
+from jackdaw.nest.ws.protocol import *
 
-
-class CMDEvent:
-	def __init__(self, reply = None, arrived_evt = None):
-		self.reply = reply
-		self.arrived_evt = arrived_evt
 
 class NestWebScoketClientConsole(aiocmd.PromptToolkitCmd):
 	def __init__(self, url):
 		aiocmd.PromptToolkitCmd.__init__(self, ignore_sigint=False) #Setting this to false, since True doesnt work on windows...
 		self.url = url
-		self.reply_dispatch_table = {}
+		self.reply_dispatch_table = {} # token -> queue
 		self.token_ctr = 0
 		self.ad_id = None
 		self.handle_in_task = None
@@ -29,9 +24,8 @@ class NestWebScoketClientConsole(aiocmd.PromptToolkitCmd):
 	async def __handle_in(self):
 		while True:
 			try:
-				print(1)
 				data = await self.websocket.recv()
-				print('DATA IN -> %s' % data)
+				#print('DATA IN -> %s' % data)
 				cmd = NestOpCmdDeserializer.from_json(data)
 				if cmd.cmd == NestOpCmd.LOG:
 					print('LOG!')
@@ -39,11 +33,11 @@ class NestWebScoketClientConsole(aiocmd.PromptToolkitCmd):
 				if cmd.token not in self.reply_dispatch_table:
 					print('Unknown reply arrived! %s' % cmd)
 
-				self.reply_dispatch_table[cmd.token].data = cmd
-				self.reply_dispatch_table[cmd.token].arrived_evt.set()
+				await self.reply_dispatch_table[cmd.token].put(cmd)
 
 			except Exception as e:
-				print('Reciever error %s' % e)
+				traceback.print_exc()
+				#print('Reciever error %s' % e)
 				return
 
 	def __get_token(self):
@@ -61,22 +55,12 @@ class NestWebScoketClientConsole(aiocmd.PromptToolkitCmd):
 		"""send and recieve, use this when the command has an expected return value"""
 		"""It also ssigns toke n to the cmd!"""
 		try:
+			msg_queue = asyncio.Queue()
 			cmd.token = self.__get_token()
-			ce = CMDEvent(None, asyncio.Event())
-			self.reply_dispatch_table[cmd.token] = ce
+			self.reply_dispatch_table[cmd.token] = msg_queue
 			await self.websocket.send(cmd.to_json())
-			await ce.arrived_evt.wait()
+			return msg_queue, None
 
-			reply = ce.data
-			del self.reply_dispatch_table[cmd.token]
-			if reply.cmd == NestOpCmd.ERR:
-				if reply.reason is None:
-					reply.reason = 'Unknown'
-				return None, reply.reason
-			elif reply.cmd == NestOpCmd.OK:
-				return True, None
-			
-			return reply.data, None
 		except Exception as e:
 			return None, e
 
@@ -127,12 +111,22 @@ class NestWebScoketClientConsole(aiocmd.PromptToolkitCmd):
 		"""Lists available ADs"""
 		try:			
 			cmd = NestOpListAD()
-			data, err = await self.__sr(cmd)
+			msg_queue, err = await self.__sr(cmd)
 			if err is not None:
-				print('Failed to get data. Reason: %s' % err)
+				t = traceback.format_tb(err.__traceback__)
+				print('Failed to get data. Reason: %s' % t)
 				return False, err
-			for i in data:
-				print('Available AD_ID: %s' % i)
+			while True:
+				msg = await msg_queue.get()
+				
+				if msg.cmd == NestOpCmd.OK:
+					return True, None
+				elif msg.cmd == NestOpCmd.ERR:
+					print('Error!')
+					return False, Exception('Server returned with error')
+				elif msg.cmd == NestOpCmd.LISTADSRES:
+					print('Available AD_ID: %s' % msg.adids)
+			
 			return True, None
 		except Exception as e:
 			traceback.print_exc()
@@ -142,11 +136,21 @@ class NestWebScoketClientConsole(aiocmd.PromptToolkitCmd):
 		"""Calculates all paths to DA"""
 		try:			
 			cmd = NestOpPathDA()
-			data, err = await self.__sr(cmd)
+			msg_queue, err = await self.__sr(cmd)
 			if err is not None:
 				print('Failed to get data. Reason: %s' % err)
 				return False, err
-			print(data)
+
+			while True:
+				msg = await msg_queue.get()
+				if msg.cmd == NestOpCmd.OK:
+					return True, None
+				elif msg.cmd == NestOpCmd.ERR:
+					print('Error!')
+					return False, Exception('Server returned with error')
+				elif msg.cmd == NestOpCmd.PATHRES:
+					print('Available AD_ID: %s' % msg.adids)
+
 			return True, None
 		except Exception as e:
 			traceback.print_exc()
@@ -192,12 +196,58 @@ class NestWebScoketClientConsole(aiocmd.PromptToolkitCmd):
 			cmd.settings = None
 			
 			print(cmd.to_dict())
-			data, err = await self.__sr(cmd)
+			msg_queue, err = await self.__sr(cmd)
 			if err is not None:
 				print('Failed to get data. Reason: %s' % err)
 				return False, err
-			print(data)
+			while True:
+				msg = await msg_queue.get()
+				if msg.cmd == NestOpCmd.OK:
+					return True, None
+				elif msg.cmd == NestOpCmd.ERR:
+					print('Error!')
+					return False, Exception('Server returned with error')
+				elif msg.cmd == NestOpCmd.TCPSCANRES:
+					print(msg)
+
 			return True, None
+		except Exception as e:
+			traceback.print_exc()
+			return False, e
+	
+	async def do_gather(self):
+		"""Change current graph"""
+		try:
+			cmd = NestOpGather()
+			cmd.ldap_url = 'ldap+ntlm-password://TEST\\victim:Passw0rd!1@10.10.10.2'
+			cmd.smb_url = 'smb2+ntlm-password://TEST\\victim:Passw0rd!1@10.10.10.2'
+			cmd.kerberos_url = 'kerberos+password://TEST\\victim:Passw0rd!1@10.10.10.2'
+			cmd.ldap_workers = 4
+			cmd.smb_worker_cnt = 500
+			cmd.dns = None
+			cmd.stream_data = True
+			
+			msg_queue, err = await self.__sr(cmd)
+			if err is not None:
+				print('Failed to get data. Reason: %s' % err)
+				return False, err
+
+			while True:
+				msg = await msg_queue.get()
+				if msg.cmd == NestOpCmd.OK:
+					print('OK!')
+					return True, None
+				elif msg.cmd == NestOpCmd.ERR:
+					print('Error!')
+					return False, Exception('Server returned with error')
+				elif msg.cmd == NestOpCmd.GATHERSTATUS:
+					#print(msg)
+					continue
+				elif msg.cmd == NestOpCmd.USERRES:
+					if msg.kerberoast is True or msg.asreproast is True:
+						print(msg)
+
+
 		except Exception as e:
 			traceback.print_exc()
 			return False, e

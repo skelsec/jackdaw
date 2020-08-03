@@ -31,7 +31,7 @@ from jackdaw.gatherer.ldap.agent.agent import LDAPGathererAgent
 from tqdm import tqdm
 
 class BaseCollector:
-	def __init__(self, session, ldap_mgr, agent_cnt = None, progress_queue = None, show_progress = True, members_file_handle = None, sd_file_handle = None):
+	def __init__(self, session, ldap_mgr, agent_cnt = None, progress_queue = None, show_progress = True, members_file_handle = None, sd_file_handle = None, stream_data = False):
 		self.session = session
 		self.members_file_handle = members_file_handle
 		self.sd_file_handle = sd_file_handle
@@ -69,6 +69,7 @@ class BaseCollector:
 
 		self.running_enums = {}
 		self.finished_enums = []
+		self.stream_data = stream_data
 
 		self.enum_types = [
 			'adinfo',
@@ -111,7 +112,7 @@ class BaseCollector:
 				cd = self.total_counter - self.progress_last_counter
 				self.progress_last_counter = self.total_counter
 				msg = GathererProgress()
-				GathererProgressType.BASIC
+				msg.type = GathererProgressType.BASIC
 				msg.msg_type = MSGTYPE.PROGRESS
 				msg.adid = self.ad_id
 				msg.domain_name = self.domain_name
@@ -160,7 +161,7 @@ class BaseCollector:
 
 		if self.progress_queue is not None:
 			msg = GathererProgress()
-			GathererProgressType.BASIC
+			msg.type = GathererProgressType.BASIC
 			msg.msg_type = MSGTYPE.FINISHED
 			msg.adid = self.ad_id
 			msg.domain_name = self.domain_name
@@ -231,6 +232,16 @@ class BaseCollector:
 		for spn in spns:
 			spn.ad_id = self.ad_id
 			self.session.add(spn)
+
+		if self.stream_data is True and self.progress_queue is not None:
+			msg = GathererProgress()
+			msg.type = GathererProgressType.USER
+			msg.msg_type = MSGTYPE.FINISHED
+			msg.adid = self.ad_id
+			msg.domain_name = self.domain_name
+			msg.data = user
+			await self.progress_queue.put(msg)
+
 
 		#self.session.flush()
 
@@ -444,7 +455,7 @@ class BaseCollector:
 
 		if self.progress_queue is not None:
 			msg = GathererProgress()
-			GathererProgressType.BASIC
+			msg.type = GathererProgressType.BASIC
 			msg.msg_type = MSGTYPE.STARTED
 			msg.adid = self.ad_id
 			msg.domain_name = self.domain_name

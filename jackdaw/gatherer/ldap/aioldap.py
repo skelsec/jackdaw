@@ -53,7 +53,7 @@ from jackdaw.gatherer.ldap.collectors.membership import MembershipCollector
 import pathlib
 
 class LDAPGatherer:
-	def __init__(self, db_conn, ldap_mgr, agent_cnt = None, progress_queue = None, ad_id = None, graph_id = None, work_dir = None, show_progress = True, store_to_db = True, base_collection_finish_evt = None):
+	def __init__(self, db_conn, ldap_mgr, agent_cnt = None, progress_queue = None, ad_id = None, graph_id = None, work_dir = None, show_progress = True, store_to_db = True, base_collection_finish_evt = None, stream_data = False):
 		self.db_conn = db_conn
 		self.ldap_mgr = ldap_mgr
 		self.work_dir = work_dir
@@ -84,6 +84,7 @@ class LDAPGatherer:
 
 		self.sd_task = None
 		self.members_task = None
+		self.stream_data = stream_data
 
 	async def collect_members(self):
 		try:
@@ -185,7 +186,8 @@ class LDAPGatherer:
 					progress_queue = self.progress_queue, 
 					show_progress = self.show_progress,
 					members_file_handle = self.members_file_handle,
-					sd_file_handle = self.sd_file_handle
+					sd_file_handle = self.sd_file_handle,
+					stream_data = self.stream_data
 				)
 				self.ad_id, self.graph_id, err = await bc.run()
 				if err is False:
