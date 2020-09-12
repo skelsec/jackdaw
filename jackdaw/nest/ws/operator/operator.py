@@ -1,10 +1,19 @@
 import asyncio
 import multiprocessing
+import platform
 
 from jackdaw.dbmodel.adinfo import ADInfo
 from jackdaw.dbmodel.edgelookup import EdgeLookup
 from jackdaw.dbmodel.aduser import ADUser
 from jackdaw.dbmodel.adgroup import Group
+from jackdaw.dbmodel.adcomp import Machine
+
+from jackdaw.dbmodel.netshare import NetShare
+from jackdaw.dbmodel.netsession import NetSession
+from jackdaw.dbmodel.localgroup import LocalGroup
+
+
+
 from jackdaw.dbmodel import create_db, get_session
 
 from jackdaw.gatherer.gatherer import Gatherer
@@ -14,6 +23,9 @@ from jackdaw.nest.ws.protocol import *
 from jackdaw.nest.graph.graphdata import GraphData
 from jackdaw import logger
 from jackdaw.gatherer.progress import GathererProgressType
+
+#testing
+import random
 
 STANDARD_PROGRESS_MSG_TYPES = [
 	GathererProgressType.BASIC,  
@@ -105,17 +117,41 @@ class NestOperator:
 	async def send_reply(self, ocmd, reply):
 		reply.token = ocmd.token
 		await self.websocket.send(reply.to_json())
-
+	
+	async def spam_sessions(self, temp_tok_testing, temp_adid_testing, machine_sids_testing, usernames_testing):
+		###### TESTING!!!!! DELETE THIS!!!!
+		logger.info('SPEM!!!!!!!!!!!!!!!!!!!!!!!!!!!!!1')
+		for _ in range(1000):
+			await asyncio.sleep(0.01)
+			reply = NestOpSMBSessionRes()
+			reply.token = temp_tok_testing
+			reply.adid = temp_adid_testing
+			reply.machinesid = random.choice(machine_sids_testing)
+			reply.username = random.choice(usernames_testing)
+			await self.websocket.send(reply.to_json())
+				
 	async def __gathermonitor(self, cmd, results_queue):
 		try:
+			usernames_testing = []
+			machine_sids_testing = []
+			
+			temp_tok_testing = None
+			temp_adid_testing = None
+			temp_started = False
+			
 			while True:
 				try:
 					msg = await results_queue.get()
 					if msg is None:
-						return
+						break
 					
-					print(msg)
+					#print(msg)
 					if msg.type in STANDARD_PROGRESS_MSG_TYPES:
+						##### TESTING
+						temp_tok_testing = cmd.token
+						temp_adid_testing = msg.adid
+						
+						######
 						reply = NestOpGatherStatus()
 						reply.token = cmd.token
 						reply.current_progress_type = msg.type.value
@@ -133,8 +169,15 @@ class NestOperator:
 						reply.smb_shares = msg.shares
 						reply.smb_groups = msg.groups
 						await self.websocket.send(reply.to_json())
-					
+						
+						####TESTINGTESTING!!!!
+						if msg.type.value != 'LDAP_BASIC':
+							if temp_started is False:
+								asyncio.create_task(self.spam_sessions(temp_tok_testing, temp_adid_testing, machine_sids_testing, usernames_testing))
+								temp_started = True
+								
 					elif msg.type == GathererProgressType.USER:
+						usernames_testing.append(msg.data.sAMAccountName)
 						reply = NestOpUserRes()
 						reply.token = cmd.token
 						reply.name = msg.data.sAMAccountName
@@ -146,39 +189,131 @@ class NestOperator:
 						reply.cleartext = msg.data.UAC_ENCRYPTED_TEXT_PASSWORD_ALLOWED
 						reply.smartcard = msg.data.UAC_SMARTCARD_REQUIRED
 						reply.active = msg.data.canLogon
+						reply.description = msg.data.description
 
 						await self.websocket.send(reply.to_json())
+					
+					elif msg.type == GathererProgressType.MACHINE:
+						machine_sids_testing.append(msg.data.objectSid)
+						reply = NestOpComputerRes()
+						reply.token = cmd.token
+						reply.name = msg.data.sAMAccountName
+						reply.adid = msg.data.ad_id
+						reply.sid = msg.data.objectSid
+						reply.dns = msg.data.dNSHostName
+						reply.osver = msg.data.operatingSystem
+						reply.ostype = msg.data.operatingSystemVersion
+						reply.description = msg.data.description
+
+						await self.websocket.send(reply.to_json())
+					
+					elif msg.type == GathererProgressType.SMBLOCALGROUP:
+						reply = NestOpSMBLocalGroupRes()
+						reply.token = cmd.token
+						reply.adid = msg.data.ad_id
+						reply.machinesid = msg.data.machine_sid
+						reply.usersid = msg.data.sid
+						reply.groupname = msg.data.groupname
+						await self.websocket.send(reply.to_json())
+					
+					elif msg.type == GathererProgressType.SMBSHARE:
+						reply = NestOpSMBShareRes()
+						reply.token = cmd.token
+						reply.adid = msg.data.ad_id
+						reply.machinesid = msg.data.machine_sid
+						reply.netname = msg.data.netname
+						await self.websocket.send(reply.to_json())
+					
+					elif msg.type == GathererProgressType.SMBSESSION:					
+						reply = NestOpSMBSessionRes()
+						reply.token = cmd.token
+						reply.adid = msg.data.ad_id
+						reply.machinesid = msg.data.machine_sid
+						reply.username = msg.data.username
+						await self.websocket.send(reply.to_json())
+						
 				except asyncio.CancelledError:
 					return
 				except Exception as e:
-					print('resmon died! %s' % e)
-
+					logger.exception('resmon processing error!')
+					#await self.send_error(cmd, str(e))
+		
+			
 		except asyncio.CancelledError:
 			return
 		except Exception as e:
 			print('resmon died! %s' % e)
+			await self.send_error(cmd, str(e))
 	
 
 	async def do_gather(self, cmd):
 		try:
 			progress_queue = asyncio.Queue()
 			gatheringmonitor_task = asyncio.create_task(self.__gathermonitor(cmd, progress_queue))
+			
+			ldap_url = cmd.ldap_url
+			if ldap_url == 'auto':
+				if platform.system().lower() == 'windows':
+					from winacl.functions.highlevel import get_logon_info
+					logon = get_logon_info()
+					
+					ldap_url = 'ldap+sspi-ntlm://%s\\%s:jackdaw@%s' % (logon['domain'], logon['username'], logon['logonserver'])
+			
+				else:
+					raise Exception('ldap auto mode selected, but it is not supported on this platform')
+			
+			smb_url = cmd.smb_url
+			if smb_url == 'auto':
+				if platform.system().lower() == 'windows':
+					from winacl.functions.highlevel import get_logon_info
+					logon = get_logon_info()
+					smb_url = 'smb2+sspi-ntlm://%s\\%s:jackdaw@%s' % (logon['domain'], logon['username'], logon['logonserver'])
+			
+				else:
+					raise Exception('smb auto mode selected, but it is not supported on this platform')
+			
+			kerberos_url = cmd.kerberos_url
+			if kerberos_url == 'auto':
+				if platform.system().lower() == 'windows':
+					from winacl.functions.highlevel import get_logon_info
+					logon = get_logon_info()
+					smb_url = 'smb2+sspi-ntlm://%s\\%s:jackdaw@%s' % (logon['domain'], logon['username'], logon['logonserver'])
+			
+				else:
+					raise Exception('kerberos auto mode selected, but it is not supported on this platform')
+					
+			dns = cmd.dns
+			if dns == 'auto':
+				if platform.system().lower() == 'windows':
+					from jackdaw.gatherer.rdns.dnstest import get_correct_dns_win
+					srv_domain = '%s.%s' % (logon['logonserver'], logon['dnsdomainname'])
+					dns = await get_correct_dns_win(srv_domain)
+					if dns is None:
+						dns = None #failed to get dns
+					else:
+						dns = str(dns)
+			
+				else:
+					raise Exception('dns auto mode selected, but it is not supported on this platform')
+			print(ldap_url)
+			print(smb_url)
+			print(dns)
 			with multiprocessing.Pool() as mp_pool:
 				gatherer = Gatherer(
 					self.db_url,
 					self.work_dir,
-					cmd.ldap_url, 
-					cmd.smb_url,
-					kerb_url=cmd.kerberos_url,
-					ldap_worker_cnt=cmd.ldap_workers, 
-					smb_worker_cnt=cmd.smb_worker_cnt, 
+					ldap_url, 
+					smb_url,
+					kerb_url=kerberos_url,
+					ldap_worker_cnt=int(cmd.ldap_workers), 
+					smb_worker_cnt=int(cmd.smb_worker_cnt), 
 					mp_pool=mp_pool, 
 					smb_gather_types=['all'], 
 					progress_queue=progress_queue, 
 					show_progress=self.show_progress,
 					calc_edges=True,
 					ad_id=None,
-					dns=cmd.dns,
+					dns=dns,
 					stream_data=cmd.stream_data
 				)
 				res, err = await gatherer.run()
@@ -187,8 +322,13 @@ class NestOperator:
 					await self.send_error(cmd, str(err))
 					return
 				
+				#####testing
+				await asyncio.sleep(20)
+				#######
+				
 				await self.send_ok(cmd)
 		except Exception as e:
+			logger.exception('do_gather')
 			await self.send_error(cmd, str(e))
 		
 		finally:
@@ -244,7 +384,85 @@ class NestOperator:
 				return
 
 			await self.send_result(cmd, obj)
+
+	async def do_load_ad(self, cmd):
+		try:
+			# loads an AD scan and sends all results to the client
 			
+			# sanity check if the AD exists
+			res = self.db_session.query(ADInfo).get(cmd.adid)
+			if res is None:
+				await self.send_error(cmd, 'No AD ID exists with that ID')
+				return
+			
+			#sending machines
+			for computer in self.db_session.query(Machine).filter_by(ad_id = cmd.adid).all():
+				await asyncio.sleep(0)
+				reply = NestOpComputerRes()
+				reply.token = cmd.token
+				reply.name = computer.sAMAccountName
+				reply.adid = computer.ad_id
+				reply.sid = computer.objectSid
+				reply.dns = computer.dNSHostName
+				reply.osver = computer.operatingSystem
+				reply.ostype = computer.operatingSystemVersion
+				reply.description = computer.description
+
+				await self.websocket.send(reply.to_json())
+
+			#sending users
+			for user in self.db_session.query(ADUser).filter_by(ad_id = cmd.adid).all():
+				await asyncio.sleep(0)
+				reply = NestOpUserRes()
+				reply.token = cmd.token
+				reply.name = user.sAMAccountName
+				reply.adid = user.ad_id
+				reply.sid = user.objectSid
+				reply.kerberoast = True if user.servicePrincipalName is not None else False
+				reply.asreproast = user.UAC_DONT_REQUIRE_PREAUTH
+				reply.nopassw = user.UAC_PASSWD_NOTREQD
+				reply.cleartext = user.UAC_ENCRYPTED_TEXT_PASSWORD_ALLOWED
+				reply.smartcard = user.UAC_SMARTCARD_REQUIRED
+				reply.active = user.canLogon
+
+				await self.websocket.send(reply.to_json())
+
+			#sending localgroups
+			for lgroup in self.db_session.query(LocalGroup).filter_by(ad_id = cmd.adid).all():
+				await asyncio.sleep(0)
+				reply = NestOpSMBLocalGroupRes()
+				reply.token = cmd.token
+				reply.adid = lgroup.ad_id
+				reply.machinesid = lgroup.machine_sid
+				reply.usersid = lgroup.sid
+				reply.groupname = lgroup.groupname
+				await self.websocket.send(reply.to_json())
+			
+			#sending smb shares
+			for share in self.db_session.query(NetShare).filter_by(ad_id = cmd.adid).all():
+				await asyncio.sleep(0)
+				reply = NestOpSMBShareRes()
+				reply.token = cmd.token
+				reply.adid = share.ad_id
+				reply.machinesid = share.machine_sid
+				reply.netname = share.netname
+				await self.websocket.send(reply.to_json())
+			
+			#sending smb sessions
+			for session in self.db_session.query(NetSession).filter_by(ad_id = cmd.adid).all():
+				await asyncio.sleep(0)
+				reply = NestOpSMBSessionRes()
+				reply.token = cmd.token
+				reply.adid = session.ad_id
+				reply.machinesid = session.machine_sid
+				reply.username = session.username
+				await self.websocket.send(reply.to_json())
+
+			await self.send_ok(cmd)
+		except Exception as e:
+			await self.send_error(cmd, "Error! Reason: %s" % e)
+			logger.exception('do_load_ad')
+
 	
 	async def do_kerberoast(self, cmd):
 		pass
@@ -356,6 +574,8 @@ class NestOperator:
 						asyncio.create_task(self.do_changegraph(cmd))
 					elif cmd.cmd == NestOpCmd.TCPSCAN:
 						asyncio.create_task(self.do_tcpscan(cmd))
+					elif cmd.cmd == NestOpCmd.LOADAD:
+						asyncio.create_task(self.do_load_ad(cmd))
 					else:
 						print('Unknown Command')
 

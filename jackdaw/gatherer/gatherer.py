@@ -280,7 +280,8 @@ class Gatherer:
 				worker_cnt=self.smb_worker_cnt,
 				rdns_resolver = self.rdns_resolver,
 				progress_queue = self.progress_queue,
-				show_progress = False
+				show_progress = False,
+				stream_data = self.stream_data
 			)
 			mgr.gathering_type = self.smb_gather_types
 			mgr.target_ad = self.ad_id

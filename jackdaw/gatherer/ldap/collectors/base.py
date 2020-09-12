@@ -277,6 +277,15 @@ class BaseCollector:
 			self.session.add(d)
 		#self.session.commit()
 		#self.session.flush()
+		
+		if self.stream_data is True and self.progress_queue is not None:
+			msg = GathererProgress()
+			msg.type = GathererProgressType.MACHINE
+			msg.msg_type = MSGTYPE.FINISHED
+			msg.adid = self.ad_id
+			msg.domain_name = self.domain_name
+			msg.data = machine
+			await self.progress_queue.put(msg)
 
 		data = {
 				'dn' : machine.dn,

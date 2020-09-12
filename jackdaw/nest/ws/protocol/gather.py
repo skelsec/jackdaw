@@ -27,14 +27,22 @@ class NestOpGather:
 		cmd = NestOpGather()
 		cmd.token = d['token']
 		cmd.ldap_url = d['ldap_url']
+		if cmd.ldap_url.upper() == 'AUTO':
+			cmd.ldap_url = 'auto'
 		cmd.smb_url = d['smb_url']
+		if cmd.smb_url.upper() == 'AUTO':
+			cmd.smb_url = 'auto'
 		cmd.kerberos_url = d['kerberos_url']
+		if cmd.kerberos_url.upper() == 'AUTO':
+			cmd.kerberos_url = 'auto'
 		if 'ldap_workers' in d:
-			cmd.exclude = d['ldap_workers']
+			cmd.ldap_workers = d['ldap_workers']
 		if 'smb_worker_cnt' in d:
-			cmd.exclude = d['smb_worker_cnt']
+			cmd.smb_worker_cnt = d['smb_worker_cnt']
 		if 'dns' in d:
-			cmd.exclude = d['dns']
+			cmd.dns = d['dns']
+			if cmd.dns.upper() == 'AUTO':
+				cmd.dns = 'auto'
 		if 'stream_data' in d:
 			cmd.stream_data = d['stream_data']
 		return cmd

@@ -54,7 +54,7 @@ async def rdns_worker(resolver, in_q, out_q):
 		await out_q.put((None, None, None, e))
 
 class SMBGatherer:
-	def __init__(self, db_conn, ad_id, smb_mgr, worker_cnt = None, progress_queue = None, show_progress = True, rdns_resolver = None):
+	def __init__(self, db_conn, ad_id, smb_mgr, worker_cnt = None, progress_queue = None, show_progress = True, rdns_resolver = None, stream_data = False):
 		self.in_q = None
 		self.out_q = None
 		self.smb_mgr = smb_mgr
@@ -92,6 +92,7 @@ class SMBGatherer:
 
 		self.results_thread = None
 		self.rdns_task = None
+		self.stream_data = stream_data
 
 	async def terminate(self):
 		if self.job_generator_task is not None:
@@ -198,10 +199,36 @@ class SMBGatherer:
 					if self.progress_queue is not None:
 						if isinstance(result, NetSession):
 							self.prg_sessions_cnt += 1
+							if self.stream_data is True:
+								msg = GathererProgress()
+								msg.type = GathererProgressType.SMBSESSION
+								msg.msg_type = MSGTYPE.FINISHED
+								msg.adid = self.ad_id
+								msg.domain_name = self.domain_name
+								msg.data = result
+								await self.progress_queue.put(msg)
+
 						elif isinstance(result, NetShare):
 							self.prg_shares_cnt += 1
+							if self.stream_data is True:
+								msg = GathererProgress()
+								msg.type = GathererProgressType.SMBSHARE
+								msg.msg_type = MSGTYPE.FINISHED
+								msg.adid = self.ad_id
+								msg.domain_name = self.domain_name
+								msg.data = result
+								await self.progress_queue.put(msg)
+								
 						elif isinstance(result, LocalGroup):
 							self.prg_groups_cnt += 1
+							if self.stream_data is True:
+								msg = GathererProgress()
+								msg.type = GathererProgressType.SMBLOCALGROUP
+								msg.msg_type = MSGTYPE.FINISHED
+								msg.adid = self.ad_id
+								msg.domain_name = self.domain_name
+								msg.data = result
+								await self.progress_queue.put(msg)
 
 					result.ad_id = self.ad_id
 					if isinstance(result, NetSession) and self.rdns_resolver is not None:
