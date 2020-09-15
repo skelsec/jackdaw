@@ -43,7 +43,7 @@ setup(
 		"Operating System :: OS Independent",
 	),
 	install_requires=[
-		'aiosmb>=0.2.26',
+		'aiosmb>=0.2.27',
 		'msldap>=0.3.13',
 		'sqlalchemy',
 		'tqdm',
