@@ -5,19 +5,21 @@ from jackdaw.dbmodel.netshare import NetShare
 from jackdaw.dbmodel.netsession import NetSession
 from jackdaw.dbmodel.localgroup import LocalGroup
 from jackdaw.dbmodel.smbfinger import SMBFinger
-
+from jackdaw.dbmodel.smbprotocols import SMBProtocols
+from aiosmb.protocol.common import SMB_NEGOTIATE_PROTOCOL_TEST, NegotiateDialects
 from aiosmb.commons.utils.extb import format_exc
 from aiosmb.commons.interfaces.machine import SMBMachine
 
 from jackdaw import logger
 
 class AIOSMBGathererAgent:
-	def __init__(self, in_q, out_q, smb_mgr, gather = ['all'], localgroups = [], concurrent_connections = 10):
+	def __init__(self, in_q, out_q, smb_mgr, gather = ['all'], localgroups = [], concurrent_connections = 10, protocols = [NegotiateDialects.WILDCARD]):
 		self.in_q = in_q
 		self.out_q = out_q
 		self.smb_mgr = smb_mgr
 		self.gather = gather
 		self.localgroups = localgroups
+		self.protocols = protocols
 		self.concurrent_connections = concurrent_connections
 
 		self.worker_tasks = []
@@ -27,6 +29,23 @@ class AIOSMBGathererAgent:
 	async def scan_host(self, atarget):
 		try:
 			tid, target = atarget
+
+			try:
+				if 'all' in self.gather or 'protocols' in self.gather:
+					for protocol in self.protocols:
+						connection = self.smb_mgr.create_connection_newtarget(target)
+						res, _, _, _, err = await connection.protocol_test([protocol])
+						if err is not None:
+							raise err
+						if res is True:
+							pr = SMBProtocols()
+							pr.machine_sid = tid
+							pr.protocol = protocol.name if protocol != NegotiateDialects.WILDCARD else 'SMB1'
+							await self.out_q.put((tid, connection.target, pr, None))
+			except Exception as e:
+				await self.out_q.put((tid, connection.target, None, 'Failed to enumerate supported protocols. Reason: %s' % format_exc(e)))
+
+
 			connection = self.smb_mgr.create_connection_newtarget(target)
 			async with connection:
 				_, err = await connection.login()

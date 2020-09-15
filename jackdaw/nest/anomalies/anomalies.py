@@ -3,7 +3,10 @@ from jackdaw.dbmodel.aduser import ADUser
 from jackdaw.dbmodel.adcomp import Machine
 from jackdaw.dbmodel.adinfo import ADInfo
 from jackdaw.dbmodel.smbfinger import SMBFinger
+from jackdaw.dbmodel.netshare import NetShare
 import base64
+import string
+import datetime
 
 
 class Anomalies:
@@ -344,6 +347,109 @@ class Anomalies:
 
 		return res
 
+	def get_statistics(self, domainid):
+		# not pageable
+		
+		total_users_qry = self.db_session.session.query(
+			ADUser.id
+			).filter_by(ad_id = domainid
+			)
+		
+		users_active_qry = self.db_session.session.query(
+			ADUser.id
+			).filter_by(ad_id = domainid
+			).filter(ADUser.canLogon == True)
+		
+		total_machines_qry = self.db_session.session.query(
+			Machine.id
+			).filter_by(ad_id = domainid
+			)
+		
+		pw_notreq_qry = self.db_session.session.query(
+			ADUser.id
+			).filter_by(ad_id = domainid
+			).filter(ADUser.UAC_PASSWD_NOTREQD == True
+			).filter(ADUser.canLogon == True)
+
+		plaintext_pw_users_qry = self.db_session.session.query(
+			ADUser.id
+			).filter_by(ad_id = domainid
+			).filter(ADUser.UAC_ENCRYPTED_TEXT_PASSWORD_ALLOWED == True
+			).filter(ADUser.canLogon == True)
+
+		plaintext_pw_dontexpire_qry = self.db_session.session.query(
+			ADUser.id
+			).filter_by(ad_id = domainid
+			).filter(ADUser.UAC_DONT_EXPIRE_PASSWD == True
+			).filter(ADUser.canLogon == True)
+
+		nopreauth_qry = self.db_session.session.query(
+			ADUser.id
+			).filter_by(ad_id = domainid
+			).filter(ADUser.UAC_DONT_REQUIRE_PREAUTH == True
+			).filter(ADUser.canLogon == True)
+		
+		extremely_old_passwords_qry = self.db_session.session.query(
+			ADUser.id
+			).filter_by(ad_id = domainid
+			).filter(ADUser.pwdLastSet < (datetime.datetime.utcnow() - datetime.timedelta(weeks=52))
+			).filter(ADUser.canLogon == True)
+
+		user_pw_never_changed_qry = self.db_session.session.query(
+			ADUser.id
+			).filter_by(ad_id = domainid
+			).filter(ADUser.pwdLastSet == ADUser.whenCreated
+			).filter(ADUser.canLogon == True)
+
+		smb_singing_noteq_qry = self.db_session.session.query(
+			Machine.id, Machine.sAMAccountName, SMBFinger.machine_sid
+			).filter(Machine.ad_id == domainid
+			).filter(SMBFinger.machine_sid == Machine.objectSid
+			).filter(SMBFinger.signing_required == False
+			)
+
+		default_shares = ['print$','IPC$','ADMIN$', 'SYSVOL', 'NETLOGON']
+		for x in string.ascii_uppercase:
+			default_shares.append('%s$' % x)
+
+		smb_nondefault_shares_qry = self.db_session.session.query(
+			NetShare.id
+			).filter_by(ad_id = domainid
+			).distinct(NetShare.netname
+			).filter(NetShare.netname.notin_(default_shares)
+			)
 
 
+		users_total_count = total_users_qry.count()
+		users_active_count = users_active_qry.count()
+		machines_total_count = total_machines_qry.count()
+		
+
+		user_pw_notreq_count = pw_notreq_qry.count()
+		user_pw_plaintext_count = plaintext_pw_users_qry.count()
+		user_pw_dontexpire_count = plaintext_pw_dontexpire_qry.count()
+		user_pw_nopreauth_count = nopreauth_qry.count()
+		user_extremely_old_passwords_count = extremely_old_passwords_qry.count()
+		user_pw_never_changed_count = user_pw_never_changed_qry.count()
+		
+
+		machine_smb_nosig_count = smb_singing_noteq_qry.count()
+		machine_smb_non_standard_shares_count = smb_nondefault_shares_qry.count()
+		machnie_outdated_os_count = 1
+
+		return {
+			'users_total_count' : users_total_count,
+			'users_active_count': users_active_count,
+			'machines_total_count' : machines_total_count,
+			'user_pw_notreq_count' : user_pw_notreq_count,
+			'user_pw_plaintext_count' : user_pw_plaintext_count,
+			'user_pw_dontexpire_count' : user_pw_dontexpire_count,
+			'user_pw_nopreauth_count' : user_pw_nopreauth_count,
+			'user_extremely_old_passwords_count' : user_extremely_old_passwords_count,
+			'user_pw_never_changed_count' : user_pw_never_changed_count,
+
+			'machine_smb_nosig_count' : machine_smb_nosig_count,
+			'machine_smb_non_standard_shares_count' : machine_smb_non_standard_shares_count,
+			'machnie_outdated_os_count' : machnie_outdated_os_count,
+		}
 

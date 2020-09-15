@@ -1260,7 +1260,30 @@ paths:
               graph:
                 type: string
                 description: Placeholder TODO
-
+  
+  /anomalies/{domainid}/statistics:
+    get:
+      operationId: jackdaw.nest.api.anomalies.get_statistics
+      tags:
+        - Anomalies
+      summary: TODO
+      description: TODO
+      parameters:
+        - name: domainid
+          in: path
+          description: ID of the domain
+          type: integer
+          required: True
+      responses:
+        200:
+          description: Stats info
+          schema:
+            type: object
+            properties:
+              graph:
+                type: string
+                description: Placeholder TODO
+        
   /anomalies/{domainid}/users/plaintext:
     get:
       operationId: jackdaw.nest.api.anomalies.get_user_plaintext

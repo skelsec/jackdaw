@@ -56,4 +56,8 @@ def get_smb_domain_mismatch(domainid, page, maxcnt):
 	res = anom.get_smb_domain_mismatch(domainid, page, maxcnt)
 	return res
 
-
+def get_statistics(domainid):
+	anom = Anomalies(db_session = current_app.db)
+	res = anom.get_statistics(domainid)
+	return res
+	

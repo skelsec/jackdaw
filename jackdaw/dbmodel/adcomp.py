@@ -1,6 +1,6 @@
 import datetime
 
-from . import Basemodel, lf, dt
+from . import Basemodel, lf, dt, bc
 
 from sqlalchemy.orm import relationship
 from sqlalchemy import Index, func
@@ -50,6 +50,11 @@ class Machine(Basemodel, Serializer):
 	whenCreated = Column(DateTime)
 	servicePrincipalName = Column(String)
 	
+	when_pw_change = Column(DateTime)
+	when_pw_expires = Column(DateTime)
+	must_change_pw = Column(DateTime)
+	canLogon = Column(Boolean)
+	isAdmin = Column(Boolean)
 
 	UAC_SCRIPT = Column(Boolean)
 	UAC_ACCOUNTDISABLE = Column(Boolean)
@@ -129,6 +134,10 @@ class Machine(Basemodel, Serializer):
 			'UAC_DONT_REQUIRE_PREAUTH' : self.UAC_DONT_REQUIRE_PREAUTH ,
 			'UAC_PASSWORD_EXPIRED' : self.UAC_PASSWORD_EXPIRED ,
 			'UAC_TRUSTED_TO_AUTHENTICATE_FOR_DELEGATION' : self.UAC_TRUSTED_TO_AUTHENTICATE_FOR_DELEGATION ,
+			'when_pw_change' : self.when_pw_change ,
+			'when_pw_expires' : self.when_pw_expires ,
+			'must_change_pw' : self.must_change_pw ,
+			'canLogon' : self.canLogon ,
 		}
 	
 	@staticmethod
@@ -169,6 +178,12 @@ class Machine(Basemodel, Serializer):
 		machine.whenChanged = dt(u.whenChanged)
 		machine.whenCreated = dt(u.whenCreated)
 		machine.servicePrincipalName = lf(u.servicePrincipalName)
+		
+		machine.when_pw_change = dt(u.when_pw_change)
+		machine.when_pw_expires = dt(u.when_pw_expires)
+		machine.must_change_pw = dt(u.must_change_pw)
+		machine.canLogon = bc(u.canLogon)
+		
 		calc_uac_flags(machine)
 		
 		return machine

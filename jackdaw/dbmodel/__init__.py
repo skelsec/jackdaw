@@ -122,6 +122,8 @@ from .neterror import NetError
 from .rdnslookup import RDNSLookup
 from .adobjprops import ADObjProps
 from .kerberoast import Kerberoast
+from .smbprotocols import SMBProtocols
+from .smbvuln import SMBVuln
 
 
 
