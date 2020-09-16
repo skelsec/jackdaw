@@ -112,4 +112,3 @@ build/*
 *.gzip
 *.gz
 
-!jackdaw/nest/site/nui/dist/*
