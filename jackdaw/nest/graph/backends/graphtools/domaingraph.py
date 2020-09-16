@@ -186,7 +186,7 @@ class JackDawDomainGraphGrapthTools:
 				node_type = otype,
 				domainid = self.domain_id
 			)
-			network.nodes[sid].set_distance(d)
+			network.nodes[sid].set_distance(len(path)-d-1)
 
 		print(''.join(delete_this))
 		for i in range(len(path) - 1):

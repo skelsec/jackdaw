@@ -123,7 +123,7 @@ class JackDawDomainGraphIGraph:
 				node_type = otype,
 				domainid = self.domain_id
 			)
-			network.nodes[sid].set_distance(d)
+			network.nodes[sid].set_distance(len(path)-d-1)
 
 		for i in range(len(path) - 1):
 			for label in self.__resolv_edge_types(self.graph.vs[path[i]]['name'], self.graph.vs[path[i+1]]['name']):

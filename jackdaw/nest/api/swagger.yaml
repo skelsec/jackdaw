@@ -1274,6 +1274,11 @@ paths:
           description: ID of the domain
           type: integer
           required: True
+        - name: graphid
+          in: query
+          description: ID of the graph
+          type: integer
+          required: False
       responses:
         200:
           description: Stats info

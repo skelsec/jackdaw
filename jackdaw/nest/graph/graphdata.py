@@ -17,6 +17,7 @@ class GraphNode:
 	def serialize_mindistance(self):
 		if self.mindistance == math.inf:
 			return 999999
+		return self.mindistance
 
 	def to_dict(self, format = None):
 		if format is None:

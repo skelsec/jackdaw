@@ -78,6 +78,8 @@ class NestServer:
 		app.config['JACKDAW_WORK_DIR'] = self.work_dir
 		app.config['JACKDAW_GRAPH_BACKEND'] = self.graph_backend
 		app.config['JACKDAW_GRAPH_BACKEND_OBJ'] = graph_type
+		app.config['JACKDAW_GRAPH_DICT'] = {}
+		
 		#
 		## Create the SQLAlchemy db instance
 		db = SQLAlchemy(app)

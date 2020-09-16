@@ -70,7 +70,7 @@ def create(adids):
 	return {'graphid' : graphid}
 
 def delete(graphid):
-	del graphs[graphid]
+	del current_app.config['JACKDAW_GRAPH_DICT'][graphid]
 	return {}
 
 
@@ -80,7 +80,7 @@ def save(graphid):
 	#	temp_file_name = tmpfile.name
 	#
 	##logger.debug('Temp file created, but will not be removed! %s' % temp_file_name)
-	#graphs[graphid].to_gzip(temp_file_name)
+	#current_app.config['JACKDAW_GRAPH_DICT'][graphid].to_gzip(temp_file_name)
 	#
 	#attachment_name = 'graph_%s_%s.gzip' % (graphid, datetime.datetime.now().isoformat())
 	#resp = send_file(temp_file_name,
@@ -110,18 +110,18 @@ def load(graphid):
 	if graph_dir.exists() is False:
 		raise Exception('Graph cache dir doesnt exists!')
 	else:
-		graphs[graphid] = current_app.config.get('JACKDAW_GRAPH_BACKEND_OBJ').load(current_app.db.session, graphid, graph_dir)
+		current_app.config['JACKDAW_GRAPH_DICT'][graphid] = current_app.config.get('JACKDAW_GRAPH_BACKEND_OBJ').load(current_app.db.session, graphid, graph_dir)
 		
 		return {'graphid' : graphid}
 
 def get(graphid):
-	if graphid not in graphs:
+	if graphid not in current_app.config['JACKDAW_GRAPH_DICT']:
 		return 'Graph Not Found', 404
-	res = graphs[graphid].all_shortest_paths()
+	res = current_app.config['JACKDAW_GRAPH_DICT'][graphid].all_shortest_paths()
 	return res.to_dict()
 
 def query_path(graphid, src = None, dst = None, format = 'd3'):
-	if graphid not in graphs:
+	if graphid not in current_app.config['JACKDAW_GRAPH_DICT']:
 		load(graphid)
 	if src == '':
 		src = None
@@ -129,22 +129,22 @@ def query_path(graphid, src = None, dst = None, format = 'd3'):
 		dst = None
 	if src is None and dst is None:
 		return {}
-	res = graphs[graphid].shortest_paths(src, dst)
+	res = current_app.config['JACKDAW_GRAPH_DICT'][graphid].shortest_paths(src, dst)
 	return res.to_dict(format = format)
 
 def query_path_da(graphid, format = 'vis'):
-	if graphid not in graphs:
+	if graphid not in current_app.config['JACKDAW_GRAPH_DICT']:
 		load(graphid)
 	
 	da_sids = {}
 	#searching for domain admin SID
 	
-	#for node in graphs[graphid].get_node():
+	#for node in current_app.config['JACKDAW_GRAPH_DICT'][graphid].get_node():
 	#	print(node)
-	#	if node.id == graphs[graphid].domain_sid + '-512':
+	#	if node.id == current_app.config['JACKDAW_GRAPH_DICT'][graphid].domain_sid + '-512':
 	#		da_sids[node.id] = 1
-	print(graphs[graphid].domain_id)
-	for res in current_app.db.session.query(Group).filter_by(ad_id = graphs[graphid].domain_id).filter(Group.objectSid.like('%-512')).all():
+	print(current_app.config['JACKDAW_GRAPH_DICT'][graphid].domain_id)
+	for res in current_app.db.session.query(Group).filter_by(ad_id = current_app.config['JACKDAW_GRAPH_DICT'][graphid].domain_id).filter(Group.objectSid.like('%-512')).all():
 		da_sids[res.objectSid] = 0
 	
 	if len(da_sids) == 0:
@@ -152,21 +152,21 @@ def query_path_da(graphid, format = 'vis'):
 	
 	res = GraphData()
 	for sid in da_sids:
-		res += graphs[graphid].shortest_paths(None, sid)
+		res += current_app.config['JACKDAW_GRAPH_DICT'][graphid].shortest_paths(None, sid)
 
 
 	#print(res)
 	return res.to_dict(format = format)
 
 def query_path_dcsync(graphid, format = 'vis'):
-	if graphid not in graphs:
+	if graphid not in current_app.config['JACKDAW_GRAPH_DICT']:
 		load(graphid)
 
 	target_sids = {}
-	da_sids = {graphs[graphid].domain_sid : 0}
+	da_sids = {current_app.config['JACKDAW_GRAPH_DICT'][graphid].domain_sid : 0}
 
 	for res in current_app.db.session.query(EdgeLookup.oid)\
-		.filter_by(ad_id = graphs[graphid].domain_id)\
+		.filter_by(ad_id = current_app.config['JACKDAW_GRAPH_DICT'][graphid].domain_id)\
 		.filter(EdgeLookup.id == Edge.src)\
 		.filter(EdgeLookup.oid != None)\
 		.filter(or_(Edge.label == 'GetChanges', Edge.label == 'GetChangesAll'))\
@@ -177,22 +177,22 @@ def query_path_dcsync(graphid, format = 'vis'):
 	res = GraphData()
 	for dst_sid in da_sids:
 		for src_sid in target_sids:
-			res += graphs[graphid].shortest_paths(src_sid, dst_sid)
+			res += current_app.config['JACKDAW_GRAPH_DICT'][graphid].shortest_paths(src_sid, dst_sid)
 
 	return res.to_dict(format = format)
 
 def query_path_kerberoastda(graphid, format = 'vis'):
-	if graphid not in graphs:
+	if graphid not in current_app.config['JACKDAW_GRAPH_DICT']:
 		load(graphid)
 
 	target_sids = {}
 	da_sids = {}
 
-	for res in current_app.db.session.query(Group).filter_by(ad_id = graphs[graphid].domain_id).filter(Group.objectSid.like('%-512')).all():
+	for res in current_app.db.session.query(Group).filter_by(ad_id = current_app.config['JACKDAW_GRAPH_DICT'][graphid].domain_id).filter(Group.objectSid.like('%-512')).all():
 		da_sids[res.objectSid] = 0
 
 	for res in current_app.db.session.query(ADUser.objectSid)\
-		.filter_by(ad_id = graphs[graphid].domain_id)\
+		.filter_by(ad_id = current_app.config['JACKDAW_GRAPH_DICT'][graphid].domain_id)\
 		.filter(ADUser.servicePrincipalName != None).all():
 		
 		target_sids[res[0]] = 0
@@ -200,27 +200,27 @@ def query_path_kerberoastda(graphid, format = 'vis'):
 	res = GraphData()
 	for dst_sid in da_sids:
 		for src_sid in target_sids:
-			res += graphs[graphid].shortest_paths(src_sid, dst_sid)
+			res += current_app.config['JACKDAW_GRAPH_DICT'][graphid].shortest_paths(src_sid, dst_sid)
 
 	return res.to_dict(format = format)
 
 def query_path_kerberoastany(graphid, format = 'vis'):
-	if graphid not in graphs:
+	if graphid not in current_app.config['JACKDAW_GRAPH_DICT']:
 		load(graphid)
 
 	target_sids = {}
 	path_to_da = []
 
 	for res in current_app.db.session.query(ADUser.objectSid)\
-		.filter_by(ad_id = graphs[graphid].domain_id)\
+		.filter_by(ad_id = current_app.config['JACKDAW_GRAPH_DICT'][graphid].domain_id)\
 		.filter(ADUser.servicePrincipalName != None).all():
 		
 		target_sids[res[0]] = 0
 
 	res = GraphData()
 	for src_sid in target_sids:
-		if graphs[graphid].has_path(src_sid, graphs[graphid].domain_sid) is False:
-			res += graphs[graphid].shortest_paths(src_sid=src_sid, dst_sid = None)
+		if current_app.config['JACKDAW_GRAPH_DICT'][graphid].has_path(src_sid, current_app.config['JACKDAW_GRAPH_DICT'][graphid].domain_sid) is False:
+			res += current_app.config['JACKDAW_GRAPH_DICT'][graphid].shortest_paths(src_sid=src_sid, dst_sid = None)
 		else:
 			path_to_da.append(src_sid)
 
@@ -228,17 +228,17 @@ def query_path_kerberoastany(graphid, format = 'vis'):
 	return res.to_dict(format = format)
 
 def query_path_asreproast(graphid, format = 'vis'):
-	if graphid not in graphs:
+	if graphid not in current_app.config['JACKDAW_GRAPH_DICT']:
 		load(graphid)
 
 	target_sids = {}
 	da_sids = {}
 
-	for res in current_app.db.session.query(Group).filter_by(ad_id = graphs[graphid].domain_id).filter(Group.objectSid.like('%-512')).all():
+	for res in current_app.db.session.query(Group).filter_by(ad_id = current_app.config['JACKDAW_GRAPH_DICT'][graphid].domain_id).filter(Group.objectSid.like('%-512')).all():
 		da_sids[res.objectSid] = 0
 
 	for res in current_app.db.session.query(ADUser.objectSid)\
-		.filter_by(ad_id = graphs[graphid].domain_id)\
+		.filter_by(ad_id = current_app.config['JACKDAW_GRAPH_DICT'][graphid].domain_id)\
 		.filter(ADUser.UAC_DONT_REQUIRE_PREAUTH == True).all():
 		
 		target_sids[res[0]] = 0
@@ -246,21 +246,21 @@ def query_path_asreproast(graphid, format = 'vis'):
 	res = GraphData()
 	for dst_sid in da_sids:
 		for src_sid in target_sids:
-			res += graphs[graphid].shortest_paths(src_sid, dst_sid)
+			res += current_app.config['JACKDAW_GRAPH_DICT'][graphid].shortest_paths(src_sid, dst_sid)
 
 	return res.to_dict(format = format)
 
 def query_path_tohighvalue(graphid, format = 'vis'):
-	if graphid not in graphs:
+	if graphid not in current_app.config['JACKDAW_GRAPH_DICT']:
 		load(graphid)
 
 	target_sids = {}
 	da_sids = {}
 
 	for res in current_app.db.session.query(EdgeLookup.oid)\
-		.filter_by(ad_id = graphs[graphid].domain_id)\
+		.filter_by(ad_id = current_app.config['JACKDAW_GRAPH_DICT'][graphid].domain_id)\
 		.filter(EdgeLookup.oid == ADObjProps.oid)\
-		.filter(ADObjProps.ad_id == graphs[graphid].domain_id)\
+		.filter(ADObjProps.ad_id == current_app.config['JACKDAW_GRAPH_DICT'][graphid].domain_id)\
 		.filter(ADObjProps.prop == 'HVT')\
 		.all():
 		
@@ -269,24 +269,24 @@ def query_path_tohighvalue(graphid, format = 'vis'):
 	res = GraphData()
 	for dst_sid in da_sids:
 		for src_sid in target_sids:
-			res += graphs[graphid].shortest_paths(dst=dst_sid)
+			res += current_app.config['JACKDAW_GRAPH_DICT'][graphid].shortest_paths(dst=dst_sid)
 
 	return res.to_dict(format = format)
 
 def query_path_ownedda(graphid, format = 'vis'):
-	if graphid not in graphs:
+	if graphid not in current_app.config['JACKDAW_GRAPH_DICT']:
 		load(graphid)
 
 	target_sids = {}
 	da_sids = {}
 
-	for res in current_app.db.session.query(Group).filter_by(ad_id = graphs[graphid].domain_id).filter(Group.objectSid.like('%-512')).all():
+	for res in current_app.db.session.query(Group).filter_by(ad_id = current_app.config['JACKDAW_GRAPH_DICT'][graphid].domain_id).filter(Group.objectSid.like('%-512')).all():
 		da_sids[res.objectSid] = 0
 
 	for res in current_app.db.session.query(EdgeLookup.oid)\
-		.filter_by(ad_id = graphs[graphid].domain_id)\
+		.filter_by(ad_id = current_app.config['JACKDAW_GRAPH_DICT'][graphid].domain_id)\
 		.filter(EdgeLookup.oid == ADObjProps.oid)\
-		.filter(ADObjProps.ad_id == graphs[graphid].domain_id)\
+		.filter(ADObjProps.ad_id == current_app.config['JACKDAW_GRAPH_DICT'][graphid].domain_id)\
 		.filter(ADObjProps.prop == 'OWNED')\
 		.all():
 		
@@ -295,20 +295,20 @@ def query_path_ownedda(graphid, format = 'vis'):
 	res = GraphData()
 	for dst_sid in da_sids:
 		for src_sid in target_sids:
-			res += graphs[graphid].shortest_paths(src_sid, dst_sid)
+			res += current_app.config['JACKDAW_GRAPH_DICT'][graphid].shortest_paths(src_sid, dst_sid)
 
 	return res.to_dict(format = format)
 
 def query_path_fromowned(graphid, format = 'vis'):
-	if graphid not in graphs:
+	if graphid not in current_app.config['JACKDAW_GRAPH_DICT']:
 		load(graphid)
 
 	target_sids = {}
 
 	for res in current_app.db.session.query(EdgeLookup.oid)\
-		.filter_by(ad_id = graphs[graphid].domain_id)\
+		.filter_by(ad_id = current_app.config['JACKDAW_GRAPH_DICT'][graphid].domain_id)\
 		.filter(EdgeLookup.oid == ADObjProps.oid)\
-		.filter(ADObjProps.ad_id == graphs[graphid].domain_id)\
+		.filter(ADObjProps.ad_id == current_app.config['JACKDAW_GRAPH_DICT'][graphid].domain_id)\
 		.filter(ADObjProps.prop == 'OWNED')\
 		.all():
 		
@@ -316,28 +316,28 @@ def query_path_fromowned(graphid, format = 'vis'):
 
 	res = GraphData()
 	for src_sid in target_sids:
-		res += graphs[graphid].shortest_paths(src=src_sid)
+		res += current_app.config['JACKDAW_GRAPH_DICT'][graphid].shortest_paths(src=src_sid)
 
 	return res.to_dict(format = format)
 
 
 def list_nodes(graphid, with_data = False):
-	if graphid not in graphs:
+	if graphid not in current_app.config['JACKDAW_GRAPH_DICT']:
 		return 'Graph Not Found', 404
 	nodes = []
-	for node in graphs[graphid].get_node():
+	for node in current_app.config['JACKDAW_GRAPH_DICT'][graphid].get_node():
 		nodes.append(node.to_dict())
 	return nodes
 
 def get_node(graphid, nodeid):
-	if graphid not in graphs:
+	if graphid not in current_app.config['JACKDAW_GRAPH_DICT']:
 		return 'Graph Not Found', 404
-	return graphs[graphid].get_node(nodeid)
+	return current_app.config['JACKDAW_GRAPH_DICT'][graphid].get_node(nodeid)
 
 def query_path_all(graphid):
-	if graphid not in graphs:
+	if graphid not in current_app.config['JACKDAW_GRAPH_DICT']:
 		return 'Graph Not Found', 404
-	return graphs[graphid].show_all().to_dict(format = 'vis')
+	return current_app.config['JACKDAW_GRAPH_DICT'][graphid].show_all().to_dict(format = 'vis')
 
 def search_sid(graphid, sid):
 	return {}
@@ -346,9 +346,9 @@ def search_cn(graphid, cn):
 	return {}
 
 def stat_distance(graphid, sid):
-	if graphid not in graphs:
+	if graphid not in current_app.config['JACKDAW_GRAPH_DICT']:
 		return 'Graph Not Found', 404
-	distances = graphs[graphid].distances_from_node(sid)
+	distances = current_app.config['JACKDAW_GRAPH_DICT'][graphid].distances_from_node(sid)
 	
 	return distances
 
