@@ -272,16 +272,7 @@ class NestOperator:
 				else:
 					raise Exception('smb auto mode selected, but it is not supported on this platform')
 			
-			kerberos_url = cmd.kerberos_url
-			if kerberos_url == 'auto':
-				if platform.system().lower() == 'windows':
-					from winacl.functions.highlevel import get_logon_info
-					logon = get_logon_info()
-					smb_url = 'smb2+sspi-ntlm://%s\\%s:jackdaw@%s' % (logon['domain'], logon['username'], logon['logonserver'])
-			
-				else:
-					raise Exception('kerberos auto mode selected, but it is not supported on this platform')
-					
+			kerberos_url = cmd.kerberos_url					
 			dns = cmd.dns
 			if dns == 'auto':
 				if platform.system().lower() == 'windows':
