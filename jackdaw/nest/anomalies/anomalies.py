@@ -662,12 +662,16 @@ class Anomalies:
 		machine_smb_nosig_count = smb_singing_noteq_qry.count()
 		machine_smb_non_standard_shares_count = smb_nondefault_shares_qry.count()
 		machine_smb_smb1_dialect_count = smb_smb1_dialect_qry.count()
+
+		#TODO: implement this
 		machnie_outdated_os_count = 1
+		machines_active_count = machines_total_count
 
 		stat_dict = {
 			'users_total_count' : users_total_count,
 			'users_active_count': users_active_count,
 			'machines_total_count' : machines_total_count,
+			'machines_active_count' : machines_active_count,
 
 			'user_pw_notreq_active_count' : user_pw_notreq_active_count,
 			'user_pw_plaintext_active_count' : user_pw_plaintext_active_count,
