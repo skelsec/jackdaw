@@ -19,7 +19,7 @@ class Issue:
 		self.name = name
 		self.description = description
 		self.remedy = remedy
-		self.affected_sids = []
+		self.affected_ids = []
 		self.category = category
 
 	def to_dict(self):
@@ -29,7 +29,7 @@ class Issue:
 			'name' : self.name,
 			'description' : self.description,
 			'remedy' : self.remedy,
-			'affected_sids' : self.affected_sids,
+			'affected_ids' : self.affected_ids,
 			'category' : self.category,	
 		}
 
@@ -445,42 +445,56 @@ class Anomalies:
 			
 		return kerb_count
 
-	def eval_stats(self, stat_dict):
+	def eval_stats(self, stat_dict, domainid):
 		
 		issues = []
 		
 		if stat_dict['user_pw_notreq_active_count'] > 0:
 			p = Issue('LOW', 'Users with password not required flag set', 'Usually this is not a problem, just someting installers forget to change', 100)
+			for sid in self.db_session.session.query(ADUser.id).filter_by(ad_id = domainid).filter(ADUser.UAC_PASSWD_NOTREQD == True).all():
+				p.affected_ids.append((sid[0], 'user'))
 			issues.append(p)
 
-
-		
 		if stat_dict['user_pw_plaintext_active_count'] > 0:
 			p = Issue('MEDIUM', 'User password stored on the domain controller in plaintext format', '', 100)
+			for sid in self.db_session.session.query(ADUser.id).filter_by(ad_id = domainid).filter(ADUser.UAC_ENCRYPTED_TEXT_PASSWORD_ALLOWED == True).all():
+				p.affected_ids.append((sid[0], 'user'))
 			issues.append(p)
 
 		if stat_dict['user_pw_dontexpire_active_count'] > 0:
 			p = Issue('MEDIUM', 'User password never expires', '', 100)
+			for sid in self.db_session.session.query(ADUser.id).filter_by(ad_id = domainid).filter(ADUser.UAC_DONT_EXPIRE_PASSWD == True).all():
+				p.affected_ids.append((sid[0], 'user'))
 			issues.append(p)
 
 		if stat_dict['user_pw_nopreauth_active_count'] > 0:
 			p = Issue('MEDIUM', 'User prone to ASREP roast attack', '', 100)
+			for sid in self.db_session.session.query(ADUser.id).filter_by(ad_id = domainid).filter(ADUser.UAC_DONT_REQUIRE_PREAUTH == True).all():
+				p.affected_ids.append((sid[0], 'user'))
 			issues.append(p)
 
 		if stat_dict['user_extremely_old_passwords_active_count'] > 0:
 			p = Issue('HIGH', 'User password has not changed since a year', '', 100)
+			for sid in self.db_session.session.query(ADUser.id).filter_by(ad_id = domainid).filter(ADUser.pwdLastSet < (datetime.datetime.utcnow() - datetime.timedelta(weeks=52))).all():
+				p.affected_ids.append((sid[0], 'user'))
 			issues.append(p)
 
 		if stat_dict['user_pw_never_changed_active_count'] > 0:
 			p = Issue('HIGH', 'User password has not changed since its creation', '', 100)
+			for sid in self.db_session.session.query(ADUser.id).filter_by(ad_id = domainid).filter(ADUser.pwdLastSet == ADUser.whenCreated).all():
+				p.affected_ids.append((sid[0], 'user'))
 			issues.append(p)
 
 		if stat_dict['user_kerberoastable_active_count'] > 0:
 			p = Issue('MEDIUM', 'User is prone to kerberoast attack', 'attack sucsess rate depends on the strength of the user\'s password', 100)
+			for sid in self.db_session.session.query(ADUser.id).filter_by(ad_id = domainid).filter(ADUser.servicePrincipalName != None).all():
+				p.affected_ids.append((sid[0], 'user'))
 			issues.append(p)
 
 		if stat_dict['machine_smb_nosig_count'] > 0:
 			p = Issue('MEDIUM', 'Machine doesn\'t enforce NTLm signing', '', 100)
+			for sid in self.db_session.session.query(Machine.id, Machine.sAMAccountName, SMBFinger.machine_sid).filter(Machine.ad_id == domainid).filter(SMBFinger.machine_sid == Machine.objectSid).filter(SMBFinger.signing_required == False).all():
+				p.affected_ids.append((sid[0], 'machine'))
 			issues.append(p)
 
 		if stat_dict['machine_smb_non_standard_shares_count'] > 0:
@@ -492,7 +506,9 @@ class Anomalies:
 			issues.append(p)
 
 		if stat_dict['machine_smb_smb1_dialect_count'] > 0:
-			p = Issue('HIGH', 'Machine suppoers SMBv1, this is terrible', '', 100)
+			p = Issue('HIGH', 'Machine supports SMBv1, this is terrible', '', 100)
+			for sid in self.db_session.session.query(SMBProtocols.machine_sid,).filter(SMBProtocols.ad_id == domainid).filter(SMBProtocols.protocol == 'SMB1').distinct(SMBProtocols.machine_sid).all():
+				p.affected_ids.append(sid[0])
 			issues.append(p)
 
 		if 'graph_distances_to_da' in stat_dict:
@@ -603,7 +619,7 @@ class Anomalies:
 			)
 
 		smb_smb1_dialect_qry = self.db_session.session.query(
-			SMBProtocols.machine_sid,
+			SMBProtocols.machine_sid
 			).filter(SMBProtocols.ad_id == domainid
 			).filter(SMBProtocols.protocol == 'SMB1'
 			).distinct(SMBProtocols.machine_sid
@@ -692,6 +708,6 @@ class Anomalies:
 			stat_dict['graph_count_kerberoast_to_da'] = self.__graph_kerberoast_to_da(domainid, graphid)
 			stat_dict['graph_count_asreproast_to_da'] = self.__graph_asreproast_to_da(domainid, graphid)
 
-		stat_dict['issues'], stat_dict['vuln_score']  = self.eval_stats(stat_dict)
+		stat_dict['issues'], stat_dict['vuln_score']  = self.eval_stats(stat_dict, domainid)
 		return stat_dict
 
