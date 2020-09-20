@@ -13,12 +13,12 @@ import string
 import datetime
 
 class Issue:
-	def __init__(self, severity, name, description, confidence, remedy = None, category = None):
+	def __init__(self, severity, name, description, confidence, recommendation = None, category = None):
 		self.severity = severity
 		self.confidence = confidence
 		self.name = name
 		self.description = description
-		self.remedy = remedy
+		self.recommendation = recommendation
 		self.affected_ids = []
 		self.category = category
 
@@ -28,7 +28,7 @@ class Issue:
 			'confidence' : self.confidence,
 			'name' : self.name,
 			'description' : self.description,
-			'remedy' : self.remedy,
+			'recommendation' : 'lorem ipsum stuf.... http://microsoft.com/', #this is for debug only, fix this!
 			'affected_ids' : self.affected_ids,
 			'category' : self.category,	
 		}
