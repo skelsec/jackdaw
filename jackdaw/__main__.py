@@ -42,7 +42,13 @@ async def run_auto(ldap_worker_cnt = None, smb_worker_cnt = 500, dns = None, wor
 		
 		jdlogger.debug(str(logon))
 		if logon['domain'] == '' or logon['logonserver'] == '':
-			return False, Exception("Failed to find user's settings! Is this a domain user?")
+			if logon['domain'] == '':
+				logon['domain'] = os.environ['USERDOMAIN']
+			if logon['logonserver'] == '':
+				logon['logonserver'] = os.environ['LOGONSERVER'].replace('\\','')
+
+			if logon['domain'] == '' or logon['logonserver'] == '':
+				return False, Exception("Failed to find user's settings! Is this a domain user?")
 		
 		try:
 			#checking connection can be made over ldap...
