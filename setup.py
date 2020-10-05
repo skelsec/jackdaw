@@ -6,9 +6,9 @@ verstrline = open(VERSIONFILE, "rt").read()
 VSRE = r"^__version__ = ['\"]([^'\"]*)['\"]"
 mo = re.search(VSRE, verstrline, re.M)
 if mo:
-    verstr = mo.group(1)
+	verstr = mo.group(1)
 else:
-    raise RuntimeError("Unable to find version string in %s." % (VERSIONFILE,))
+	raise RuntimeError("Unable to find version string in %s." % (VERSIONFILE,))
 
 
 setup(
@@ -44,7 +44,7 @@ setup(
 	),
 	install_requires=[
 		'aiosmb>=0.2.28',
-		'msldap>=0.3.14',
+		'msldap>=0.3.15',
 		'sqlalchemy',
 		'tqdm',
 		'networkx',
