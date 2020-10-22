@@ -1,6 +1,8 @@
 import traceback
 import asyncio
 
+from winacl.dtyp.security_descriptor import SECURITY_DESCRIPTOR
+
 from jackdaw.dbmodel.utils.tokengroup import JackDawTokenGroup
 
 from jackdaw.gatherer.ldap.agent.common import *
@@ -22,6 +24,7 @@ from jackdaw.dbmodel.adspn import JackDawSPN
 from jackdaw.dbmodel import get_session
 from jackdaw.dbmodel.edge import Edge
 from jackdaw.dbmodel.edgelookup import EdgeLookup
+from jackdaw.dbmodel.adallowedtoact import MachineAllowedToAct
 
 
 class LDAPGathererAgent:
@@ -191,10 +194,22 @@ class LDAPGathererAgent:
 				machine = Machine.from_adcomp(machine_data)
 				
 				delegations = []
+				allowedtoact = []
+				if machine_data.allowedtoactonbehalfofotheridentity is not None:
+					try:
+						sd = SECURITY_DESCRIPTOR.from_bytes(machine_data.allowedtoactonbehalfofotheridentity)
+						if sd.Dacl is not None:
+							for ace in sd.Dacl.aces:
+								aa = MachineAllowedToAct()
+								aa.machine_sid = machine.objectSid
+								aa.target_sid = str(ace.Sid)
+								allowedtoact.append(aa)
+					except Exception as e:
+						logger.debug('Error parsing allowedtoact SD! %s Reason: %s' % (machine.sAMAccountName, e))
 				if machine_data.allowedtodelegateto is not None:
 					for delegate_data in machine_data.allowedtodelegateto:
 						delegations.append(MachineConstrainedDelegation.from_spn_str(delegate_data))
-				await self.agent_out_q.put((LDAPAgentCommand.MACHINE, {'machine' : machine, 'delegations' : delegations}))
+				await self.agent_out_q.put((LDAPAgentCommand.MACHINE, {'machine' : machine, 'delegations' : delegations, 'allowedtoact' : allowedtoact}))
 		except:
 			await self.agent_out_q.put((LDAPAgentCommand.EXCEPTION, str(traceback.format_exc())))
 		finally:

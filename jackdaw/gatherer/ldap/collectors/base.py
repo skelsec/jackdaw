@@ -265,6 +265,7 @@ class BaseCollector:
 	async def store_machine(self, machine_and_del):
 		machine = machine_and_del['machine']
 		delegations = machine_and_del['delegations']
+		allowedtoact = machine_and_del['allowedtoact']
 		machine.ad_id = self.ad_id
 		t = EdgeLookup(self.ad_id, machine.objectSid, 'machine')
 		self.session.add(t)
@@ -275,6 +276,10 @@ class BaseCollector:
 			d.machine_sid = machine.objectSid
 			d.ad_id = self.ad_id
 			self.session.add(d)
+
+		for aa in allowedtoact:
+			aa.ad_id = self.ad_id
+			self.session.add(aa)
 		#self.session.commit()
 		#self.session.flush()
 		

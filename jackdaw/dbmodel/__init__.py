@@ -124,6 +124,7 @@ from .adobjprops import ADObjProps
 from .kerberoast import Kerberoast
 from .smbprotocols import SMBProtocols
 from .smbvuln import SMBVuln
+from .adallowedtoact import MachineAllowedToAct
 
 
 

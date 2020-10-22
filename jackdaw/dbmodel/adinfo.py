@@ -44,6 +44,7 @@ class ADInfo(Basemodel, Serializer):
 	uSNCreated = Column(BigInteger)
 	whenChanged = Column(DateTime)
 	whenCreated = Column(DateTime)
+	domainmodelevel = Column(Integer)
 	jdversion = Column(String)
 	ldap_enumeration_state = Column(String)
 	smb_enumeration_state = Column(String)
@@ -83,6 +84,7 @@ class ADInfo(Basemodel, Serializer):
 			'uSNCreated' : self.uSNCreated,
 			'whenChanged' : self.whenChanged,
 			'whenCreated' : self.whenCreated,
+			'domainmodelevel' : self.domainmodelevel,
 			'jdversion' : self.jdversion,
 			'ldap_enumeration_state' : self.ldap_enumeration_state,
 			'smb_enumeration_state' : self.smb_enumeration_state,
@@ -124,6 +126,7 @@ class ADInfo(Basemodel, Serializer):
 		adinfo.jdversion = d.get('jdversion')
 		adinfo.ldap_enumeration_state = d.get('ldap_enumeration_state')
 		adinfo.smb_enumeration_state = d.get('smb_enumeration_state')
+		adinfo.domainmodelevel = d.get('domainmodelevel')
 		return adinfo
 
 
@@ -145,7 +148,7 @@ class ADInfo(Basemodel, Serializer):
 		adinfo.minPwdLength = d.minPwdLength
 		adinfo.name = d.name
 		adinfo.nextRid = d.nextRid
-		adinfo.objectCategory =d.objectCategory
+		adinfo.objectCategory = d.objectCategory
 		adinfo.objectClass =  lf(d.objectClass)
 		adinfo.objectGUID = d.objectGUID
 		adinfo.objectSid = d.objectSid
@@ -156,6 +159,7 @@ class ADInfo(Basemodel, Serializer):
 		adinfo.uASCompat = d.uASCompat
 		adinfo.uSNChanged = d.uSNChanged
 		adinfo.uSNCreated = d.uSNCreated
+		adinfo.domainmodelevel = d.domainmodelevel
 		adinfo.whenChanged = d.whenChanged
 		adinfo.whenCreated = d.whenCreated
 		adinfo.jdversion = __version__
