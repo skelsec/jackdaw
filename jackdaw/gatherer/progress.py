@@ -17,6 +17,7 @@ class GathererProgressType(enum.Enum):
 	SMBSHARE = 'SMBSHARE'
 	SMBSESSION = 'SMBSESSION'
 	SMBLOCALGROUP = 'SMBLOCALGROUP'
+	DNS = 'DNS'
 
 class MSGTYPE(enum.Enum):
 	STARTED = 'STARTED'

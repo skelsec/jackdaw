@@ -19,6 +19,7 @@ from jackdaw.dbmodel.adinfo import ADInfo
 from jackdaw.dbmodel.adtrust import ADTrust
 from jackdaw.dbmodel.adgpo import GPO
 from jackdaw.dbmodel.constrained import MachineConstrainedDelegation
+from jackdaw.dbmodel.adallowedtoact import MachineAllowedToAct
 from jackdaw.dbmodel.adgplink import Gplink
 from jackdaw.dbmodel.adspn import JackDawSPN
 from jackdaw.dbmodel.edge import Edge
@@ -245,6 +246,17 @@ class EdgeCalc:
 				self.add_edge(res[0], res[1], 'gplink')
 				cnt += 1
 		logger.debug('Added %s gplink edges' % cnt)
+
+	def allowedtoact_edges(self):
+		logger.debug('Adding allowedtoact edges')
+		q = self.session.query(MachineAllowedToAct.machine_sid, MachineAllowedToAct.target_sid)\
+				.filter_by(ad_id = self.ad_id)
+		cnt = 0
+		for res in windowed_query(q, GPO.id, self.buffer_size, False):
+				self.add_edge(res[1], res[0], 'allowedtoact')
+				cnt += 1
+		logger.debug('Added %s allowedtoact edges' % cnt)
+		
 
 	def groupmembership_edges(self):
 		return
@@ -478,6 +490,8 @@ class EdgeCalc:
 			self.localgroup_edges()
 			await self.log_msg('Adding password sharing edges')
 			self.passwordsharing_edges()
+			await self.log_msg('Adding allowedtoact sharing edges')
+			self.allowedtoact_edges()
 			self.session.commit()
 			_, err = await self.calc_sds_mp()
 			if err is not None:

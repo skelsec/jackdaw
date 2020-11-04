@@ -15,7 +15,6 @@ from tqdm import tqdm
 
 from jackdaw import logger
 from jackdaw.dbmodel import get_session, windowed_query
-from jackdaw.common.apq import AsyncProcessQueue
 from jackdaw.dbmodel.netshare import NetShare
 from jackdaw.dbmodel.netsession import NetSession
 from jackdaw.dbmodel.localgroup import LocalGroup
@@ -23,7 +22,6 @@ from jackdaw.dbmodel.smbfinger import SMBFinger
 from jackdaw.dbmodel.adinfo import ADInfo
 from jackdaw.dbmodel.adcomp import Machine
 from jackdaw.dbmodel.neterror import NetError
-from jackdaw.dbmodel.rdnslookup import RDNSLookup
 
 from jackdaw.common.cpucount import get_cpu_count
 from jackdaw.gatherer.smb.agent.agent import AIOSMBGathererAgent
@@ -33,28 +31,8 @@ import aiosmb
 from aiosmb.commons.utils.extb import format_exc
 from sqlalchemy import func
 
-async def rdns_worker(resolver, in_q, out_q):
-	try:
-		while True:
-			res = await in_q.get()
-			if res is None:
-				return
-
-			domain, err = await resolver.resolve(res)
-			if err is not None:
-				await out_q.put((None, None, None, err))
-				continue
-			result = RDNSLookup(None, res, domain)
-			await out_q.put((None, None, result, None))
-
-	except asyncio.CancelledError:
-		return
-
-	except Exception as e:
-		await out_q.put((None, None, None, e))
-
 class SMBGatherer:
-	def __init__(self, db_conn, ad_id, smb_mgr, worker_cnt = None, progress_queue = None, show_progress = True, rdns_resolver = None, stream_data = False):
+	def __init__(self, db_conn, ad_id, smb_mgr, worker_cnt = None, progress_queue = None, show_progress = True, stream_data = False):
 		self.in_q = None
 		self.out_q = None
 		self.smb_mgr = smb_mgr
@@ -63,7 +41,6 @@ class SMBGatherer:
 		self.concurrent_connections = worker_cnt if worker_cnt is not None else get_cpu_count()
 		self.db_conn = db_conn
 		self.progress_queue = progress_queue
-		self.rdns_resolver = rdns_resolver
 		self.show_progress = show_progress
 
 		self.queue_size = self.concurrent_connections
@@ -91,7 +68,6 @@ class SMBGatherer:
 		self.progress_step_size = 1
 
 		self.results_thread = None
-		self.rdns_task = None
 		self.stream_data = stream_data
 
 	async def terminate(self):
@@ -125,10 +101,9 @@ class SMBGatherer:
 			self.session = get_session(self.db_conn)
 			self.in_q = asyncio.Queue(self.queue_size)
 			self.out_q = asyncio.Queue(self.queue_size)
-			self.rdns_in_q = asyncio.Queue()
 			
-			if self.rdns_resolver is not None:
-				self.rdns_task = asyncio.create_task(rdns_worker(self.rdns_resolver, self.rdns_in_q, self.out_q))
+			
+			
 			info = self.session.query(ADInfo).get(self.ad_id)
 			info.smb_enumeration_state = 'STARTED'
 			self.domain_name = str(info.distinguishedName).replace(',','.').replace('DC=','')
@@ -231,8 +206,6 @@ class SMBGatherer:
 								await self.progress_queue.put(msg)
 
 					result.ad_id = self.ad_id
-					if isinstance(result, NetSession) and self.rdns_resolver is not None:
-						await self.rdns_in_q.put(result.ip)
 					self.session.add(result)
 					self.session.commit()
 
@@ -262,13 +235,6 @@ class SMBGatherer:
 			info = self.session.query(ADInfo).get(self.ad_id)
 			info.smb_enumeration_state = 'FINISHED'
 			self.session.commit()
-
-			if self.rdns_task is not None:
-				await self.rdns_in_q.put(None)
-				try:
-					await asyncio.wait_for(asyncio.gather(*[self.rdns_task]), 10)
-				except asyncio.TimeoutError:
-					self.rdns_task.cancel()
 
 			logger.debug('[+] SMB information acquisition finished!')
 			if self.progress_queue is not None:

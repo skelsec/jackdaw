@@ -66,6 +66,7 @@ class BaseCollector:
 		self.domaininfo_ctr = 0
 		self.gpo_ctr = 0
 		self.trust_ctr = 0
+		self.schema_ctr = 0
 
 		self.running_enums = {}
 		self.finished_enums = []
@@ -80,6 +81,7 @@ class BaseCollector:
 			'ous', 
 			'gpos',
 			'spns',
+			'schema',
 		]
 		self.enum_types_len = len(self.enum_types)
 
@@ -303,6 +305,15 @@ class BaseCollector:
 		if self.members_file_handle is not None:
 			self.members_file_handle.write(json.dumps(data).encode() + b'\r\n')
 
+	async def enum_schema(self):
+		logger.debug('Enumerating groups')
+		job = LDAPAgentJob(LDAPAgentCommand.SCHEMA, self.ad_id)
+		await self.agent_in_q.put(job)
+
+	
+	async def store_schema(self, se):
+		se.ad_id = self.ad_id
+		self.session.add(se)
 	
 	async def enum_groups(self):
 		logger.debug('Enumerating groups')
@@ -445,6 +456,8 @@ class BaseCollector:
 					await self.enum_spnservices()
 				elif next_type == 'trusts':
 					await self.enum_trusts()
+				elif next_type == 'schema':
+					await self.enum_schema()
 				else:
 					logger.warning('Unknown next_type! %s' % next_type)
 
@@ -522,11 +535,16 @@ class BaseCollector:
 					self.trust_ctr += 1
 					await self.store_trust(res)
 
+				elif res_type == LDAPAgentCommand.SCHEMA:
+					self.schema_ctr += 1
+					await self.store_schema(res)
+
 				elif res_type == LDAPAgentCommand.EXCEPTION:
 					logger.warning(str(res))
 					
 				elif res_type.name.endswith('FINISHED'):
 					t = await self.check_jobs(res_type)
+					self.session.commit()
 					if t is True:
 						break
 		

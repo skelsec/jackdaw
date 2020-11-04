@@ -43,8 +43,8 @@ setup(
 		"Operating System :: OS Independent",
 	),
 	install_requires=[
-		'aiosmb>=0.2.28',
-		'msldap>=0.3.16',
+		'aiosmb>=0.2.32',
+		'msldap>=0.3.17',
 		'sqlalchemy',
 		'tqdm',
 		'networkx',
@@ -56,7 +56,8 @@ setup(
 		'werkzeug==0.16.1',
 		'bidict',
 		'colorama; platform_system=="Windows"',
-		'winacl>=0.0.6; platform_system=="Windows"',
+		'winacl>=0.1.0',
+		'pypykatz>=0.3.14',
 	],
 	entry_points={
 		'console_scripts': [

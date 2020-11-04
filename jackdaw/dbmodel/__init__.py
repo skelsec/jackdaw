@@ -125,6 +125,8 @@ from .kerberoast import Kerberoast
 from .smbprotocols import SMBProtocols
 from .smbvuln import SMBVuln
 from .adallowedtoact import MachineAllowedToAct
+from .dnslookup import DNSLookup
+from .adschemaentry import ADSchemaEntry
 
 
 

@@ -25,6 +25,7 @@ from jackdaw.dbmodel import get_session
 from jackdaw.dbmodel.edge import Edge
 from jackdaw.dbmodel.edgelookup import EdgeLookup
 from jackdaw.dbmodel.adallowedtoact import MachineAllowedToAct
+from jackdaw.dbmodel.adschemaentry import ADSchemaEntry
 
 
 class LDAPGathererAgent:
@@ -172,6 +173,20 @@ class LDAPGathererAgent:
 		finally:
 			await self.agent_out_q.put((LDAPAgentCommand.GROUPS_FINISHED, None))
 
+	async def get_all_schemaentries(self):
+		try:
+			async for se, err in self.ldap.get_all_schemaentry():
+				if err is not None:
+					raise err
+				schemaentry = ADSchemaEntry.from_adschemaentry(se)
+				await self.agent_out_q.put((LDAPAgentCommand.SCHEMA, schemaentry))
+				del schemaentry
+		except:
+			await self.agent_out_q.put((LDAPAgentCommand.EXCEPTION, str(traceback.format_exc())))
+		finally:
+			await self.agent_out_q.put((LDAPAgentCommand.SCHEMA_FINISHED, None))
+			
+
 	async def get_all_gpos(self):
 		try:
 			async for gpo, err in self.ldap.get_all_gpos():
@@ -275,6 +290,8 @@ class LDAPGathererAgent:
 					await self.get_all_gpos()
 				elif res.command == LDAPAgentCommand.SPNSERVICES:
 					await self.get_all_spnservices()
+				elif res.command == LDAPAgentCommand.SCHEMA:
+					await self.get_all_schemaentries()
 				#elif res.command == LDAPAgentCommand.MEMBERSHIPS:
 				#	await self.get_all_effective_memberships()
 				elif res.command == LDAPAgentCommand.MEMBERSHIPS:

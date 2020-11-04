@@ -46,6 +46,7 @@ class ADUser(Basemodel, Serializer):
 	logonCount = Column(Integer)
 	sAMAccountType = Column(Integer)
 	userAccountControl = Column(Integer)
+	adminCount = Column(Integer)
 	
 	## other
 	codePage = Column(Integer)
@@ -112,6 +113,7 @@ class ADUser(Basemodel, Serializer):
 			'when_pw_change' : self.when_pw_change ,
 			'when_pw_expires' : self.when_pw_expires ,
 			'must_change_pw' : self.must_change_pw ,
+			'adminCount' : self.adminCount,
 			'canLogon' : self.canLogon ,
 			'UAC_SCRIPT' : self.UAC_SCRIPT ,
 			'UAC_ACCOUNTDISABLE' : self.UAC_ACCOUNTDISABLE ,
@@ -182,6 +184,7 @@ class ADUser(Basemodel, Serializer):
 		user.when_pw_change = dt(u.when_pw_change)
 		user.when_pw_expires = dt(u.when_pw_expires)
 		user.must_change_pw = dt(u.must_change_pw)
+		user.adminCount = u.admincount
 		user.canLogon = bc(u.canLogon)
 		user.isAdmin = bc(getattr(u,'isAdmin', None))
 		calc_uac_flags(user)

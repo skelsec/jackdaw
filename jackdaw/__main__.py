@@ -251,6 +251,24 @@ async def run(args):
 			)
 			await gatherer.run()
 
+		elif args.command == 'dns':
+			gatherer = Gatherer(
+				db_conn, 
+				work_dir, 
+				None, 
+				None,
+				ad_id=args.ad_id,
+				ldap_worker_cnt=None, 
+				smb_worker_cnt=None, 
+				mp_pool=None, 
+				smb_gather_types=None, 
+				progress_queue=None, 
+				show_progress=args.silent,
+				calc_edges=False,
+				dns=args.dns,
+			)
+			await gatherer.run()
+
 		elif args.command == 'version':
 			print('Jackdaw version: %s' % jdversion)
 			print('MSLDAP version : %s' % ldapversion)
@@ -394,7 +412,10 @@ def main():
 	smball_group.add_argument('smb_url',  help='Credential specitication in URL format')
 	smball_group.add_argument('--smb-workers', type=int, default = 50, help='SMB worker count for parallelization')
 	smball_group.add_argument('-d','--dns', help='DNS server for resolving IPs')
-	
+
+	dns_group = subparsers.add_parser('dns', help='DNS lookup for all hosts')
+	dns_group.add_argument('ad_id', help='ID of the domainfo to poll targets rom the DB')
+	dns_group.add_argument('dns', help='DNS server for resolving IPs')
 
 	files_group = subparsers.add_parser('files', help='Enumerate files on targets')
 	#files_group.add_argument('src', choices=['file', 'ldap', 'domain', 'cmd'])

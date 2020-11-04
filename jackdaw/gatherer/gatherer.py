@@ -13,6 +13,7 @@ from aiosmb.commons.connection.url import SMBConnectionURL
 from msldap.commons.url import MSLDAPURLDecoder
 from jackdaw.gatherer.edgecalc import EdgeCalc
 from jackdaw.gatherer.rdns.rdns import RDNS
+from jackdaw.gatherer.rdns.dnsgatherer import DNSGatherer
 from tqdm import tqdm
 from jackdaw.gatherer.progress import *
 
@@ -104,6 +105,10 @@ class Gatherer:
 			kerb_pbar               = tqdm(desc = 'KERBEROAST            ', ascii=True, position=pos)
 			self.progress_bars.append(kerb_pbar)
 			pos += 1
+		if self.rdns_resolver is not None:
+			dns_pbar               = tqdm(desc = 'DNS enum              ', ascii=True, position=pos)
+			self.progress_bars.append(dns_pbar)
+			pos += 1
 		if self.smb_url is not None:
 			smb_pbar               = tqdm(desc = 'SMB enum              ', ascii=True, position=pos)
 			self.progress_bars.append(smb_pbar)
@@ -188,6 +193,16 @@ class Gatherer:
 					if msg.msg_type == MSGTYPE.FINISHED:
 						kerb_pbar.refresh()
 
+				elif msg.type == GathererProgressType.DNS:
+					if msg.msg_type == MSGTYPE.PROGRESS:
+						if dns_pbar.total is None:
+							dns_pbar.total = msg.total
+						
+						dns_pbar.update(msg.step_size)
+
+					if msg.msg_type == MSGTYPE.FINISHED:
+						dns_pbar.refresh()
+				
 				elif msg.type == GathererProgressType.SMB:
 					if msg.msg_type == MSGTYPE.PROGRESS:
 						if smb_pbar.total is None:
@@ -278,7 +293,6 @@ class Gatherer:
 				self.ad_id,
 				self.smb_mgr, 
 				worker_cnt=self.smb_worker_cnt,
-				rdns_resolver = self.rdns_resolver,
 				progress_queue = self.progress_queue,
 				show_progress = False,
 				stream_data = self.stream_data
@@ -287,6 +301,22 @@ class Gatherer:
 			mgr.target_ad = self.ad_id
 			res, err = await mgr.run()
 			return res, err
+		except Exception as e:
+			return None, e
+
+	async def gather_dns(self):
+		try:
+			mgr = DNSGatherer(
+				self.db_url,
+				self.ad_id,
+				self.rdns_resolver,
+				worker_cnt = 100,
+				progress_queue = self.progress_queue,
+				stream_data = self.stream_data,
+			)			
+			res, err = await mgr.run()
+			return res, err
+
 		except Exception as e:
 			return None, e
 
@@ -370,6 +400,11 @@ class Gatherer:
 				_, err = await self.kerberoast()
 				if err is not None:
 					logger.error('Kerberos did not work... %s' % err)
+
+			if self.rdns_resolver is not None:
+				_, err = await self.gather_dns()
+				if err is not None:
+					logger.error('DNS lookup did not work... %s' % err)
 
 			if self.smb_url is not None:
 				_, err = await self.gather_smb()

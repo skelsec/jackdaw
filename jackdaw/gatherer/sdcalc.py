@@ -179,6 +179,7 @@ def calc_sd_edges(adsd):
 				if acl.object_type == 'user' and acl.ace_objecttype == '00299570-246d-11d0-a768-00aa006e0529':
 					# 'Replicating Directory Changes'
 					buffer.append(helper(acl.ace_sid, acl.sid, 'User-Force-Change-Password'))
+				
 	return buffer
 
 class SDEgdeCalc:
