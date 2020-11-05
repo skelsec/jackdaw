@@ -109,7 +109,7 @@ class SMBGatherer:
 			self.domain_name = str(info.distinguishedName).replace(',','.').replace('DC=','')
 			self.session.commit()
 			
-			self.total_targets = self.session.query(func.count(Machine.id)).filter_by(ad_id = self.ad_id).scalar()
+			self.total_targets = self.session.query(func.count(Machine.id)).filter(Machine.ad_id == self.ad_id).scalar()
 			
 			
 			if self.show_progress is True:

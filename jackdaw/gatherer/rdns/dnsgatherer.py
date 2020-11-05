@@ -58,7 +58,7 @@ class DNSGatherer:
 			self.session = get_session(self.db_conn)
 			info = self.session.query(ADInfo).get(self.ad_id)
 			self.domain_name = str(info.distinguishedName).replace(',','.').replace('DC=','')
-			self.total_targets = self.session.query(func.count(Machine.id)).filter_by(ad_id = self.ad_id).scalar()
+			self.total_targets = self.session.query(func.count(Machine.id)).filter(Machine.ad_id == self.ad_id).scalar()
 			self.job_generator_task = asyncio.create_task(self.generate_targets())
 			
 			for _ in range(self.worker_cnt):
