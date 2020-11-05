@@ -27,6 +27,7 @@ from jackdaw.nest.ws.protocol.smbsessionres import NestOpSMBSessionRes
 from jackdaw.nest.ws.protocol.smbshareres import NestOpSMBShareRes
 from jackdaw.nest.ws.protocol.smblocalgroupres import NestOpSMBLocalGroupRes
 from jackdaw.nest.ws.protocol.loadad import NestOpLoadAD
+from jackdaw.nest.ws.protocol.group import NestOpGroupRes
 
 
 __all__ = [
@@ -56,6 +57,7 @@ __all__ = [
 	'NestOpSMBShareRes',
 	'NestOpSMBLocalGroupRes',
 	'NestOpLoadAD',
+	'NestOpGroupRes',
 ]
 
 

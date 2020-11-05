@@ -337,6 +337,15 @@ class BaseCollector:
 			self.sd_file_handle.write(json.dumps(data).encode() + b'\r\n')
 		if self.members_file_handle is not None:
 			self.members_file_handle.write(json.dumps(data).encode() + b'\r\n')
+		
+		if self.stream_data is True and self.progress_queue is not None:
+			msg = GathererProgress()
+			msg.type = GathererProgressType.GROUP
+			msg.msg_type = MSGTYPE.FINISHED
+			msg.adid = self.ad_id
+			msg.domain_name = self.domain_name
+			msg.data = group
+			await self.progress_queue.put(msg)
 
 	async def enum_ous(self):
 		logger.debug('Enumerating ous')

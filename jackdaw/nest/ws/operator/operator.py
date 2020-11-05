@@ -190,6 +190,7 @@ class NestOperator:
 						reply.smartcard = msg.data.UAC_SMARTCARD_REQUIRED
 						reply.active = msg.data.canLogon
 						reply.description = msg.data.description
+						reply.is_admin = bool(msg.data.adminCout)
 
 						await self.websocket.send(reply.to_json())
 					
@@ -204,6 +205,17 @@ class NestOperator:
 						reply.osver = msg.data.operatingSystem
 						reply.ostype = msg.data.operatingSystemVersion
 						reply.description = msg.data.description
+						if msg.data.UAC_SERVER_TRUST_ACCOUNT is True:
+							reply.computer_type = 'DOMAIN_CONTROLLER'
+						elif msg.data.operatingSystem is not None:
+							if msg.data.operatingSystem.lower().find('windows') != -1:
+								if msg.data.operatingSystem.lower().find('server') != -1:
+									reply.computer_type = 'SERVER'
+								else:
+									reply.computer_type = 'WORKSTATION'
+							else:
+								reply.computer_type = 'NIX'
+						
 
 						await self.websocket.send(reply.to_json())
 					
@@ -230,6 +242,17 @@ class NestOperator:
 						reply.adid = msg.data.ad_id
 						reply.machinesid = msg.data.machine_sid
 						reply.username = msg.data.username
+						await self.websocket.send(reply.to_json())
+					
+					elif msg.type == GathererProgressType.GROUP:					
+						reply = NestOpGroupRes()
+						reply.token = cmd.token
+						reply.adid = msg.data.ad_id
+						reply.name = msg.data.sAMAccountName
+						reply.dn = msg.data.dn
+						reply.guid = msg.data.objectGUID
+						reply.sid = msg.data.objectSid
+						reply.description = msg.data.description
 						await self.websocket.send(reply.to_json())
 						
 				except asyncio.CancelledError:

@@ -4,21 +4,16 @@ from jackdaw.utils.encoder import UniversalEncoder
 from jackdaw.nest.ws.protocol.cmdtypes import NestOpCmd
 
 
-class NestOpUserRes:
+class NestOpGroupRes:
 	def __init__(self):
-		self.cmd = NestOpCmd.USERRES
+		self.cmd = NestOpCmd.GROUPRES
 		self.token = None
 		self.name = None
 		self.adid = None
+		self.dn = None
+		self.guid = None
 		self.sid = None
-		self.kerberoast = None
-		self.asreproast = None
-		self.nopassw = None
-		self.cleartext = None
-		self.smartcard = None
-		self.active = None
 		self.description = None
-		self.is_admin = False
 	
 	def to_dict(self):
 		return self.__dict__
@@ -28,7 +23,7 @@ class NestOpUserRes:
 	
 	@staticmethod
 	def from_dict(d):
-		cmd = NestOpUserRes()
+		cmd = NestOpGroupRes()
 		cmd.token = d['token']
 		if 'exclude' in d:
 			cmd.exclude = d['exclude']
@@ -36,4 +31,4 @@ class NestOpUserRes:
 
 	@staticmethod
 	def from_json(jd):
-		return NestOpUserRes.from_dict(json.loads(jd))
+		return NestOpGroupRes.from_dict(json.loads(jd))

@@ -16,7 +16,9 @@ class NestOpComputerRes:
 		self.osver = None
 		self.active = None
 		self.description = None
-	
+		self.computer_type = None
+		self.is_outdated = False
+
 	def to_dict(self):
 		return self.__dict__
 	
