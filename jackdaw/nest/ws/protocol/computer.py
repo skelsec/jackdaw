@@ -16,8 +16,8 @@ class NestOpComputerRes:
 		self.osver = None
 		self.active = None
 		self.description = None
-		self.computer_type = None
-		self.is_outdated = False
+		self.computertype = None
+		self.isoutdated = 0
 
 	def to_dict(self):
 		return self.__dict__
@@ -29,8 +29,6 @@ class NestOpComputerRes:
 	def from_dict(d):
 		cmd = NestOpComputerRes()
 		cmd.token = d['token']
-		if 'exclude' in d:
-			cmd.exclude = d['exclude']
 		return cmd
 
 	@staticmethod

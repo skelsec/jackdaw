@@ -183,14 +183,14 @@ class NestOperator:
 						reply.name = msg.data.sAMAccountName
 						reply.adid = msg.data.ad_id
 						reply.sid = msg.data.objectSid
-						reply.kerberoast = True if msg.data.servicePrincipalName is not None else False
-						reply.asreproast = msg.data.UAC_DONT_REQUIRE_PREAUTH
-						reply.nopassw = msg.data.UAC_PASSWD_NOTREQD
-						reply.cleartext = msg.data.UAC_ENCRYPTED_TEXT_PASSWORD_ALLOWED
-						reply.smartcard = msg.data.UAC_SMARTCARD_REQUIRED
-						reply.active = msg.data.canLogon
+						reply.kerberoast = 1 if msg.data.servicePrincipalName is not None else 0
+						reply.asreproast = int(msg.data.UAC_DONT_REQUIRE_PREAUTH)
+						reply.nopassw = int(msg.data.UAC_PASSWD_NOTREQD)
+						reply.cleartext = int(msg.data.UAC_ENCRYPTED_TEXT_PASSWORD_ALLOWED)
+						reply.smartcard = int(msg.data.UAC_SMARTCARD_REQUIRED)
+						reply.active = int(msg.data.canLogon)
 						reply.description = msg.data.description
-						reply.is_admin = bool(msg.data.adminCout)
+						reply.is_admin = int(msg.data.adminCout)
 
 						await self.websocket.send(reply.to_json())
 					
@@ -201,20 +201,22 @@ class NestOperator:
 						reply.name = msg.data.sAMAccountName
 						reply.adid = msg.data.ad_id
 						reply.sid = msg.data.objectSid
-						reply.dns = msg.data.dNSHostName
+						reply.domainname = msg.data.dNSHostName
 						reply.osver = msg.data.operatingSystem
 						reply.ostype = msg.data.operatingSystemVersion
 						reply.description = msg.data.description
 						if msg.data.UAC_SERVER_TRUST_ACCOUNT is True:
-							reply.computer_type = 'DOMAIN_CONTROLLER'
+							reply.computertype = 'DOMAIN_CONTROLLER'
 						elif msg.data.operatingSystem is not None:
 							if msg.data.operatingSystem.lower().find('windows') != -1:
 								if msg.data.operatingSystem.lower().find('server') != -1:
-									reply.computer_type = 'SERVER'
+									reply.computertype = 'SERVER'
 								else:
-									reply.computer_type = 'WORKSTATION'
+									reply.computertype = 'WORKSTATION'
 							else:
-								reply.computer_type = 'NIX'
+								reply.computertype = 'NIX'
+						else:
+							reply.computertype = 'DUNNO'
 						
 
 						await self.websocket.send(reply.to_json())
@@ -358,7 +360,6 @@ class NestOperator:
 		try:
 			reply = NestOpListADRes()
 			for i in self.db_session.query(ADInfo.id).all():
-				print(i)
 				reply.adids.append(i[0])
 			
 			await self.send_reply(cmd, reply)
@@ -417,10 +418,23 @@ class NestOperator:
 				reply.name = computer.sAMAccountName
 				reply.adid = computer.ad_id
 				reply.sid = computer.objectSid
-				reply.dns = computer.dNSHostName
+				reply.domainname = computer.dNSHostName
 				reply.osver = computer.operatingSystem
 				reply.ostype = computer.operatingSystemVersion
 				reply.description = computer.description
+				if computer.UAC_SERVER_TRUST_ACCOUNT is True:
+					reply.computertype = 'DOMAIN_CONTROLLER'
+				elif computer.operatingSystem is not None:
+					if computer.operatingSystem.lower().find('windows') != -1:
+						if computer.operatingSystem.lower().find('server') != -1:
+							reply.computertype = 'SERVER'
+						else:
+							reply.computertype = 'WORKSTATION'
+					else:
+						reply.computertype = 'NIX'
+				else:
+					reply.computertype = 'DUNNO'
+						
 
 				await self.websocket.send(reply.to_json())
 
@@ -432,13 +446,17 @@ class NestOperator:
 				reply.name = user.sAMAccountName
 				reply.adid = user.ad_id
 				reply.sid = user.objectSid
-				reply.kerberoast = True if user.servicePrincipalName is not None else False
-				reply.asreproast = user.UAC_DONT_REQUIRE_PREAUTH
-				reply.nopassw = user.UAC_PASSWD_NOTREQD
-				reply.cleartext = user.UAC_ENCRYPTED_TEXT_PASSWORD_ALLOWED
-				reply.smartcard = user.UAC_SMARTCARD_REQUIRED
-				reply.active = user.canLogon
-
+				reply.kerberoast = 1 if user.servicePrincipalName is not None else 0
+				reply.asreproast = int(user.UAC_DONT_REQUIRE_PREAUTH)
+				reply.nopassw = int(user.UAC_PASSWD_NOTREQD)
+				reply.cleartext = int(user.UAC_ENCRYPTED_TEXT_PASSWORD_ALLOWED)
+				reply.smartcard = int(user.UAC_SMARTCARD_REQUIRED)
+				reply.active = int(user.canLogon)
+				reply.description = user.description
+				if user.adminCount is not None:
+					reply.is_admin = int(user.adminCount)
+				else:
+					reply.is_admin = 0
 				await self.websocket.send(reply.to_json())
 
 			#sending localgroups
@@ -470,6 +488,19 @@ class NestOperator:
 				reply.adid = session.ad_id
 				reply.machinesid = session.machine_sid
 				reply.username = session.username
+				await self.websocket.send(reply.to_json())
+
+			#sending groups
+			for group in self.db_session.query(Group).filter_by(ad_id = cmd.adid).all():
+				await asyncio.sleep(0)
+				reply = NestOpGroupRes()
+				reply.token = cmd.token
+				reply.adid = group.ad_id
+				reply.name = group.sAMAccountName
+				reply.dn = group.dn
+				reply.guid = group.objectGUID
+				reply.sid = group.objectSid
+				reply.description = group.description
 				await self.websocket.send(reply.to_json())
 
 			await self.send_ok(cmd)
