@@ -11,7 +11,9 @@ import asyncio
 import platform
 import datetime
 
-from sqlalchemy import exc
+from sqlalchemy import exc #for pyinstaller
+from sqlalchemy.sql import default_comparator #for pyinstaller
+from sqlalchemy.ext import baked #for pyinstaller
 
 from aiosmb import logger as smblogger
 from aiosmb._version import __version__ as smbversion
