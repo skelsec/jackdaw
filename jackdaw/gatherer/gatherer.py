@@ -435,14 +435,16 @@ class Gatherer:
 			return False, e
 
 		finally:
-			if self.show_progress is True and self.progress_queue is None:
+			if self.progress_queue is not None:
 				await self.progress_queue.put(None)
+			if self.show_progress is True and self.progress_queue is None and self.progress_task is not None:
 				try:
 					await asyncio.wait_for(asyncio.gather(*[self.progress_task]), 1)
 				except asyncio.TimeoutError:
 					self.progress_task.cancel()
 				
-				self.progress_refresh_task.cancel()
+				if self.progress_refresh_task is not None:
+					self.progress_refresh_task.cancel()
 
 
 
