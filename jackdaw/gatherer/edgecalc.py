@@ -282,7 +282,7 @@ class EdgeCalc:
 		logger.debug('starting calc_sds_mp')
 		try:
 			cnt = 0
-			total = self.session.query(func.count(JackDawSD.id)).filter_by(ad_id = self.ad_id).scalar()
+			total = self.session.query(func.count(JackDawSD.id)).filter(JackDawSD.ad_id == self.ad_id).scalar()
 			logger.debug('calc_sds_mp total SDs %s' % str(total))
 			q = self.session.query(JackDawSD).filter_by(ad_id = self.ad_id)
 
