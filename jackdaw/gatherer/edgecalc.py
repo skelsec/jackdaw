@@ -252,7 +252,7 @@ class EdgeCalc:
 		q = self.session.query(MachineAllowedToAct.machine_sid, MachineAllowedToAct.target_sid)\
 				.filter_by(ad_id = self.ad_id)
 		cnt = 0
-		for res in windowed_query(q, GPO.id, self.buffer_size, False):
+		for res in windowed_query(q, MachineAllowedToAct.id, self.buffer_size, False):
 				self.add_edge(res[1], res[0], 'allowedtoact')
 				cnt += 1
 		logger.debug('Added %s allowedtoact edges' % cnt)
