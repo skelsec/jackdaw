@@ -6,6 +6,13 @@ gather gather gather
 Jackdaw is here to collect all information in your domain, store it in a SQL database and show you nice graphs on how your domain objects interact with each-other an how a potential attacker may exploit these interactions.
 It also comes with a handy feature to help you in a password-cracking project by storing/looking up/reporting hashes/passowrds/users.
 
+# Quick usage info
+ - If not using automatic collection (eg. not on Windows) you will need to create an initial empty database via `dbinit`
+ - First you need to perform `enum`. This can be done automatically on windows by double-clicking on the executable, or typing `jackdaw.exe auto`.
+ - Second you will need to run `nest` to get the web interface. By default it is served under `http://127.0.0.1:5000/nest` there is an API under `http://127.0.0.1:5000/ui`.
+ - Web interface, you will need to go to the domain view and click on `Generate graph cache` only once to get the edge information in a cache file. it might take a while but in the command line you will see a progress bar.
+ - After graph cache is done, you can play with the graph on the `graph view` but don't forget to select the corrrect cache number on the top left.
+
 # Example commands
 ### Automatic enumeration - windows only, with domain-joined user -
 No need to pre-initialise the database, it will be done automatically.
@@ -43,6 +50,9 @@ LDAP enumeration phase acquires data on AD info, User, Machine, OU, Group object
 #### via SMB
 SMB enumeration phase acquires data on shares, localgroups, sessions, NTLM data via connecting to each machine in the domain (which is acquired via LDAP)  
 
+#### via Kerberos
+Kerberos module does automatic kerberoasting and aspreproasting
+
 #### via LSASS dumps (optional)  
 The framework allows users to upload LSASS memory dumps to store credentials and extend the session information table. Both will be used as additional edges in the graph (shared password and session respectively). The framework also uses this information to create a password report on weak/shared/cracked credentials.  
 
@@ -65,7 +75,7 @@ User anomalies detection involve detection of insecure UAC permissions and exten
 Machine anomalies detection involve detection of insecure UAC permissions, non-mandatory SMB singing, outdated OS version, out-of-domain machines. This feature set is expected to grow in the future as new features will be implemented.
 
 ## Password cracking
-**The framework is not performing any cracking, only organizing the hashes and the cracking results**  
+**The framework does not performing any cracking, only organizing the hashes and the cracking results**  
 **currently main focus is on impacket and aiosmb's dcsync results !NT and LM hashes only!**  
 Sample porcess is the following:  
 1. Harvesting credentials as text file via impacket/aiosmb or as memory dumps of the LSASS process via whatever tool you see fit.
