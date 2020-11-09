@@ -339,6 +339,12 @@ async def run(args):
 				graph_backend = args.backend,
 			)
 			server.run()
+		
+		elif args.command == 'ws':
+			from jackdaw.nest.ws.server import NestWebSocketServer
+			server = NestWebSocketServer(args.listen_ip, args.listen_port, args.sql, args.work_dir, args.backend, ssl_ctx = None)
+			await server.run()
+
 	except Exception as e:
 		jdlogger.exception('main')
 	
@@ -466,7 +472,14 @@ def main():
 	
 	cracked_group = subparsers.add_parser('cracked', help='Polls the DB for cracked passwords')
 	cracked_group.add_argument('-d','--domain-id', type=int, default = -1, help='Domain ID to identify the domain')
-	
+
+	ws = subparsers.add_parser('ws', help='Suprise tool thats going to help us later')
+	ws.add_argument('--listen-ip',  default = '127.0.0.1', help='IP address to listen on')
+	ws.add_argument('--listen-port',  type=int, default = 5001, help='IP address to listen on')
+	ws.add_argument('--work-dir', default = './workdir', help='Working directory for caching and tempfiles')
+	ws.add_argument('--backend', default = 'networkx', help='graph backend, pls dont change this')
+
+
 	args = parser.parse_args()
 
 	asyncio.run(run(args))

@@ -1,5 +1,5 @@
 
-__version__ = "0.2.26"
+__version__ = "0.2.27"
 __banner__ = \
 """
 # jackdaw %s 
