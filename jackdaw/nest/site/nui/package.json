@@ -6,7 +6,7 @@
     "build": "webpack --mode production",
     "build-dev": "webpack --mode development",
     "start": "webpack-dev-server --mode production --watch-poll",
-    "start-dev": "webpack-dev-server --mode development --watch-poll",
+    "start-dev": "webpack --mode development --watch",
     "test": "jest"
   },
   "keywords": [],

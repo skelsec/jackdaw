@@ -19,13 +19,18 @@ import ItemDetails from '../../Components/ItemDetails';
 
 const styles = theme => ({
     graphBox: {
-        backgroundColor: '#f2f2f2'
+        backgroundColor: '#f2f2f2',
+        '& > div > div': {
+            height: '100%',
+            '& canvas': {
+            height: '100vh !important',
+            maxHeight: '100% !important',
+            }
+        }
     }
 });
 
 const graphOptions = {
-    height: '100%',
-    width: '100%',
     autoResize: true,
     edges: {
         arrowStrikethrough: true,
@@ -181,8 +186,7 @@ class GraphPageComponent extends ApiClient {
                     direction: "LR",
                     sortMethod: "directed",
                     levelSeparation: 400,
-                    nodeSpacing: 100, 
-                    //randomSeed: 6
+                    nodeSpacing: 100,
                 }
             };
             newGraphOptions['interaction'] = {
@@ -336,7 +340,7 @@ class GraphPageComponent extends ApiClient {
     }
 
     processSelection = async(event) => {
-        var { nodes, edges } = event;
+        var { nodes } = event;
         const node = this.state.graphData.nodes.filter(item => item.id == nodes[0]);
         if (node.length == 0) return;
         const targetNode = node[0];
@@ -358,10 +362,6 @@ class GraphPageComponent extends ApiClient {
                     graph={this.state.graphData}
                     options={this.state.graphOptions}
                     events={this.events}
-                    style={{
-                        width: '100%',
-                        height: '100%'
-                    }}
                 />
             </Box>
         );
@@ -374,7 +374,7 @@ class GraphPageComponent extends ApiClient {
                 className="margin-top"
                 label="Details"
                 expanded={this.state.udOpen}
-                onClick={(e) => this.setState({ udOpen: !this.state.udOpen })}
+                onClick={() => this.setState({ udOpen: !this.state.udOpen })}
             >
                 <ItemDetails
                     domain={this.state.nodeSelected.domainid}
@@ -397,7 +397,7 @@ class GraphPageComponent extends ApiClient {
                     {this.renderTextField('srcsid', 'SRC SID', 'Source SID')}
                 </Box>
                 <Box className="margin-top">
-                {this.renderTextField('dstsid', 'DST SID', 'Destination SID')}
+                    {this.renderTextField('dstsid', 'DST SID', 'Destination SID')}
                 </Box>
                 <Box className="margin-top">
                     {this.renderModeSelector()}
@@ -407,7 +407,7 @@ class GraphPageComponent extends ApiClient {
                         <Button
                             color="primary"
                             variant="contained"
-                            onClick={(e) => this.fetchGraph('domainadmins')}
+                            onClick={() => this.fetchGraph('domainadmins')}
                         >
                             Draw Domain Admins
                         </Button>
@@ -416,7 +416,7 @@ class GraphPageComponent extends ApiClient {
                         <Button
                             color="primary"
                             variant="contained"
-                            onClick={(e) => this.fetchGraph('path')}
+                            onClick={() => this.fetchGraph('path')}
                         >
                             Draw Path
                         </Button>
@@ -425,7 +425,7 @@ class GraphPageComponent extends ApiClient {
                         <Button
                             color="primary"
                             variant="contained"
-                            onClick={(e) => this.fetchGraph('ownedtoda')}
+                            onClick={() => this.fetchGraph('ownedtoda')}
                         >
                             Draw Path from Owned users to DA
                         </Button>
@@ -434,7 +434,7 @@ class GraphPageComponent extends ApiClient {
                         <Button
                             color="primary"
                             variant="contained"
-                            onClick={(e) => this.fetchGraph('fromowned')}
+                            onClick={() => this.fetchGraph('fromowned')}
                         >
                             Draw Path from Owned users to anywhere
                         </Button>
@@ -443,7 +443,7 @@ class GraphPageComponent extends ApiClient {
                         <Button
                             color="primary"
                             variant="contained"
-                            onClick={(e) => this.fetchGraph('dcsync')}
+                            onClick={() => this.fetchGraph('dcsync')}
                         >
                             List users with DCSYNC rights
                         </Button>
@@ -452,7 +452,7 @@ class GraphPageComponent extends ApiClient {
                         <Button
                             color="primary"
                             variant="contained"
-                            onClick={(e) => this.fetchGraph('kerberoasttoda')}
+                            onClick={() => this.fetchGraph('kerberoasttoda')}
                         >
                             Drwaw Path from Kerberoastable users to DA
                         </Button>
@@ -461,7 +461,7 @@ class GraphPageComponent extends ApiClient {
                         <Button
                             color="primary"
                             variant="contained"
-                            onClick={(e) => this.fetchGraph('kerberoastany')}
+                            onClick={() => this.fetchGraph('kerberoastany')}
                         >
                             Drwaw Path from Kerberoastable users to anywhere
                         </Button>
@@ -470,7 +470,7 @@ class GraphPageComponent extends ApiClient {
                         <Button
                             color="primary"
                             variant="contained"
-                            onClick={(e) => this.fetchGraph('asreproastda')}
+                            onClick={() => this.fetchGraph('asreproastda')}
                         >
                             Drwaw Path from ASREProastable users to DA
                         </Button>
@@ -479,7 +479,7 @@ class GraphPageComponent extends ApiClient {
                         <Button
                             color="primary"
                             variant="contained"
-                            onClick={(e) => this.fetchGraph('asreproast')}
+                            onClick={() => this.fetchGraph('asreproast')}
                         >
                             Drwaw Path from ASREProastable users to DA
                         </Button>
@@ -488,7 +488,7 @@ class GraphPageComponent extends ApiClient {
                         <Button
                             color="primary"
                             variant="contained"
-                            onClick={(e) => this.fetchGraph('highvalue')}
+                            onClick={() => this.fetchGraph('highvalue')}
                         >
                             Draw user paths to High Value targets
                         </Button>
