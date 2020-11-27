@@ -17,6 +17,7 @@ from jackdaw.dbmodel.edgelookup import EdgeLookup
 from jackdaw.dbmodel import windowed_query
 from jackdaw.nest.graph.graphdata import GraphData, GraphNode
 from jackdaw.nest.graph.construct import GraphConstruct
+from jackdaw.dbmodel.adobjprops import ADObjProps
 from jackdaw.wintypes.well_known_sids import get_name_or_sid, get_sid_for_name
 import threading
 from sqlalchemy import func
@@ -63,6 +64,7 @@ class JackDawDomainGraphNetworkx:
 		self.domain_sid = None
 		self.domain_id = None
 		self.lookup = {}
+		self.props_lookup = {}
 
 	def save(self):
 		pass
@@ -239,12 +241,15 @@ class JackDawDomainGraphNetworkx:
 		delete_this = []
 		for d, node_id in enumerate(path):
 			sid, otype = self.__nodename_to_sid(node_id)
+			owned, highvalue = self.__get_props(sid)
 			delete_this.append('%s(%s) -> ' % (sid, otype))
 			network.add_node(
 				sid, 
 				name = self.__sid2cn(sid, otype), 
 				node_type = otype,
-				domainid = self.domain_id
+				domainid = self.domain_id,
+				owned = owned,
+				highvalue = highvalue
 			)
 			network.nodes[sid].set_distance(len(path)-d-1)
 
@@ -271,6 +276,21 @@ class JackDawDomainGraphNetworkx:
 		t = self.dbsession.query(EdgeLookup).get(node_name) #node_name is the ID of the edgelookup
 		self.lookup[node_name] = (t.oid, t.otype)
 		return t.oid, t.otype
+
+	def __get_props(self, oid):
+		if oid not in self.props_lookup:
+			qry = self.dbsession.query(ADObjProps).filter_by(oid=oid).filter(ADObjProps.graph_id==self.graph_id)
+			owned_res = qry.filter(ADObjProps.prop == 'OWNED').scalar()
+			print(owned_res)
+			if owned_res is not None:
+				owned_res = True
+			highvalue_res = qry.filter(ADObjProps.prop == 'HVT').scalar()
+			print(highvalue_res)
+			if highvalue_res is not None:
+				highvalue_res = True
+			self.props_lookup[oid] = (owned_res, highvalue_res)
+		return self.props_lookup[oid]
+
 	
 	def __resolv_edge_types(self, src_id, dst_id):
 		t = []

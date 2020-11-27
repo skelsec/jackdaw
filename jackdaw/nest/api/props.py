@@ -15,6 +15,7 @@ def clear_hvt(graphid, oid):
 		current_app.db.session.commit()
 
 def set_owned(graphid, oid):
+	print('set_owned!')
 	p = ADObjProps()
 	p.prop = 'OWNED'
 	p.oid = oid
@@ -23,6 +24,7 @@ def set_owned(graphid, oid):
 	current_app.db.session.commit()
 
 def clear_owned(graphid, oid):
+	print('clear_owned!')
 	for res in current_app.db.session.query(ADObjProps).filter_by(oid = oid).filter(ADObjProps.prop == 'OWNED').filter(ADObjProps.graph_id == graphid).all():
 		current_app.db.session.delete(res)
 		current_app.db.session.commit()

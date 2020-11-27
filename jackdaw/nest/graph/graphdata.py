@@ -3,13 +3,15 @@
 import math
 
 class GraphNode:
-	def __init__(self, gid, name, domainid, gtype = None, properties = {}):
+	def __init__(self, gid, name, domainid, gtype = None, properties = {}, owned = False, highvalue = False):
 		self.name = name
 		self.id = gid
 		self.domainid = domainid
 		self.type = gtype
 		self.properties = properties
 		self.mindistance = math.inf
+		self.owned = owned
+		self.highvalue = highvalue
 
 	def set_distance(self, d):
 		self.mindistance = min(self.mindistance, d)
@@ -27,6 +29,8 @@ class GraphNode:
 				'domainid' : self.domainid,
 				'properties' : self.properties,
 				'md' : self.serialize_mindistance(),
+				'owned' : self.owned,
+				'highvalue' : self.highvalue,
 			}
 
 		elif format == 'd3':
@@ -36,6 +40,8 @@ class GraphNode:
 				'domainid' : self.domainid,
 				'type' : self.type,
 				'md' : self.serialize_mindistance(),
+				'owned' : self.owned,
+				'highvalue' : self.highvalue,
 			}
 		
 		elif format == 'vis':
@@ -45,6 +51,8 @@ class GraphNode:
 				'type' : self.type,
 				'domainid' : self.domainid,
 				'md' : self.serialize_mindistance(),
+				'owned' : self.owned,
+				'highvalue' : self.highvalue,
 			}
 
 class GraphEdge:
@@ -85,8 +93,8 @@ class GraphData:
 		self.nodes = {}
 		self.edges = {}
 
-	def add_node(self, gid, name, domainid, node_type, properties = {}):
-		self.nodes[gid] = GraphNode(gid, name, domainid, node_type, properties)
+	def add_node(self, gid, name, domainid, node_type, properties = {}, owned = False, highvalue = False):
+		self.nodes[gid] = GraphNode(gid, name, domainid, node_type, properties, owned = owned, highvalue = highvalue)
 	
 	def add_edge(self, src, dst, label = '', weight = 1, properties = {}):
 		if src not in self.nodes:

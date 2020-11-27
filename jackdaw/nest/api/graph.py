@@ -143,7 +143,7 @@ def query_path_da(graphid, format = 'vis'):
 	#	print(node)
 	#	if node.id == current_app.config['JACKDAW_GRAPH_DICT'][graphid].domain_sid + '-512':
 	#		da_sids[node.id] = 1
-	print(current_app.config['JACKDAW_GRAPH_DICT'][graphid].domain_id)
+	#print(current_app.config['JACKDAW_GRAPH_DICT'][graphid].domain_id)
 	for res in current_app.db.session.query(Group).filter_by(ad_id = current_app.config['JACKDAW_GRAPH_DICT'][graphid].domain_id).filter(Group.objectSid.like('%-512')).all():
 		da_sids[res.objectSid] = 0
 	
@@ -260,7 +260,7 @@ def query_path_tohighvalue(graphid, format = 'vis'):
 	for res in current_app.db.session.query(EdgeLookup.oid)\
 		.filter_by(ad_id = current_app.config['JACKDAW_GRAPH_DICT'][graphid].domain_id)\
 		.filter(EdgeLookup.oid == ADObjProps.oid)\
-		.filter(ADObjProps.ad_id == current_app.config['JACKDAW_GRAPH_DICT'][graphid].domain_id)\
+		.filter(ADObjProps.graph_id == graphid)\
 		.filter(ADObjProps.prop == 'HVT')\
 		.all():
 		
@@ -286,7 +286,7 @@ def query_path_ownedda(graphid, format = 'vis'):
 	for res in current_app.db.session.query(EdgeLookup.oid)\
 		.filter_by(ad_id = current_app.config['JACKDAW_GRAPH_DICT'][graphid].domain_id)\
 		.filter(EdgeLookup.oid == ADObjProps.oid)\
-		.filter(ADObjProps.ad_id == current_app.config['JACKDAW_GRAPH_DICT'][graphid].domain_id)\
+		.filter(ADObjProps.graph_id == graphid)\
 		.filter(ADObjProps.prop == 'OWNED')\
 		.all():
 		
@@ -308,7 +308,7 @@ def query_path_fromowned(graphid, format = 'vis'):
 	for res in current_app.db.session.query(EdgeLookup.oid)\
 		.filter_by(ad_id = current_app.config['JACKDAW_GRAPH_DICT'][graphid].domain_id)\
 		.filter(EdgeLookup.oid == ADObjProps.oid)\
-		.filter(ADObjProps.ad_id == current_app.config['JACKDAW_GRAPH_DICT'][graphid].domain_id)\
+		.filter(ADObjProps.graph_id == graphid)\
 		.filter(ADObjProps.prop == 'OWNED')\
 		.all():
 		
@@ -316,7 +316,7 @@ def query_path_fromowned(graphid, format = 'vis'):
 
 	res = GraphData()
 	for src_sid in target_sids:
-		res += current_app.config['JACKDAW_GRAPH_DICT'][graphid].shortest_paths(src=src_sid)
+		res += current_app.config['JACKDAW_GRAPH_DICT'][graphid].shortest_paths(src_sid=src_sid)
 
 	return res.to_dict(format = format)
 

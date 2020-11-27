@@ -2137,7 +2137,7 @@ paths:
         - name: oid
           in: path
           description: oid of the object (sid or guid)
-          type: integer
+          type: string
           required: True
       responses:
         200:
@@ -2165,7 +2165,7 @@ paths:
         - name: oid
           in: path
           description: oid of the object (sid or guid)
-          type: integer
+          type: string
           required: True
       responses:
         200:
@@ -2193,7 +2193,7 @@ paths:
         - name: oid
           in: path
           description: oid of the object (sid or guid)
-          type: integer
+          type: string
           required: True
       responses:
         200:
@@ -2221,7 +2221,7 @@ paths:
         - name: oid
           in: path
           description: oid of the object (sid or guid)
-          type: integer
+          type: string
           required: True
       responses:
         200:
@@ -2272,7 +2272,7 @@ paths:
         - name: machinesid
           in: path
           description: ID of the domain
-          type: integer
+          type: string
           required: True
       responses:
         200:

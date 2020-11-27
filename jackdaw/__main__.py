@@ -292,20 +292,20 @@ async def run(args):
 			#	mgr.run()
 			
 		elif args.command == 'creds':
-			creds = JackDawCredentials(args.db_conn, args.domain_id)
+			creds = JackDawCredentials(db_conn, args.domain_id)
 			creds.add_credentials_impacket(args.impacket_file)
 
 			
 		elif args.command == 'passwords':
-			creds = JackDawCredentials(args.db_conn)
+			creds = JackDawCredentials(db_conn)
 			creds.add_cracked_passwords(args.potfile, args.disable_usercheck, args.disable_passwordcheck)
 			
 		elif args.command == 'uncracked':
-			creds = JackDawCredentials(args.db_conn, args.domain_id)
+			creds = JackDawCredentials(db_conn, args.domain_id)
 			creds.get_uncracked_hashes(args.hash_type, args.history)
 			
 		elif args.command == 'cracked':
-			creds = JackDawCredentials(args.db_conn, args.domain_id)
+			creds = JackDawCredentials(db_conn, args.domain_id)
 			creds.get_cracked_info()
 
 		elif args.command == 'recalc':
