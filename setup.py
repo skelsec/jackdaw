@@ -20,7 +20,7 @@ setup(
 
 	# Application author details:
 	author="Tamas Jos",
-	author_email="skelsecprojects@gmail.com",
+	author_email="info@skelsecprojects.com",
 
 	# Packages
 	packages=find_packages(),
@@ -40,6 +40,9 @@ setup(
 	python_requires='>=3.6',
 	classifiers=(
 		"Programming Language :: Python :: 3.6",
+		"Programming Language :: Python :: 3.7",
+		"Programming Language :: Python :: 3.8",
+		"Programming Language :: Python :: 3.9",
 		"Operating System :: OS Independent",
 	),
 	install_requires=[
