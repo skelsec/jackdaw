@@ -17,7 +17,7 @@ import ApiClient from '../../Components/ApiClient';
 import ExpansionPane from '../../Components/ExpansionPane';
 import ItemDetails from '../../Components/ItemDetails';
 
-const styles = theme => ({
+const styles = () => ({
     graphBox: {
         backgroundColor: '#f2f2f2',
         '& > div > div': {
@@ -32,10 +32,16 @@ const styles = theme => ({
 
 const graphOptions = {
     autoResize: true,
+    layout: {
+        hierarchical: false
+    },
     edges: {
         arrowStrikethrough: true,
         chosen: true,
         dashes: false,
+        smooth: {
+            enabled: false,
+        },
         arrows: {
             to: {enabled: true, scaleFactor:0.75, type:'arrow'},
             middle: {enabled: false, scaleFactor:1, type:'arrow'},
@@ -88,6 +94,9 @@ const graphOptions = {
                 mod: ''
             }
         }
+    },
+    interaction: {
+        hover: false,
     },
     // http://visjs.org/docs/network/physics.html#
     physics: {
@@ -146,7 +155,7 @@ class GraphPageComponent extends ApiClient {
         dstsid: '',
         graph: null,
         graphData: null,
-        graphOptions: JSON.parse(JSON.stringify(graphOptions)),
+        graphOptions: { ...graphOptions },
         url: null,
         altmode: false,
         udOpen: true,
@@ -174,29 +183,7 @@ class GraphPageComponent extends ApiClient {
     }
 
     handleAltModeChange = (e) => {
-        let newGraphOptions = JSON.parse(JSON.stringify(graphOptions));
-        if (e.target.checked == true) {
-            newGraphOptions['edges']['arrows'] = {
-                to: {enabled: false, scaleFactor:0.5, type:'bar'},
-                middle: {enabled: false, scaleFactor:1, type:'arrow'},
-                from: {enabled: false, scaleFactor:0.5, type:'arrow'}
-            }
-            newGraphOptions['layout'] = {
-                hierarchical: {
-                    direction: "LR",
-                    sortMethod: "directed",
-                    levelSeparation: 400,
-                    nodeSpacing: 100,
-                }
-            };
-            newGraphOptions['interaction'] = {
-                hover: true
-            }
-        }
-        this.setState({
-            altmode: e.target.checked,
-            graphOptions: newGraphOptions
-        });
+        this.setState({altmode: e.target.checked });
     }
 
     renderModeSelector = () => {
@@ -356,11 +343,34 @@ class GraphPageComponent extends ApiClient {
 
         const { classes } = this.props;
 
+        let newGraphOptions = { ...graphOptions };
+        if(this.state.altmode) {
+            newGraphOptions['edges'] = {
+                ...graphOptions.edges,
+                arrows: {
+                to: {enabled: false, scaleFactor:0.5, type:'bar'},
+                middle: {enabled: false, scaleFactor:1, type:'arrow'},
+                from: {enabled: false, scaleFactor:0.5, type:'arrow'}
+                }
+            }
+            newGraphOptions['layout'] = {
+                hierarchical: {
+                    direction: "LR",
+                    sortMethod: "directed",
+                    levelSeparation: 400,
+                    nodeSpacing: 100,
+                }
+            };
+            newGraphOptions['interaction'] = {
+                hover: true
+            }
+        }
+        
         return (
             <Box className={classes.graphBox} fit>
                 <Graph
                     graph={this.state.graphData}
-                    options={this.state.graphOptions}
+                    options={newGraphOptions}
                     events={this.events}
                 />
             </Box>
