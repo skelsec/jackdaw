@@ -18,7 +18,6 @@ from hashlib import sha1
 from sqlalchemy import func
 
 #from jackdaw.dbmodel.addacl import JackDawADDACL
-from jackdaw.dbmodel.graphinfo import GraphInfo
 from jackdaw.dbmodel.spnservice import SPNService
 from jackdaw.dbmodel.adgroup import Group
 from jackdaw.dbmodel.adinfo import ADInfo

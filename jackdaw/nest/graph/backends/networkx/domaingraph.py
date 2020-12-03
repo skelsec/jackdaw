@@ -11,7 +11,7 @@ from jackdaw.dbmodel.adcomp import Machine
 from jackdaw.dbmodel.aduser import ADUser
 from jackdaw.dbmodel.adgroup import Group
 from jackdaw.dbmodel.adinfo import ADInfo
-from jackdaw.dbmodel.graphinfo import GraphInfo
+from jackdaw.dbmodel.graphinfo import GraphInfo, GraphInfoAD
 from jackdaw.dbmodel.edge import Edge
 from jackdaw.dbmodel.edgelookup import EdgeLookup
 from jackdaw.dbmodel import windowed_query
@@ -61,8 +61,7 @@ class JackDawDomainGraphNetworkx:
 		self.graph_id = int(graph_id)
 		self.constructs = {}
 		self.graph = None
-		self.domain_sid = None
-		self.domain_id = None
+		self.adids = []
 		self.lookup = {}
 		self.props_lookup = {}
 
@@ -71,32 +70,38 @@ class JackDawDomainGraphNetworkx:
 	
 	def setup(self):
 		gi = self.dbsession.query(GraphInfo).get(self.graph_id)
-		domaininfo = self.dbsession.query(ADInfo).get(gi.ad_id)
-		self.domain_sid = domaininfo.objectSid
-		self.domain_id = gi.id
+		for graphad in self.dbsession.query(GraphInfoAD).filter_by(graph_id = gi.id).all():
+			self.adids.append(graphad.ad_id)
 
 	@staticmethod
-	def create(dbsession, ad_id, graph_id, graph_dir):
+	def create(dbsession, graph_id, graph_dir):
 		graph_file = graph_dir.joinpath(JackDawDomainGraphNetworkx.graph_file_name)
 
 		logger.debug('Creating a new graph file: %s' % graph_file)
+		
+		adids = dbsession.query(GraphInfoAD.ad_id).filter_by(graph_id = graph_id).all()
+		if adids is None:
+			raise Exception('No ADIDS were found for graph %s' % graph_id)
+		
+		for ad_id in adids:
+			ad_id = ad_id[0]
+			## remove this
+			#fi = dbsession.query(EdgeLookup.id).filter_by(ad_id = ad_id).filter(EdgeLookup.oid == 'S-1-5-32-545').first()
+			#if fi is not None:
+			#	fi = fi[0]
+			##
 
-		## remove this
-		fi = dbsession.query(EdgeLookup.id).filter_by(ad_id = ad_id).filter(EdgeLookup.oid == 'S-1-5-32-545').first()
-		fi = fi[0]
-		##
+			t2 = dbsession.query(func.count(Edge.id)).filter_by(graph_id = graph_id).filter(EdgeLookup.id == Edge.src).filter(EdgeLookup.oid != None).scalar()
+			q = dbsession.query(Edge).filter_by(graph_id = graph_id).filter(EdgeLookup.id == Edge.src).filter(EdgeLookup.oid != None)
 
-		t2 = dbsession.query(func.count(Edge.id)).filter_by(graph_id = graph_id).filter(EdgeLookup.id == Edge.src).filter(EdgeLookup.oid != None).scalar()
-		q = dbsession.query(Edge).filter_by(graph_id = graph_id).filter(EdgeLookup.id == Edge.src).filter(EdgeLookup.oid != None)
-
-		with open(graph_file, 'w', newline = '') as f:
-			for edge in tqdm(windowed_query(q,Edge.id, 10000), desc = 'edge', total = t2):
-				#if edge.src  == fi:
-				#	continue
-				#if edge.dst  == fi:
-				#	continue
-				r = '%s %s\r\n' % (edge.src, edge.dst)
-				f.write(r)
+			with open(graph_file, 'w', newline = '') as f:
+				for edge in tqdm(windowed_query(q,Edge.id, 10000), desc = 'edge', total = t2):
+					#if edge.src  == fi:
+					#	continue
+					#if edge.dst  == fi:
+					#	continue
+					r = '%s %s\r\n' % (edge.src, edge.dst)
+					f.write(r)
 		logger.debug('Graph created!')
 
 	@staticmethod
@@ -174,53 +179,58 @@ class JackDawDomainGraphNetworkx:
 		
 		return nv
 
-	def shortest_paths(self, src_sid = None, dst_sid = None):
+	def shortest_paths(self, src_sid = None, dst_sid = None, ignore_notfound = False):
 		nv = GraphData()
-		if src_sid is None and dst_sid is None:
-			raise Exception('src_sid or dst_sid must be set')
-		
-		elif src_sid is None and dst_sid is not None:
-			dst = self.__resolve_sid_to_id(dst_sid)
-			if dst is None:
-				raise Exception('SID not found!')
-
-			res = shortest_path(self.graph, target=dst)
-			for k in res:
-				self.__result_path_add(nv, res[k])
-
-
-
-		elif src_sid is not None and dst_sid is not None:
-			dst = self.__resolve_sid_to_id(dst_sid)
-			if dst is None:
-				raise Exception('SID not found!')
-
-			src = self.__resolve_sid_to_id(src_sid)
-			if src is None:
-				raise Exception('SID not found!')
+		try:
+			if src_sid is None and dst_sid is None:
+				raise Exception('src_sid or dst_sid must be set')
 			
-			try:
-				res = shortest_path(self.graph, src, dst)
-				self.__result_path_add(nv, res)
-			except nx.exception.NetworkXNoPath:
-				pass
+			elif src_sid is None and dst_sid is not None:
+				dst = self.__resolve_sid_to_id(dst_sid)
+				if dst is None:
+					raise Exception('SID not found!')
 
-		elif src_sid is not None and dst_sid is None:
-			src = self.__resolve_sid_to_id(src_sid)
-			if src is None:
-				raise Exception('SID not found!')
-			
-			try:
-				res = shortest_path(self.graph, src)
+				res = shortest_path(self.graph, target=dst)
 				for k in res:
 					self.__result_path_add(nv, res[k])
-			except nx.exception.NetworkXNoPath:
-				pass
-		
-		else:
-			raise Exception('Not implemented!')
 
-		return nv
+
+
+			elif src_sid is not None and dst_sid is not None:
+				dst = self.__resolve_sid_to_id(dst_sid)
+				if dst is None:
+					raise Exception('SID not found!')
+
+				src = self.__resolve_sid_to_id(src_sid)
+				if src is None:
+					raise Exception('SID not found!')
+				
+				try:
+					res = shortest_path(self.graph, src, dst)
+					self.__result_path_add(nv, res)
+				except nx.exception.NetworkXNoPath:
+					pass
+
+			elif src_sid is not None and dst_sid is None:
+				src = self.__resolve_sid_to_id(src_sid)
+				if src is None:
+					raise Exception('SID not found!')
+				
+				try:
+					res = shortest_path(self.graph, src)
+					for k in res:
+						self.__result_path_add(nv, res[k])
+				except nx.exception.NetworkXNoPath:
+					pass
+				
+			else:
+				raise Exception('Not implemented!')
+
+			return nv
+		except nx.exception.NodeNotFound:
+			if ignore_notfound is True:
+				return nv
+			raise
 
 	def has_path(self, src_sid, dst_sid):
 		dst = self.__resolve_sid_to_id(dst_sid)
@@ -234,20 +244,24 @@ class JackDawDomainGraphNetworkx:
 		return has_path(self.graph, src, dst)
 
 	def __result_path_add(self, network, path):
-		print(path)
+		# enable this for raw path logging
+		# print(path)
+		
 		if path == []:
 			return
 		path = [i for i in path]
 		delete_this = []
 		for d, node_id in enumerate(path):
 			sid, otype = self.__nodename_to_sid(node_id)
+			res = self.dbsession.query(EdgeLookup).filter_by(oid = sid).first()
+			domain_id = res.ad_id
 			owned, highvalue = self.__get_props(sid)
 			delete_this.append('%s(%s) -> ' % (sid, otype))
 			network.add_node(
 				sid, 
 				name = self.__sid2cn(sid, otype), 
 				node_type = otype,
-				domainid = self.domain_id,
+				domainid = domain_id,
 				owned = owned,
 				highvalue = highvalue
 			)
@@ -270,10 +284,12 @@ class JackDawDomainGraphNetworkx:
 					print(e)
 	
 	def __nodename_to_sid(self, node_name):
+		#print('__nodename_to_sid node_name %s' % node_name)
 		node_name = int(node_name)
 		if node_name in self.lookup:
 			return self.lookup[node_name]
 		t = self.dbsession.query(EdgeLookup).get(node_name) #node_name is the ID of the edgelookup
+		#print('__nodename_to_sid t %s' % t)
 		self.lookup[node_name] = (t.oid, t.otype)
 		return t.oid, t.otype
 
@@ -281,11 +297,11 @@ class JackDawDomainGraphNetworkx:
 		if oid not in self.props_lookup:
 			qry = self.dbsession.query(ADObjProps).filter_by(oid=oid).filter(ADObjProps.graph_id==self.graph_id)
 			owned_res = qry.filter(ADObjProps.prop == 'OWNED').scalar()
-			print(owned_res)
+			#print(owned_res)
 			if owned_res is not None:
 				owned_res = True
 			highvalue_res = qry.filter(ADObjProps.prop == 'HVT').scalar()
-			print(highvalue_res)
+			#print(highvalue_res)
 			if highvalue_res is not None:
 				highvalue_res = True
 			self.props_lookup[oid] = (owned_res, highvalue_res)
@@ -294,38 +310,48 @@ class JackDawDomainGraphNetworkx:
 	
 	def __resolv_edge_types(self, src_id, dst_id):
 		t = []
-		for res in self.dbsession.query(Edge.label).distinct(Edge.label).filter_by(graph_id = self.graph_id).filter(Edge.ad_id == self.domain_id).filter(Edge.src == src_id).filter(Edge.dst == dst_id).all():
-			t.append(res)
+		for domain_id in self.adids:
+			for res in self.dbsession.query(Edge.label).distinct(Edge.label).filter_by(graph_id = self.graph_id).filter(Edge.ad_id == domain_id).filter(Edge.src == src_id).filter(Edge.dst == dst_id).all():
+				t.append(res)
+		
+		#testing!!!!
+		if len(t) == 0:
+			print('e src %s' % src_id)
+			print('e dst %s' % dst_id)
 		return t
 
 	def __resolve_sid_to_id(self, sid):
-		for res in self.dbsession.query(EdgeLookup.id).filter_by(ad_id = self.domain_id).filter(EdgeLookup.oid == sid).first():
-			return res
+		#print('__resolve_sid_to_id sid %s' % sid)
+		for domain_id in self.adids:
+			for res in self.dbsession.query(EdgeLookup.id).filter_by(ad_id = domain_id).filter(EdgeLookup.oid == sid).first():
+				#print('__resolve_sid_to_id res %s' % res)
+				return res
 		return None
 
 
 	def __sid2cn(self, sid, otype):
 		if otype == 'user':
-			tsid = self.dbsession.query(ADUser.cn).filter(ADUser.objectSid == sid).first()
+			tsid = self.dbsession.query(ADUser.sAMAccountName).filter(ADUser.objectSid == sid).first()
 			if tsid is not None:
 				return tsid[0]
 		
 		elif otype == 'group':
-			tsid = self.dbsession.query(Group.cn).filter(Group.objectSid == sid).first()
+			tsid = self.dbsession.query(Group.sAMAccountName).filter(Group.objectSid == sid).first()
 			if tsid is not None:
 				return tsid[0]
 
 		elif otype == 'machine':
-			tsid = self.dbsession.query(Machine.cn).filter(Machine.objectSid == sid).first()
+			tsid = self.dbsession.query(Machine.sAMAccountName).filter(Machine.objectSid == sid).first()
 			if tsid is not None:
 				return tsid[0]
 
 		elif otype == 'trust':
-			tsid = self.dbsession.query(ADTrust.cn).filter(ADTrust.securityIdentifier == sid).first()
+			tsid = self.dbsession.query(ADTrust.dn).filter(ADTrust.securityIdentifier == sid).first()
 			if tsid is not None:
 				return tsid[0]
 		
 		else:
+			print('__sid2cn unknown otype "%s" for sid %s' % (otype, sid))
 			return None
 
 	def get_domainsids(self):

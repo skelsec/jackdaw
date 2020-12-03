@@ -7,7 +7,6 @@ from jackdaw.dbmodel.utils.tokengroup import JackDawTokenGroup
 
 from jackdaw.gatherer.ldap.agent.common import *
 from jackdaw import logger
-from jackdaw.dbmodel.graphinfo import GraphInfo
 from jackdaw.dbmodel.spnservice import SPNService
 from jackdaw.dbmodel.adgroup import Group
 from jackdaw.dbmodel.adinfo import ADInfo

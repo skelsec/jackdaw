@@ -24,6 +24,7 @@ class Group(Basemodel, Serializer):
 	systemFlags = Column(String, index=True)	
 	whenChanged = Column(DateTime, index=True)	
 	whenCreated = Column(DateTime, index=True)
+	adminCount = Column(Integer, index=True)
 
 	def to_dict(self):
 		return {

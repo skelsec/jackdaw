@@ -27,7 +27,7 @@ from jackdaw.dbmodel.edgelookup import EdgeLookup
 from jackdaw.dbmodel.netsession import NetSession
 from jackdaw.dbmodel.localgroup import LocalGroup
 from jackdaw.dbmodel.credential import Credential
-from jackdaw.dbmodel.graphinfo import GraphInfo
+from jackdaw.dbmodel.graphinfo import GraphInfo, GraphInfoAD
 from jackdaw.gatherer.sdcalc import calc_sd_edges
 
 from sqlalchemy.orm.session import make_transient
@@ -461,17 +461,9 @@ class EdgeCalc:
 			logger.exception('sdcalc!')
 			return False, e
 
-	async def run(self):
+	async def start_calc(self):
+		#call this only after setting the current ADID!!!!
 		try:
-			self.session = get_session(self.db_conn)
-			if self.ad_id is None and self.graph_id is not None:
-				#recalc!
-				self.session.query(Edge).filter_by(graph_id = self.graph_id).filter(Edge.label != 'member').delete()
-				self.session.commit()
-
-				res = self.session.query(GraphInfo).get(self.graph_id)
-				self.ad_id = res.ad_id
-
 			adinfo = self.session.query(ADInfo).get(self.ad_id)
 			self.domain_name = str(adinfo.distinguishedName).replace(',','.').replace('DC=','')
 			
@@ -500,6 +492,31 @@ class EdgeCalc:
 			adinfo = self.session.query(ADInfo).get(self.ad_id)
 			adinfo.edges_finished = True
 			self.session.commit()
+			return True, None
+		except Exception as e:
+			logger.exception('edge calculation error!')
+			return False, e
+
+	async def run(self):
+		try:
+			self.session = get_session(self.db_conn)
+			if self.ad_id is None and self.graph_id is not None:
+				#recalc!
+				self.session.query(Edge).filter_by(graph_id = self.graph_id).filter(Edge.label != 'member').delete()
+				self.session.commit()
+
+				res = self.session.query(GraphInfo).get(self.graph_id)
+				for giad in self.session.query(GraphInfoAD).filter_by(graph_id == self.graph_id).all():
+					self.ad_id = giad.ad_id
+					_, err = await self.start_calc()
+					if err is not None:
+						raise err
+
+			else:
+				_, err = await self.start_calc()
+				if err is not None:
+					raise err
+			
 			return True, None
 
 		except Exception as e:

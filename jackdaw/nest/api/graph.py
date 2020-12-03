@@ -11,7 +11,7 @@ import os
 import pathlib
 import copy
 
-from jackdaw.dbmodel.graphinfo import GraphInfo
+from jackdaw.dbmodel.graphinfo import GraphInfo, GraphInfoAD
 from jackdaw.nest.graph.domain import DomainGraph
 from jackdaw.nest.graph.graphdata import GraphData
 from jackdaw.nest.graph.construct import GraphConstruct
@@ -53,18 +53,19 @@ def create(adids):
 		domain_sid = domaininfo.objectSid
 		domain_id = domaininfo.id
 
+		res = current_app.db.session.query(GraphInfoAD).filter_by(ad_id = ad_id).first()
 
-		for gi in current_app.db.session.query(GraphInfo).filter_by(ad_id = domain_id).all():
-			graphid = gi.id
-			graph_cache_dir = current_app.config['JACKDAW_WORK_DIR'].joinpath('graphcache')
-			graph_dir = graph_cache_dir.joinpath(str(gi.id))
-			try:
-				graph_dir.mkdir(parents=True, exist_ok=False)
-			except Exception as e:
-				logger.warning('Graph cache dir with ID %s already exists, skipping! Err %s' % (str(gi.id), str(e)))
-				continue
+		gi = current_app.db.session.query(GraphInfo).get(res.graph_id)
+		graphid = gi.id
+		graph_cache_dir = current_app.config['JACKDAW_WORK_DIR'].joinpath('graphcache')
+		graph_dir = graph_cache_dir.joinpath(str(gi.id))
+		try:
+			graph_dir.mkdir(parents=True, exist_ok=False)
+		except Exception as e:
+			logger.warning('Graph cache dir with ID %s already exists, skipping! Err %s' % (str(gi.id), str(e)))
+			continue
 			
-			current_app.config.get('JACKDAW_GRAPH_BACKEND_OBJ').create(current_app.db.session, domain_id, str(gi.id), graph_dir)
+		current_app.config.get('JACKDAW_GRAPH_BACKEND_OBJ').create(current_app.db.session, str(gi.id), graph_dir)
 	
 	#TODO: fix this, need noew UI to handle the logic :(
 	return {'graphid' : graphid}
@@ -144,8 +145,9 @@ def query_path_da(graphid, format = 'vis'):
 	#	if node.id == current_app.config['JACKDAW_GRAPH_DICT'][graphid].domain_sid + '-512':
 	#		da_sids[node.id] = 1
 	#print(current_app.config['JACKDAW_GRAPH_DICT'][graphid].domain_id)
-	for res in current_app.db.session.query(Group).filter_by(ad_id = current_app.config['JACKDAW_GRAPH_DICT'][graphid].domain_id).filter(Group.objectSid.like('%-512')).all():
-		da_sids[res.objectSid] = 0
+	for domain_id in current_app.config['JACKDAW_GRAPH_DICT'][graphid].adids:
+		for res in current_app.db.session.query(Group).filter_by(ad_id = domain_id).filter(Group.objectSid.like('%-512')).all():
+			da_sids[res.objectSid] = 0
 	
 	if len(da_sids) == 0:
 		return 'No domain administrator group found', 404
@@ -163,16 +165,21 @@ def query_path_dcsync(graphid, format = 'vis'):
 		load(graphid)
 
 	target_sids = {}
-	da_sids = {current_app.config['JACKDAW_GRAPH_DICT'][graphid].domain_sid : 0}
+	da_sids = {} #{current_app.config['JACKDAW_GRAPH_DICT'][graphid].domain_sid : 0}
 
-	for res in current_app.db.session.query(EdgeLookup.oid)\
-		.filter_by(ad_id = current_app.config['JACKDAW_GRAPH_DICT'][graphid].domain_id)\
-		.filter(EdgeLookup.id == Edge.src)\
-		.filter(EdgeLookup.oid != None)\
-		.filter(or_(Edge.label == 'GetChanges', Edge.label == 'GetChangesAll'))\
-		.all():
-		
-		target_sids[res[0]] = 0
+
+	for domain_id in current_app.config['JACKDAW_GRAPH_DICT'][graphid].adids:
+		for res in current_app.db.session.query(Group).filter_by(ad_id = domain_id).filter(Group.objectSid.like('%-512')).all():
+			da_sids[res.objectSid] = 0
+
+		for res in current_app.db.session.query(EdgeLookup.oid)\
+			.filter_by(ad_id = domain_id)\
+			.filter(EdgeLookup.id == Edge.src)\
+			.filter(EdgeLookup.oid != None)\
+			.filter(or_(Edge.label == 'GetChanges', Edge.label == 'GetChangesAll'))\
+			.all():
+			
+			target_sids[res[0]] = 0
 
 	res = GraphData()
 	for dst_sid in da_sids:
@@ -188,14 +195,15 @@ def query_path_kerberoastda(graphid, format = 'vis'):
 	target_sids = {}
 	da_sids = {}
 
-	for res in current_app.db.session.query(Group).filter_by(ad_id = current_app.config['JACKDAW_GRAPH_DICT'][graphid].domain_id).filter(Group.objectSid.like('%-512')).all():
-		da_sids[res.objectSid] = 0
+	for domain_id in current_app.config['JACKDAW_GRAPH_DICT'][graphid].adids:
+		for res in current_app.db.session.query(Group).filter_by(ad_id = domain_id).filter(Group.objectSid.like('%-512')).all():
+			da_sids[res.objectSid] = 0
 
-	for res in current_app.db.session.query(ADUser.objectSid)\
-		.filter_by(ad_id = current_app.config['JACKDAW_GRAPH_DICT'][graphid].domain_id)\
-		.filter(ADUser.servicePrincipalName != None).all():
-		
-		target_sids[res[0]] = 0
+		for res in current_app.db.session.query(ADUser.objectSid)\
+			.filter_by(ad_id = domain_id)\
+			.filter(ADUser.servicePrincipalName != None).all():
+			
+			target_sids[res[0]] = 0
 
 	res = GraphData()
 	for dst_sid in da_sids:
@@ -209,20 +217,26 @@ def query_path_kerberoastany(graphid, format = 'vis'):
 		load(graphid)
 
 	target_sids = {}
+	domain_sids = {}
 	path_to_da = []
 
-	for res in current_app.db.session.query(ADUser.objectSid)\
-		.filter_by(ad_id = current_app.config['JACKDAW_GRAPH_DICT'][graphid].domain_id)\
-		.filter(ADUser.servicePrincipalName != None).all():
-		
-		target_sids[res[0]] = 0
+	for domain_id in current_app.config['JACKDAW_GRAPH_DICT'][graphid].adids:
+		res = current_app.db.session.query(ADInfo).get(domain_id)
+		domain_sids[res.objectSid] = 1
+
+		for res in current_app.db.session.query(ADUser.objectSid)\
+			.filter_by(ad_id = domain_id)\
+			.filter(ADUser.servicePrincipalName != None).all():
+			
+			target_sids[res[0]] = 0
 
 	res = GraphData()
 	for src_sid in target_sids:
-		if current_app.config['JACKDAW_GRAPH_DICT'][graphid].has_path(src_sid, current_app.config['JACKDAW_GRAPH_DICT'][graphid].domain_sid) is False:
-			res += current_app.config['JACKDAW_GRAPH_DICT'][graphid].shortest_paths(src_sid=src_sid, dst_sid = None)
-		else:
-			path_to_da.append(src_sid)
+		for domain_sid in domain_sids:
+			if current_app.config['JACKDAW_GRAPH_DICT'][graphid].has_path(src_sid, domain_sid) is False:
+				res += current_app.config['JACKDAW_GRAPH_DICT'][graphid].shortest_paths(src_sid=src_sid, dst_sid = None)
+			else:
+				path_to_da.append(src_sid)
 
 	#TODO: send the path_to_da as well!
 	return res.to_dict(format = format)
@@ -234,14 +248,15 @@ def query_path_asreproast(graphid, format = 'vis'):
 	target_sids = {}
 	da_sids = {}
 
-	for res in current_app.db.session.query(Group).filter_by(ad_id = current_app.config['JACKDAW_GRAPH_DICT'][graphid].domain_id).filter(Group.objectSid.like('%-512')).all():
-		da_sids[res.objectSid] = 0
+	for domain_id in current_app.config['JACKDAW_GRAPH_DICT'][graphid].adids:
+		for res in current_app.db.session.query(Group).filter_by(ad_id = domain_id).filter(Group.objectSid.like('%-512')).all():
+			da_sids[res.objectSid] = 0
 
-	for res in current_app.db.session.query(ADUser.objectSid)\
-		.filter_by(ad_id = current_app.config['JACKDAW_GRAPH_DICT'][graphid].domain_id)\
-		.filter(ADUser.UAC_DONT_REQUIRE_PREAUTH == True).all():
-		
-		target_sids[res[0]] = 0
+		for res in current_app.db.session.query(ADUser.objectSid)\
+			.filter_by(ad_id = domain_id)\
+			.filter(ADUser.UAC_DONT_REQUIRE_PREAUTH == True).all():
+			
+			target_sids[res[0]] = 0
 
 	res = GraphData()
 	for dst_sid in da_sids:
@@ -255,22 +270,21 @@ def query_path_tohighvalue(graphid, format = 'vis'):
 		load(graphid)
 
 	target_sids = {}
-	da_sids = {}
 
-	for res in current_app.db.session.query(EdgeLookup.oid)\
-		.filter_by(ad_id = current_app.config['JACKDAW_GRAPH_DICT'][graphid].domain_id)\
-		.filter(EdgeLookup.oid == ADObjProps.oid)\
-		.filter(ADObjProps.graph_id == graphid)\
-		.filter(ADObjProps.prop == 'HVT')\
-		.all():
-		
-		target_sids[res[0]] = 0
+	for domain_id in current_app.config['JACKDAW_GRAPH_DICT'][graphid].adids:
+		for res in current_app.db.session.query(EdgeLookup.oid)\
+			.filter_by(ad_id = domain_id)\
+			.filter(EdgeLookup.oid == ADObjProps.oid)\
+			.filter(ADObjProps.graph_id == graphid)\
+			.filter(ADObjProps.prop == 'HVT')\
+			.all():
+			
+			target_sids[res[0]] = 0
 
 	res = GraphData()
-	for dst_sid in da_sids:
-		for src_sid in target_sids:
-			res += current_app.config['JACKDAW_GRAPH_DICT'][graphid].shortest_paths(dst=dst_sid)
-
+	for dst_sid in target_sids:
+		res += current_app.config['JACKDAW_GRAPH_DICT'][graphid].shortest_paths(dst_sid=dst_sid, ignore_notfound = True)
+		
 	return res.to_dict(format = format)
 
 def query_path_ownedda(graphid, format = 'vis'):
@@ -280,17 +294,19 @@ def query_path_ownedda(graphid, format = 'vis'):
 	target_sids = {}
 	da_sids = {}
 
-	for res in current_app.db.session.query(Group).filter_by(ad_id = current_app.config['JACKDAW_GRAPH_DICT'][graphid].domain_id).filter(Group.objectSid.like('%-512')).all():
-		da_sids[res.objectSid] = 0
+	for domain_id in current_app.config['JACKDAW_GRAPH_DICT'][graphid].adids:
+		for res in current_app.db.session.query(Group).filter_by(ad_id = domain_id).filter(Group.objectSid.like('%-512')).all():
+			da_sids[res.objectSid] = 0
 
-	for res in current_app.db.session.query(EdgeLookup.oid)\
-		.filter_by(ad_id = current_app.config['JACKDAW_GRAPH_DICT'][graphid].domain_id)\
-		.filter(EdgeLookup.oid == ADObjProps.oid)\
-		.filter(ADObjProps.graph_id == graphid)\
-		.filter(ADObjProps.prop == 'OWNED')\
-		.all():
-		
-		target_sids[res[0]] = 0
+
+		for res in current_app.db.session.query(EdgeLookup.oid)\
+			.filter_by(ad_id = domain_id)\
+			.filter(EdgeLookup.oid == ADObjProps.oid)\
+			.filter(ADObjProps.graph_id == graphid)\
+			.filter(ADObjProps.prop == 'OWNED')\
+			.all():
+			
+			target_sids[res[0]] = 0
 
 	res = GraphData()
 	for dst_sid in da_sids:
@@ -305,14 +321,15 @@ def query_path_fromowned(graphid, format = 'vis'):
 
 	target_sids = {}
 
-	for res in current_app.db.session.query(EdgeLookup.oid)\
-		.filter_by(ad_id = current_app.config['JACKDAW_GRAPH_DICT'][graphid].domain_id)\
-		.filter(EdgeLookup.oid == ADObjProps.oid)\
-		.filter(ADObjProps.graph_id == graphid)\
-		.filter(ADObjProps.prop == 'OWNED')\
-		.all():
-		
-		target_sids[res[0]] = 0
+	for domain_id in current_app.config['JACKDAW_GRAPH_DICT'][graphid].adids:
+		for res in current_app.db.session.query(EdgeLookup.oid)\
+			.filter_by(ad_id = domain_id)\
+			.filter(EdgeLookup.oid == ADObjProps.oid)\
+			.filter(ADObjProps.graph_id == graphid)\
+			.filter(ADObjProps.prop == 'OWNED')\
+			.all():
+			
+			target_sids[res[0]] = 0
 
 	res = GraphData()
 	for src_sid in target_sids:

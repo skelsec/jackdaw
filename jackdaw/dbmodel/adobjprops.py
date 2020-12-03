@@ -11,3 +11,7 @@ class ADObjProps(Basemodel, Serializer):
 	oid = Column(String, index = True)
 	prop = Column(String, index = True)
 	
+	def __init__(self, graphid, oid, prop):
+		self.graph_id = graphid
+		self.oid = oid
+		self.prop = prop

@@ -9,7 +9,6 @@ from jackdaw.common.cpucount import get_cpu_count
 from jackdaw.gatherer.progress import *
 from jackdaw.gatherer.ldap.agent.common import *
 from jackdaw.gatherer.ldap.agent.agent import LDAPGathererAgent
-from jackdaw.dbmodel.graphinfo import GraphInfo
 from jackdaw.dbmodel.adgroup import Group
 from jackdaw.dbmodel.adinfo import ADInfo
 from jackdaw.dbmodel.aduser import ADUser

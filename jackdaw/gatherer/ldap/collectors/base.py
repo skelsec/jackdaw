@@ -5,7 +5,7 @@ import asyncio
 import datetime
 import json
 
-from jackdaw.dbmodel.graphinfo import GraphInfo
+from jackdaw.dbmodel.graphinfo import GraphInfo, GraphInfoAD
 from jackdaw.dbmodel.spnservice import SPNService
 from jackdaw.dbmodel.adgroup import Group
 from jackdaw.dbmodel.adinfo import ADInfo
@@ -186,12 +186,14 @@ class BaseCollector:
 		self.ad_id = info.id
 		
 		graph = GraphInfo()
-		graph.ad_id = self.ad_id
 		self.session.add(graph)
 		self.session.commit()
 		self.session.refresh(graph)
 
 		self.graph_id = graph.id
+		giad = GraphInfoAD(self.ad_id, self.graph_id)
+		self.session.add(giad)
+		
 
 		t = EdgeLookup(self.ad_id, info.objectSid, 'domain')
 		self.session.add(t)

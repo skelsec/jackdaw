@@ -11,5 +11,19 @@ class GraphInfo(Basemodel, Serializer):
 	
 	id = Column(Integer, primary_key=True)
 	fetched_at = Column(DateTime, default=datetime.datetime.utcnow)
-	ad_id = Column(Integer, ForeignKey('adinfo.id'))
 	description = Column(String, index = True)
+
+	def __init__(self, description = None):
+		self.description = description
+
+class GraphInfoAD(Basemodel, Serializer):
+	__tablename__ = 'graphinfoads'
+	
+	id = Column(Integer, primary_key=True)
+	fetched_at = Column(DateTime, default=datetime.datetime.utcnow)
+	ad_id = Column(Integer, ForeignKey('adinfo.id'))
+	graph_id = Column(Integer, ForeignKey('graphinfo.id'))
+
+	def __init__(self, ad_id, graph_id):
+		self.ad_id = ad_id
+		self.graph_id = graph_id

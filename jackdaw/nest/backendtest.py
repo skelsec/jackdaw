@@ -1,5 +1,4 @@
 
-from jackdaw.dbmodel.graphinfo import GraphInfo
 from jackdaw.nest.graph.domain import DomainGraph
 from jackdaw.nest.graph.graphdata import GraphData
 from jackdaw.nest.graph.construct import GraphConstruct

@@ -117,7 +117,7 @@ from .lsasecrets import *
 from .adspn import *
 from .edge import Edge
 from .edgelookup import EdgeLookup
-from .graphinfo import GraphInfo
+from .graphinfo import GraphInfo, GraphInfoAD
 from .neterror import NetError
 from .rdnslookup import RDNSLookup
 from .adobjprops import ADObjProps
