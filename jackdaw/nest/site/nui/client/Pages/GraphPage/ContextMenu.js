@@ -19,8 +19,11 @@ const useStyles = makeStyles(() =>
   }),
 );
 
-export const ContextMenu = ({menu}) => {
+export const ContextMenu = ({menu, node, handleContextMenuClick}) => {
     const classes = useStyles()
+
+    const constHvtUrl = `${node.id}/hvt/${node.highvalue ? 'clear' : 'set'}`
+    const constOvnedUrl = `${node.id}/owned/${node.highvalue ? 'clear' : 'set'}`
 
     return (
         <List style={{
@@ -30,12 +33,12 @@ export const ContextMenu = ({menu}) => {
             }}
             className={classes.root}
         >
-            <ListItem button>
-                <ListItemText primary="HVT" />
+            <ListItem button onClick={() => handleContextMenuClick(constHvtUrl, true)}>
+                <ListItemText primary={node.highvalue ? 'HVT' : 'Set HVT'} />
             </ListItem>
             <Divider className={classes.divider}/>
-            <ListItem button>
-                <ListItemText primary="Owned" />
+            <ListItem button onClick={() => handleContextMenuClick(constOvnedUrl)}>
+                <ListItemText primary={node.owned ? 'Owned' : 'Set Owned'} />
             </ListItem>
         </List>
     )

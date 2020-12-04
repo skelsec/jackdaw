@@ -346,9 +346,11 @@ class GraphPageComponent extends ApiClient {
     handleContext = event => {
         event.event.preventDefault()
         this.setState({contextMenu: {opened: false}})
-        const node = this.state.network.getNodeAt(event.pointer.DOM)
-        if (!node) return;
-        this.setState({selectedContextNode: node})
+        const nodeId = this.state.network.getNodeAt(event.pointer.DOM)
+        if (!nodeId) return;
+        this.setState({
+            selectedContextNode: this.state.graphData.nodes.filter(item => item.id == nodeId)
+        })
         this.setState(prevState => {
             return {
                 contextMenu: {
@@ -361,6 +363,21 @@ class GraphPageComponent extends ApiClient {
 
     handleClick = () => {
         this.setState({contextMenu: {opened: false}})
+    }
+
+    handleContextMenuClick =  async(url, hvt) =>{
+        let result = await this.apiFetch(`/props/${this.state.graph}/${url}`)
+        if (result.status != 204) {
+            this.notifyUser({
+                severity: 'error',
+                message: `User ${hvt ? 'HVT' : 'Owned'} set Failed`
+            });
+            return;
+        }
+        this.notifyUser({
+            severity: 'success',
+            message: `User ${hvt ? 'HVT' : 'Owned'} set OK`
+        });
     }
 
     events = {
@@ -406,7 +423,11 @@ class GraphPageComponent extends ApiClient {
                     getNetwork={(network) => {this.setState({ network });}}
                 />
                 {this.state.contextMenu.opened && (
-                    <ContextMenu menu={this.state.contextMenu} />
+                    <ContextMenu
+                        menu={this.state.contextMenu}
+                        node={this.state.selectedContextNode[0]}
+                        handleContextMenuClick={this.handleContextMenuClick}
+                    />
                 )}
             </Box>
         );

@@ -132,49 +132,49 @@ class MainComponent extends ApiClient {
     renderPrimaryMenu = () => {
         return (
             <div>
-                    <Route render={({ history }) => (
-                        <ListItem button
+                <Route render={({ history }) => (
+                    <ListItem button
                             className={this.isActivePage(1)}
                             onClick={ () => this.navigateTo(history, '/nest/domain', 1) }
                         >
-                            <ListItemIcon>
-                                <Business />
-                            </ListItemIcon>
-                            <ListItemText primary="Domain" />
-                        </ListItem>
+                        <ListItemIcon>
+                            <Business />
+                        </ListItemIcon>
+                        <ListItemText primary="Domain" />
+                    </ListItem>
                     )} />
-                    <Route render={({ history }) => (
-                        <ListItem button
+                <Route render={({ history }) => (
+                    <ListItem button
                             className={this.isActivePage(2)}
                             onClick={ () => this.navigateTo(history, '/nest/anomalies', 2) }
                         >
-                            <ListItemIcon>
-                                <ReportProblem />
-                            </ListItemIcon>
-                            <ListItemText primary="Anomalies" />
-                        </ListItem>
+                        <ListItemIcon>
+                            <ReportProblem />
+                        </ListItemIcon>
+                        <ListItemText primary="Anomalies" />
+                    </ListItem>
                     )} />
-                    <Route render={({ history }) => (
-                        <ListItem button
+                <Route render={({ history }) => (
+                    <ListItem button
                             className={this.isActivePage(3)}
                             onClick={ () => this.navigateTo(history, '/nest/graph', 3) }
                         >
-                            <ListItemIcon>
-                                <BubbleChart />
-                            </ListItemIcon>
-                            <ListItemText primary="Graph" />
-                        </ListItem>
+                        <ListItemIcon>
+                            <BubbleChart />
+                        </ListItemIcon>
+                        <ListItemText primary="Graph" />
+                    </ListItem>
                     )} />
-                    <Route render={({ history }) => (
-                        <ListItem button
+                <Route render={({ history }) => (
+                    <ListItem button
                             className={this.isActivePage(4)}
                             onClick={ () => this.navigateTo(history, '/nest/scan', 4) }
                         >
-                            <ListItemIcon>
-                                <Search />
-                            </ListItemIcon>
-                            <ListItemText primary="Scan" />
-                        </ListItem>
+                        <ListItemIcon>
+                            <Search />
+                        </ListItemIcon>
+                        <ListItemText primary="Scan" />
+                    </ListItem>
                     )} />
             </div>
         );
@@ -229,7 +229,7 @@ class MainComponent extends ApiClient {
                         <Route exact path="/nest/graph" component={GraphPage} />
                         <Route exact path="/nest/scan" component={Scan} />
                     </main>
-                <Notification />
+                    <Notification />
                 </div>
             </BrowserRouter>
         );
