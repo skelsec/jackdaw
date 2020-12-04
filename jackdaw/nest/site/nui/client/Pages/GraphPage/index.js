@@ -16,6 +16,7 @@ import {
 import ApiClient from '../../Components/ApiClient';
 import ExpansionPane from '../../Components/ExpansionPane';
 import ItemDetails from '../../Components/ItemDetails';
+import { ContextMenu } from './ContextMenu';
 
 const styles = () => ({
     graphBox: {
@@ -159,7 +160,14 @@ class GraphPageComponent extends ApiClient {
         url: null,
         altmode: false,
         udOpen: true,
-        nodeSelected: null
+        nodeSelected: null,
+        network: null,
+        contextMenu: {
+            opened: false,
+            top: null,
+            left: null,
+        },
+        selectedContextNode: null,
     }
 
     constructor(props) {
@@ -327,6 +335,7 @@ class GraphPageComponent extends ApiClient {
     }
 
     processSelection = async(event) => {
+        this.setState({contextMenu: {opened: false}})
         var { nodes } = event;
         const node = this.state.graphData.nodes.filter(item => item.id == nodes[0]);
         if (node.length == 0) return;
@@ -334,8 +343,47 @@ class GraphPageComponent extends ApiClient {
         this.setState({ nodeSelected: targetNode });
     }
 
+    handleContext = event => {
+        event.event.preventDefault()
+        this.setState({contextMenu: {opened: false}})
+        const nodeId = this.state.network.getNodeAt(event.pointer.DOM)
+        if (!nodeId) return;
+        this.setState({
+            selectedContextNode: this.state.graphData.nodes.filter(item => item.id == nodeId)
+        })
+        this.setState(prevState => {
+            return {
+                contextMenu: {
+                    opened: !prevState.contextMenu.opened,
+                    top: event.pointer.DOM.y,
+                    left: event.pointer.DOM.x,
+            }}
+        })
+    }
+
+    handleClick = () => {
+        this.setState({contextMenu: {opened: false}})
+    }
+
+    handleContextMenuClick =  async(url, hvt) =>{
+        let result = await this.apiFetch(`/props/${this.state.graph}/${url}`)
+        if (result.status != 204) {
+            this.notifyUser({
+                severity: 'error',
+                message: `User ${hvt ? 'HVT' : 'Owned'} set Failed`
+            });
+            return;
+        }
+        this.notifyUser({
+            severity: 'success',
+            message: `User ${hvt ? 'HVT' : 'Owned'} set OK`
+        });
+    }
+
     events = {
-        select: this.processSelection
+        click: this.handleClick,
+        select: this.processSelection,
+        oncontext: this.handleContext
     };
 
     renderGraph = () => {
@@ -372,7 +420,15 @@ class GraphPageComponent extends ApiClient {
                     graph={this.state.graphData}
                     options={newGraphOptions}
                     events={this.events}
+                    getNetwork={(network) => {this.setState({ network });}}
                 />
+                {this.state.contextMenu.opened && (
+                    <ContextMenu
+                        menu={this.state.contextMenu}
+                        node={this.state.selectedContextNode[0]}
+                        handleContextMenuClick={this.handleContextMenuClick}
+                    />
+                )}
             </Box>
         );
     }

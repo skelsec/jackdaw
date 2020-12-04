@@ -19,7 +19,7 @@ class ApiClient extends React.Component {
         if ([undefined, null].includes(result)) {
             return false;
         }
-        if (result.status == 200) {
+        if (result.status == 200 || result.status == 204) {
             return true;
         }
         this.notifyUser({
