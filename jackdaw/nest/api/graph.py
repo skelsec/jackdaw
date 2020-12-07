@@ -21,6 +21,8 @@ from jackdaw.dbmodel.edgelookup import EdgeLookup
 from jackdaw.dbmodel.edge import Edge
 from jackdaw.dbmodel.aduser import ADUser
 from jackdaw.dbmodel.adinfo import ADInfo
+from jackdaw.dbmodel.adcomp import Machine
+from jackdaw.dbmodel.adou import ADOU
 from jackdaw.dbmodel.adobjprops import ADObjProps
 from jackdaw import logger
 import connexion
@@ -117,7 +119,8 @@ def load(graphid):
 
 def get(graphid):
 	if graphid not in current_app.config['JACKDAW_GRAPH_DICT']:
-		return 'Graph Not Found', 404
+		load(graphid)
+		
 	res = current_app.config['JACKDAW_GRAPH_DICT'][graphid].all_shortest_paths()
 	return res.to_dict()
 
@@ -356,15 +359,70 @@ def query_path_all(graphid):
 		return 'Graph Not Found', 404
 	return current_app.config['JACKDAW_GRAPH_DICT'][graphid].show_all().to_dict(format = 'vis')
 
-def search_sid(graphid, sid):
-	return {}
+#def search_sid(graphid, oid):
+	#for domain_id in current_app.config['JACKDAW_GRAPH_DICT'][graphid].adids:
 
-def search_cn(graphid, cn):
-	return {}
+def search(graphid, text):
+	if graphid not in current_app.config['JACKDAW_GRAPH_DICT']:
+		load(graphid)
+
+	if len(text) < 3:
+		return 'Search term too short!', 404
+	
+	results = []
+
+	def create_element(sid, name, otype, adid):
+		return {
+			'sid' : sid,
+			'otype' : otype,
+			'adid' : adid,
+			'text' : name
+		}
+
+	#search users
+	for domain_id in current_app.config['JACKDAW_GRAPH_DICT'][graphid].adids:
+		term = "%%%s%%" % text
+		qry_user_name = current_app.db.session.query(ADUser.sAMAccountName, ADUser.objectSid).filter_by(ad_id = domain_id).filter(ADUser.sAMAccountName.ilike(term)).limit(5)
+		for username, sid in qry_user_name.all():
+			results.append(create_element(sid, username, 'user', domain_id))
+		
+		qry_user_sid = current_app.db.session.query(ADUser.sAMAccountName, ADUser.objectSid).filter_by(ad_id = domain_id).filter(ADUser.objectSid.ilike(term)).limit(5)
+		for username, sid in qry_user_sid.all():
+			results.append(create_element(sid, username, 'user', domain_id))
+
+
+		qry_machine_name = current_app.db.session.query(Machine.sAMAccountName, Machine.objectSid).filter_by(ad_id = domain_id).filter(Machine.sAMAccountName.ilike(term)).limit(5)
+		for username, sid in qry_machine_name.all():
+			results.append(create_element(sid, username, 'machine', domain_id))
+
+		qry_machine_sid = current_app.db.session.query(Machine.sAMAccountName, Machine.objectSid).filter_by(ad_id = domain_id).filter(Machine.objectSid.ilike(term)).limit(5)
+		for username, sid in qry_machine_sid.all():
+			results.append(create_element(sid, username, 'machine', domain_id))
+		
+
+		qry_group_name = current_app.db.session.query(Group.sAMAccountName, Group.objectSid).filter_by(ad_id = domain_id).filter(Group.sAMAccountName.ilike(term)).limit(5)
+		for username, sid in qry_group_name.all():
+			results.append(create_element(sid, username, 'group', domain_id))
+
+		qry_group_sid = current_app.db.session.query(Group.sAMAccountName, Group.objectSid).filter_by(ad_id = domain_id).filter(Group.objectSid.ilike(term)).limit(5)
+		for username, sid in qry_group_sid.all():
+			results.append(create_element(sid, username, 'group', domain_id))
+
+
+		qry_ou_name = current_app.db.session.query(ADOU.name, ADOU.objectGUID).filter_by(ad_id = domain_id).filter(ADOU.name.ilike(term)).limit(5)
+		for username, sid in qry_ou_name.all():
+			results.append(create_element(sid, username, 'ou', domain_id))
+
+		qry_ou_sid = current_app.db.session.query(ADOU.name, ADOU.objectGUID).filter_by(ad_id = domain_id).filter(ADOU.objectGUID.ilike(term)).limit(5)
+		for username, sid in qry_ou_sid.all():
+			results.append(create_element(sid, username, 'ou', domain_id))
+
+	return results
 
 def stat_distance(graphid, sid):
 	if graphid not in current_app.config['JACKDAW_GRAPH_DICT']:
-		return 'Graph Not Found', 404
+		load(graphid)
+
 	distances = current_app.config['JACKDAW_GRAPH_DICT'][graphid].distances_from_node(sid)
 	
 	return distances

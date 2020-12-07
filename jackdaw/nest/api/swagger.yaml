@@ -90,6 +90,35 @@ paths:
           schema:
             type: integer
 
+  /graph/{graphid}/search/{text}:
+    get:
+      operationId: jackdaw.nest.api.graph.search
+      tags:
+        - Graph
+      summary: Search any nodes in the entire graph by text
+      description: Search any nodes in the entire graph by text
+      parameters:
+        - name: graphid
+          in: path
+          description: ID of the graph view
+          type: integer
+          required: True
+        - name: text
+          in: path
+          description: ID of the node
+          type: string
+          required: True
+      responses:
+        200:
+          description: Returns full node information
+          schema:
+            type: object
+            properties:
+              graph:
+                type: string
+                description: Placeholder TODO
+  
+
   /graph/{graphid}/stats/distance/{sid}:
     get:
       operationId: jackdaw.nest.api.graph.stat_distance
