@@ -17,6 +17,7 @@ import ApiClient from '../../Components/ApiClient';
 import ExpansionPane from '../../Components/ExpansionPane';
 import ItemDetails from '../../Components/ItemDetails';
 import { ContextMenu } from './ContextMenu';
+import _ from 'lodash';
 
 const styles = () => ({
     graphBox: {
@@ -190,6 +191,37 @@ class GraphPageComponent extends ApiClient {
         });
     }
 
+    applySmoothToEdges = array => {
+        const newArray = [...array]
+        newArray.forEach((el, index) => {
+            newArray.forEach((compEl, compIndex) => {
+                if(!_.isEqual(el, compEl) && el.from === compEl.from) {
+                    if(!el.smooth){
+                        newArray[index] = {
+                            ...el,
+                            smooth: {
+                                enabled: true,
+                                type: "curvedCW",
+                                roundness: 0.1
+                            }
+                        }
+                    }
+                    if(!compEl.smooth){
+                        newArray[compIndex] = {
+                            ...compEl,
+                            smooth: {
+                                enabled: true,
+                                type: "curvedCCW",
+                                roundness: 0.1
+                            }
+                        }
+                    }
+                }
+            })
+        })
+        return newArray
+    }
+
     handleAltModeChange = (e) => {
         this.setState({altmode: e.target.checked });
     }
@@ -292,6 +324,7 @@ class GraphPageComponent extends ApiClient {
         }
         let gd = await this.apiFetch(url);
         gd.data.nodes = this.preProcessNodes(gd.data.nodes);
+        gd.data.edges = this.applySmoothToEdges(gd.data.edges)
         this.setState({ graphData: gd.data });
     }
 
@@ -374,6 +407,7 @@ class GraphPageComponent extends ApiClient {
             });
             return;
         }
+        this.setState({contextMenu: {opened: false}})
         this.notifyUser({
             severity: 'success',
             message: `User ${hvt ? 'HVT' : 'Owned'} set OK`
