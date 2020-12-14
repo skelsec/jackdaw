@@ -2,10 +2,7 @@ from flask import current_app
 from jackdaw.dbmodel.adobjprops import ADObjProps
 
 def set_hvt(graphid, oid):
-	p = ADObjProps()
-	p.prop = 'HVT'
-	p.oid = oid
-	p.graph_id = int(graphid)
+	p = ADObjProps(int(graphid), oid, 'HVT')
 	current_app.db.session.add(p)
 	current_app.db.session.commit()
 
@@ -16,10 +13,7 @@ def clear_hvt(graphid, oid):
 
 def set_owned(graphid, oid):
 	print('set_owned!')
-	p = ADObjProps()
-	p.prop = 'OWNED'
-	p.oid = oid
-	p.graph_id = int(graphid)
+	p = ADObjProps(int(graphid), oid, 'OWNED')
 	current_app.db.session.add(p)
 	current_app.db.session.commit()
 
