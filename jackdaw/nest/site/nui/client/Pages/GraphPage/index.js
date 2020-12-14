@@ -359,7 +359,7 @@ class GraphPageComponent extends ApiClient {
         })
     }
 
-    handleSearchPropertiesSwitch = async(obj, hvt) => {
+    handleSearchPropertiesSwitch = async(obj, name, hvt) => {
         let result
         if (hvt) {
             result = await this.apiFetch(`/props/${this.state.graph}/${`${obj.sid}/owned/${obj.highvalue ? 'clear' : 'set'}`}`)
@@ -377,9 +377,19 @@ class GraphPageComponent extends ApiClient {
             severity: 'success',
             message: `User ${hvt ? 'HVT' : 'Owned'} set OK`
         });
-        // if (hvt) {
-        //     this.setState({})
-        // }
+        if (hvt) {
+            this.setState(prevState => {
+                return {[name]: {
+                ...prevState[name],
+                highvalue: !prevState[name].highvalue,
+            }}})
+        } else {
+            this.setState(prevState => {
+                return {[name]: {
+                ...prevState[name],
+                owned: !prevState[name].owned,
+            }}})
+        }
     }
 
     renderTextField = (name, label, description) =>  (
@@ -413,7 +423,7 @@ class GraphPageComponent extends ApiClient {
                         control={
                             <Switch
                         checked={this.state[`${name}Selected`].highvalue}
-                        onChange={() => this.handleSearchPropertiesSwitch(this.state[`${name}Selected`], true)}
+                        onChange={() => this.handleSearchPropertiesSwitch(this.state[`${name}Selected`], `${name}Selected`, true)}
                         value="hvt"
                     />
                 }
@@ -423,7 +433,7 @@ class GraphPageComponent extends ApiClient {
                         control={
                             <Switch
                         checked={this.state[`${name}Selected`].owned}
-                        onChange={() => this.handleSearchPropertiesSwitch(this.state[`${name}Selected`])}
+                        onChange={() => this.handleSearchPropertiesSwitch(this.state[`${name}Selected`], `${name}Selected`)}
                         value="owned"
                     />
                 }
