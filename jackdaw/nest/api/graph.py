@@ -120,7 +120,7 @@ def load(graphid):
 def get(graphid):
 	if graphid not in current_app.config['JACKDAW_GRAPH_DICT']:
 		load(graphid)
-		
+
 	res = current_app.config['JACKDAW_GRAPH_DICT'][graphid].all_shortest_paths()
 	return res.to_dict()
 
@@ -376,7 +376,9 @@ def search(graphid, text):
 			'sid' : sid,
 			'otype' : otype,
 			'adid' : adid,
-			'text' : name
+			'text' : name,
+			'owned' : False,
+			'highvalue' : False,
 		}
 
 	#search users
@@ -416,6 +418,14 @@ def search(graphid, text):
 		qry_ou_sid = current_app.db.session.query(ADOU.name, ADOU.objectGUID).filter_by(ad_id = domain_id).filter(ADOU.objectGUID.ilike(term)).limit(5)
 		for username, sid in qry_ou_sid.all():
 			results.append(create_element(sid, username, 'ou', domain_id))
+		
+		for res in results:
+			qry_props = current_app.db.session.query(ADObjProps).filter_by(oid = res['sid']).filter(ADObjProps.graph_id == graphid)
+			for qr in qry_props.all():
+				if qr.prop == 'HVT':
+					res['highvalue'] = True
+				if qr.prop == 'OWNED':
+					res['owned'] = True
 
 	return results
 
