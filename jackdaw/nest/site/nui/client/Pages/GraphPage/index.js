@@ -10,7 +10,7 @@ import { Box, VBox } from 'react-layout-components';
 import { 
     Paper, FormControl, FormControlLabel, FormGroup, 
     FormHelperText, Input, InputLabel, 
-    Button, Select, MenuItem, TextField, Switch
+    Button, Select, MenuItem, TextField, Switch, Menu
 } from '@material-ui/core';
 
 import ApiClient from '../../Components/ApiClient';
@@ -155,6 +155,12 @@ class GraphPageComponent extends ApiClient {
         graphs: [],
         srcsid: '',
         dstsid: '',
+        srcsidResults: [],
+        dstsidResults: [],
+        srcsidSelected: null,
+        dstsidSelected: null,
+        serchSrcResultsOpen: false,
+        serchDstResultsOpen: false,
         graph: null,
         graphData: null,
         graphOptions: { ...graphOptions },
@@ -174,6 +180,8 @@ class GraphPageComponent extends ApiClient {
     constructor(props) {
         super(props);
         this.processSelection = this.processSelection.bind(this);
+        this.srcRef = React.createRef()
+        this.dstRef = React.createRef()
     }
 
     componentDidMount = async() => {
@@ -336,18 +344,127 @@ class GraphPageComponent extends ApiClient {
         });
     }
 
-    renderTextField = (name, label, description) => {
-        return (
+    handleMenuClick = (node, name) => {
+        this.setState({
+            nodeSelected: {
+                domainid: node.adid,
+                id: node.sid,
+                type: node.otype,
+                label: node.text,
+            },
+            [`${name}Selected`]: node,
+            serchDstResultsOpen: false,
+            serchSrcResultsOpen: false,
+            [name]: node.text
+        })
+    }
+
+    handleSearchPropertiesSwitch = async(obj, hvt) => {
+        let result
+        if (hvt) {
+            result = await this.apiFetch(`/props/${this.state.graph}/${`${obj.sid}/owned/${obj.highvalue ? 'clear' : 'set'}`}`)
+        } else {
+            result = await this.apiFetch(`/props/${this.state.graph}/${`${obj.sid}/owned/${obj.owned ? 'clear' : 'set'}`}`)
+        }
+        if (result.status != 204) {
+            this.notifyUser({
+                severity: 'error',
+                message: `User ${hvt ? 'HVT' : 'Owned'} set Failed`
+            });
+            return;
+        }
+        this.notifyUser({
+            severity: 'success',
+            message: `User ${hvt ? 'HVT' : 'Owned'} set OK`
+        });
+        // if (hvt) {
+        //     this.setState({})
+        // }
+    }
+
+    renderTextField = (name, label, description) =>  (
+        <React.Fragment>
             <TextField
+                ref={name === 'srcsid' ? this.srcRef : this.dstRef}
                 className="margin-top"
                 fullWidth={true}
                 helperText={description}
                 label={label}
                 value={this.state[name]}
-                onChange={ (e) => this.setState({ [name]: e.target.value }) }
+                onChange={ async(e) => {
+                    this.setState({ [name]: e.target.value })
+                    if(this.state[name].length >= 3) {
+                        let result = await this.apiFetch(`/graph/${this.state.graph}/search/${e.target.value}`)
+                        if (result.status != 200) {
+                            this.notifyUser({
+                                severity: 'error',
+                                message: `Search results Error`
+                            })
+                            return
+                        }
+                        this.setState({[`${name}Results`]: result.data.slice(0,5)})
+                        name === 'srcsid' ? this.setState({serchSrcResultsOpen: true}) : this.setState({serchDstResultsOpen: true})
+                    }
+                }}
             />
+            {this.state[`${name}Selected`] && (
+                <FormGroup row>
+                    <FormControlLabel
+                        control={
+                            <Switch
+                        checked={this.state[`${name}Selected`].highvalue}
+                        onChange={() => this.handleSearchPropertiesSwitch(this.state[`${name}Selected`], true)}
+                        value="hvt"
+                    />
+                }
+                label="HVT"
+                />
+                    <FormControlLabel
+                        control={
+                            <Switch
+                        checked={this.state[`${name}Selected`].owned}
+                        onChange={() => this.handleSearchPropertiesSwitch(this.state[`${name}Selected`])}
+                        value="owned"
+                    />
+                }
+                label="Owned"
+                />
+                </FormGroup>
+            )}
+        </React.Fragment>
         );
-    }
+
+    renderSearchMenus = () => (
+        <React.Fragment>
+            <Menu
+                anchorEl={this.srcRef.current}
+                keepMounted
+                open={this.state.srcsidResults.length > 0 && this.state.serchSrcResultsOpen}
+                onClose={()=> this.setState({
+                    serchSrcResultsOpen: false,
+                    srcsidResults: [],
+                })}
+            >
+                {this.state.srcsidResults.map((el) => (
+                    <MenuItem key={el.sid} onClick={()=> this.handleMenuClick(el, 'srcsid')}>{el.text}</MenuItem>
+                    ))}
+            </Menu>
+            <Menu
+                anchorEl={this.dstRef.current}
+                keepMounted
+                open={this.state.dstsidResults.length > 0 && this.state.serchDstResultsOpen}
+                onClose={()=> this.setState({
+                    serchDstResultsOpen: false,
+                    dstsidResults: []
+                })}
+            >
+                {this.state.dstsidResults.map((el) => (
+                    <MenuItem key={el.sid} onClick={()=> this.handleMenuClick(el, 'dstsid')}>{el.text}</MenuItem>
+                    ))}
+            </Menu>
+        </React.Fragment>
+    )
+
 
     renderGraphSelector = () => {
         return (
@@ -493,10 +610,10 @@ class GraphPageComponent extends ApiClient {
                 <Box>
                     {this.renderGraphSelector()}
                 </Box>
-                <Box className="margin-top">
+                <Box className="margin-top" column>
                     {this.renderTextField('srcsid', 'SRC SID', 'Source SID')}
                 </Box>
-                <Box className="margin-top">
+                <Box className="margin-top" column>
                     {this.renderTextField('dstsid', 'DST SID', 'Destination SID')}
                 </Box>
                 <Box className="margin-top">
@@ -608,6 +725,7 @@ class GraphPageComponent extends ApiClient {
                         <VBox flex={3}>
                             {this.renderGraph()}
                             {this.renderNodeDetails()}
+                            {this.renderSearchMenus()}
                         </VBox>
                         <VBox flex={1}>
                             {this.renderGraphControls()}

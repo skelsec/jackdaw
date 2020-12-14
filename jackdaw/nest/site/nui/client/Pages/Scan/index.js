@@ -62,10 +62,10 @@ class ScanComponent extends ApiClient {
             <Paper className="mbox pbox">
                 <VBox>
                     <VBox className="margin-bottom">
-                    {this.renderTextField('text', 'LDAP URL', 'The URL of the LDAP server.', 'ldap_url')}
-                    {this.renderTextField('number', 'LDAP Workers', 'The number of LDAP workers.', 'ldap_workers')}
-                    {this.renderTextField('text', 'SMB URL', 'The URL of the SMB server.', 'smb_url')}
-                    {this.renderTextField('number', 'SMB Workers', 'The number of SMB workers.', 'smb_workers')}
+                        {this.renderTextField('text', 'LDAP URL', 'The URL of the LDAP server.', 'ldap_url')}
+                        {this.renderTextField('number', 'LDAP Workers', 'The number of LDAP workers.', 'ldap_workers')}
+                        {this.renderTextField('text', 'SMB URL', 'The URL of the SMB server.', 'smb_url')}
+                        {this.renderTextField('number', 'SMB Workers', 'The number of SMB workers.', 'smb_workers')}
                     </VBox>
                     <Box className="mbox">
                         <Button
