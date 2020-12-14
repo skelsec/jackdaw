@@ -304,7 +304,7 @@ class GraphPageComponent extends ApiClient {
                 url = `/graph/${this.state.graph}/query/path?dst=${this.state.srcsid}&format=vis`;
                 break;
             case "path":
-                url = `/graph/${this.state.graph}/query/path?dst=${this.state.dstsid}&src=${this.state.srcsid}&format=vis`;
+                url = `/graph/${this.state.graph}/query/path?dst=${this.state.dstsidSelected.sid}&src=${this.state.srcsidSelected.sid}&format=vis`;
                 break;
             case "ownedtoda":
                 url = `/graph/${this.state.graph}/query/path/ownedtoda`;
