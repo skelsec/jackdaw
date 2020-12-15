@@ -344,7 +344,7 @@ class GraphPageComponent extends ApiClient {
     handleSearchPropertiesSwitch = async(obj, name, hvt) => {
         let result
         if (hvt) {
-            result = await this.apiFetch(`/props/${this.state.graph}/${`${obj.sid}/owned/${obj.highvalue ? 'clear' : 'set'}`}`)
+            result = await this.apiFetch(`/props/${this.state.graph}/${`${obj.sid}/hvt/${obj.highvalue ? 'clear' : 'set'}`}`)
         } else {
             result = await this.apiFetch(`/props/${this.state.graph}/${`${obj.sid}/owned/${obj.owned ? 'clear' : 'set'}`}`)
         }
@@ -380,8 +380,16 @@ class GraphPageComponent extends ApiClient {
                 value={this.state[`${name}Selected`] && this.state[`${name}Selected`].text}
                 options={this.state[`${name}Results`].map(el => el.text)}
                 onChange={(e, newValue) => {
-                    console.log(newValue, this.state[`${name}Results`].find(el => el.text === newValue))
-                        this.setState({[`${name}Selected`]: this.state[`${name}Results`].find(el => el.text === newValue)})
+                        const node = this.state[`${name}Results`].find(el => el.text === newValue)
+                        this.setState({
+                            [`${name}Selected`]: node,
+                            nodeSelected: {
+                                domainid: node.adid,
+                                id: node.sid,
+                                type: node.otype,
+                                label: node.text,
+                            },
+                        })
                 }}
                 onInputChange={async(e, value) => {
                     if(value.length >= 3) {
