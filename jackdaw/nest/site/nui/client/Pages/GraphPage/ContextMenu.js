@@ -23,7 +23,7 @@ export const ContextMenu = ({menu, node, handleContextMenuClick}) => {
     const classes = useStyles()
 
     const constHvtUrl = `${node.id}/hvt/${node.highvalue ? 'clear' : 'set'}`
-    const constOvnedUrl = `${node.id}/owned/${node.highvalue ? 'clear' : 'set'}`
+    const constOvnedUrl = `${node.id}/owned/${node.owned ? 'clear' : 'set'}`
 
     return (
         <List style={{

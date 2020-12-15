@@ -10,13 +10,15 @@ import { Box, VBox } from 'react-layout-components';
 import { 
     Paper, FormControl, FormControlLabel, FormGroup, 
     FormHelperText, Input, InputLabel, 
-    Button, Select, MenuItem, TextField, Switch
+    Button, Select, MenuItem, Switch, TextField
 } from '@material-ui/core';
+import Autocomplete from '@material-ui/lab/Autocomplete';
 
 import ApiClient from '../../Components/ApiClient';
 import ExpansionPane from '../../Components/ExpansionPane';
 import ItemDetails from '../../Components/ItemDetails';
 import { ContextMenu } from './ContextMenu';
+import _ from 'lodash';
 
 const styles = () => ({
     graphBox: {
@@ -154,6 +156,10 @@ class GraphPageComponent extends ApiClient {
         graphs: [],
         srcsid: '',
         dstsid: '',
+        srcsidResults: [],
+        dstsidResults: [],
+        srcsidSelected: null,
+        dstsidSelected: null,
         graph: null,
         graphData: null,
         graphOptions: { ...graphOptions },
@@ -188,6 +194,37 @@ class GraphPageComponent extends ApiClient {
         this.setState({
             graphs: graphList.data
         });
+    }
+
+    applySmoothToEdges = array => {
+        const newArray = [...array]
+        newArray.forEach((el, index) => {
+            newArray.forEach((compEl, compIndex) => {
+                if(!_.isEqual(el, compEl) && el.from === compEl.from) {
+                    if(!el.smooth){
+                        newArray[index] = {
+                            ...el,
+                            smooth: {
+                                enabled: true,
+                                type: "curvedCW",
+                                roundness: 0.1
+                            }
+                        }
+                    }
+                    if(!compEl.smooth){
+                        newArray[compIndex] = {
+                            ...compEl,
+                            smooth: {
+                                enabled: true,
+                                type: "curvedCCW",
+                                roundness: 0.1
+                            }
+                        }
+                    }
+                }
+            })
+        })
+        return newArray
     }
 
     handleAltModeChange = (e) => {
@@ -264,7 +301,7 @@ class GraphPageComponent extends ApiClient {
                 url = `/graph/${this.state.graph}/query/path?dst=${this.state.srcsid}&format=vis`;
                 break;
             case "path":
-                url = `/graph/${this.state.graph}/query/path?dst=${this.state.dstsid}&src=${this.state.srcsid}&format=vis`;
+                url = `/graph/${this.state.graph}/query/path?dst=${this.state.dstsidSelected.sid}&src=${this.state.srcsidSelected.sid}&format=vis`;
                 break;
             case "ownedtoda":
                 url = `/graph/${this.state.graph}/query/path/ownedtoda`;
@@ -292,6 +329,7 @@ class GraphPageComponent extends ApiClient {
         }
         let gd = await this.apiFetch(url);
         gd.data.nodes = this.preProcessNodes(gd.data.nodes);
+        gd.data.edges = this.applySmoothToEdges(gd.data.edges)
         this.setState({ graphData: gd.data });
     }
 
@@ -303,18 +341,106 @@ class GraphPageComponent extends ApiClient {
         });
     }
 
-    renderTextField = (name, label, description) => {
-        return (
-            <TextField
-                className="margin-top"
-                fullWidth={true}
-                helperText={description}
-                label={label}
-                value={this.state[name]}
-                onChange={ (e) => this.setState({ [name]: e.target.value }) }
-            />
-        );
+    handleSearchPropertiesSwitch = async(obj, name, hvt) => {
+        let result
+        if (hvt) {
+            result = await this.apiFetch(`/props/${this.state.graph}/${`${obj.sid}/hvt/${obj.highvalue ? 'clear' : 'set'}`}`)
+        } else {
+            result = await this.apiFetch(`/props/${this.state.graph}/${`${obj.sid}/owned/${obj.owned ? 'clear' : 'set'}`}`)
+        }
+        if (result.status != 204) {
+            this.notifyUser({
+                severity: 'error',
+                message: `User ${hvt ? 'HVT' : 'Owned'} set Failed`
+            });
+            return;
+        }
+        this.notifyUser({
+            severity: 'success',
+            message: `User ${hvt ? 'HVT' : 'Owned'} set OK`
+        });
+        if (hvt) {
+            this.setState(prevState => {
+                return {[name]: {
+                ...prevState[name],
+                highvalue: !prevState[name].highvalue,
+            }}})
+        } else {
+            this.setState(prevState => {
+                return {[name]: {
+                ...prevState[name],
+                owned: !prevState[name].owned,
+            }}})
+        }
     }
+
+    renderTextField = (name, label, description) =>  (
+        <React.Fragment>
+            <Autocomplete
+                value={this.state[`${name}Selected`] && this.state[`${name}Selected`].text}
+                options={this.state[`${name}Results`].map(el => el.text)}
+                onChange={(e, newValue) => {
+                        const node = this.state[`${name}Results`].find(el => el.text === newValue)
+                        this.setState({
+                            [`${name}Selected`]: node,
+                            nodeSelected: {
+                                domainid: node.adid,
+                                id: node.sid,
+                                type: node.otype,
+                                label: node.text,
+                            },
+                        })
+                }}
+                onInputChange={async(e, value) => {
+                    if(value.length >= 3) {
+                        let result = await this.apiFetch(`/graph/${this.state.graph}/search/${value}`)
+                        if (result.status != 200) {
+                            this.notifyUser({
+                                severity: 'error',
+                                message: `Search results Error`
+                            })
+                            return
+                        }
+                        this.setState({[`${name}Results`]: result.data.slice(0,5)})
+                        name === 'srcsid' ? this.setState({serchSrcResultsOpen: true}) : this.setState({serchDstResultsOpen: true})
+                    }
+                }}
+                renderInput={(params) => (
+                    <TextField 
+                        {...params} 
+                        label={label} 
+                        helperText={description}
+                        className="margin-top"
+                        fullWidth={true} 
+                    />
+                  )}
+            />
+            {this.state[`${name}Selected`] && (
+                <FormGroup row>
+                    <FormControlLabel
+                        control={
+                            <Switch
+                        checked={this.state[`${name}Selected`].highvalue}
+                        onChange={() => this.handleSearchPropertiesSwitch(this.state[`${name}Selected`], `${name}Selected`, true)}
+                        value="hvt"
+                    />
+                }
+                label="HVT"
+                />
+                    <FormControlLabel
+                        control={
+                            <Switch
+                        checked={this.state[`${name}Selected`].owned}
+                        onChange={() => this.handleSearchPropertiesSwitch(this.state[`${name}Selected`], `${name}Selected`)}
+                        value="owned"
+                    />
+                }
+                label="Owned"
+                />
+                </FormGroup>
+            )}
+        </React.Fragment>
+        );
 
     renderGraphSelector = () => {
         return (
@@ -374,6 +500,7 @@ class GraphPageComponent extends ApiClient {
             });
             return;
         }
+        this.setState({contextMenu: {opened: false}})
         this.notifyUser({
             severity: 'success',
             message: `User ${hvt ? 'HVT' : 'Owned'} set OK`
@@ -459,10 +586,10 @@ class GraphPageComponent extends ApiClient {
                 <Box>
                     {this.renderGraphSelector()}
                 </Box>
-                <Box className="margin-top">
+                <Box className="margin-top" column>
                     {this.renderTextField('srcsid', 'SRC SID', 'Source SID')}
                 </Box>
-                <Box className="margin-top">
+                <Box className="margin-top" column>
                     {this.renderTextField('dstsid', 'DST SID', 'Destination SID')}
                 </Box>
                 <Box className="margin-top">
