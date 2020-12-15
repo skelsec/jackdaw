@@ -10,8 +10,9 @@ import { Box, VBox } from 'react-layout-components';
 import { 
     Paper, FormControl, FormControlLabel, FormGroup, 
     FormHelperText, Input, InputLabel, 
-    Button, Select, MenuItem, TextField, Switch, Menu
+    Button, Select, MenuItem, Switch, TextField
 } from '@material-ui/core';
+import Autocomplete from '@material-ui/lab/Autocomplete';
 
 import ApiClient from '../../Components/ApiClient';
 import ExpansionPane from '../../Components/ExpansionPane';
@@ -159,8 +160,6 @@ class GraphPageComponent extends ApiClient {
         dstsidResults: [],
         srcsidSelected: null,
         dstsidSelected: null,
-        serchSrcResultsOpen: false,
-        serchDstResultsOpen: false,
         graph: null,
         graphData: null,
         graphOptions: { ...graphOptions },
@@ -180,8 +179,6 @@ class GraphPageComponent extends ApiClient {
     constructor(props) {
         super(props);
         this.processSelection = this.processSelection.bind(this);
-        this.srcRef = React.createRef()
-        this.dstRef = React.createRef()
     }
 
     componentDidMount = async() => {
@@ -344,21 +341,6 @@ class GraphPageComponent extends ApiClient {
         });
     }
 
-    handleMenuClick = (node, name) => {
-        this.setState({
-            nodeSelected: {
-                domainid: node.adid,
-                id: node.sid,
-                type: node.otype,
-                label: node.text,
-            },
-            [`${name}Selected`]: node,
-            serchDstResultsOpen: false,
-            serchSrcResultsOpen: false,
-            [name]: node.text
-        })
-    }
-
     handleSearchPropertiesSwitch = async(obj, name, hvt) => {
         let result
         if (hvt) {
@@ -394,17 +376,16 @@ class GraphPageComponent extends ApiClient {
 
     renderTextField = (name, label, description) =>  (
         <React.Fragment>
-            <TextField
-                ref={name === 'srcsid' ? this.srcRef : this.dstRef}
-                className="margin-top"
-                fullWidth={true}
-                helperText={description}
-                label={label}
-                value={this.state[name]}
-                onChange={ async(e) => {
-                    this.setState({ [name]: e.target.value })
-                    if(this.state[name].length >= 3) {
-                        let result = await this.apiFetch(`/graph/${this.state.graph}/search/${e.target.value}`)
+            <Autocomplete
+                value={this.state[`${name}Selected`] && this.state[`${name}Selected`].text}
+                options={this.state[`${name}Results`].map(el => el.text)}
+                onChange={(e, newValue) => {
+                    console.log(newValue, this.state[`${name}Results`].find(el => el.text === newValue))
+                        this.setState({[`${name}Selected`]: this.state[`${name}Results`].find(el => el.text === newValue)})
+                }}
+                onInputChange={async(e, value) => {
+                    if(value.length >= 3) {
+                        let result = await this.apiFetch(`/graph/${this.state.graph}/search/${value}`)
                         if (result.status != 200) {
                             this.notifyUser({
                                 severity: 'error',
@@ -416,6 +397,15 @@ class GraphPageComponent extends ApiClient {
                         name === 'srcsid' ? this.setState({serchSrcResultsOpen: true}) : this.setState({serchDstResultsOpen: true})
                     }
                 }}
+                renderInput={(params) => (
+                    <TextField 
+                        {...params} 
+                        label={label} 
+                        helperText={description}
+                        className="margin-top"
+                        fullWidth={true} 
+                    />
+                  )}
             />
             {this.state[`${name}Selected`] && (
                 <FormGroup row>
@@ -443,38 +433,6 @@ class GraphPageComponent extends ApiClient {
             )}
         </React.Fragment>
         );
-
-    renderSearchMenus = () => (
-        <React.Fragment>
-            <Menu
-                anchorEl={this.srcRef.current}
-                keepMounted
-                open={this.state.srcsidResults.length > 0 && this.state.serchSrcResultsOpen}
-                onClose={()=> this.setState({
-                    serchSrcResultsOpen: false,
-                    srcsidResults: [],
-                })}
-            >
-                {this.state.srcsidResults.map((el) => (
-                    <MenuItem key={el.sid} onClick={()=> this.handleMenuClick(el, 'srcsid')}>{el.text}</MenuItem>
-                    ))}
-            </Menu>
-            <Menu
-                anchorEl={this.dstRef.current}
-                keepMounted
-                open={this.state.dstsidResults.length > 0 && this.state.serchDstResultsOpen}
-                onClose={()=> this.setState({
-                    serchDstResultsOpen: false,
-                    dstsidResults: []
-                })}
-            >
-                {this.state.dstsidResults.map((el) => (
-                    <MenuItem key={el.sid} onClick={()=> this.handleMenuClick(el, 'dstsid')}>{el.text}</MenuItem>
-                    ))}
-            </Menu>
-        </React.Fragment>
-    )
-
 
     renderGraphSelector = () => {
         return (
@@ -735,7 +693,6 @@ class GraphPageComponent extends ApiClient {
                         <VBox flex={3}>
                             {this.renderGraph()}
                             {this.renderNodeDetails()}
-                            {this.renderSearchMenus()}
                         </VBox>
                         <VBox flex={1}>
                             {this.renderGraphControls()}
