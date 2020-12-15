@@ -39,6 +39,16 @@ graphs = {}
 diff_id_ctr = 1
 diffs = {}
 
+def __exclude_parse(exclude):
+	#sadly connexion is not capable to do this by itself
+	res = []
+	if exclude is None:
+		return res
+	for p in exclude.split(','):
+		res.append(p.strip())
+	
+	return res
+
 def list_graphs():
 	t = []
 	graph_cache_dir = current_app.config['JACKDAW_WORK_DIR'].joinpath('graphcache')
@@ -124,7 +134,8 @@ def get(graphid):
 	res = current_app.config['JACKDAW_GRAPH_DICT'][graphid].all_shortest_paths()
 	return res.to_dict()
 
-def query_path(graphid, src = None, dst = None, format = 'd3'):
+def query_path(graphid, src = None, dst = None, exclude = None, format = 'd3'):
+	exclude_edgetypes = __exclude_parse(exclude)
 	if graphid not in current_app.config['JACKDAW_GRAPH_DICT']:
 		load(graphid)
 	if src == '':
@@ -133,13 +144,15 @@ def query_path(graphid, src = None, dst = None, format = 'd3'):
 		dst = None
 	if src is None and dst is None:
 		return {}
-	res = current_app.config['JACKDAW_GRAPH_DICT'][graphid].shortest_paths(src, dst)
+	res = current_app.config['JACKDAW_GRAPH_DICT'][graphid].shortest_paths(src, dst, exclude = exclude_edgetypes)
 	return res.to_dict(format = format)
 
-def query_path_da(graphid, format = 'vis'):
+def query_path_da(graphid, exclude = None, format = 'vis'):
 	if graphid not in current_app.config['JACKDAW_GRAPH_DICT']:
 		load(graphid)
 	
+	exclude_edgetypes = __exclude_parse(exclude)
+	print(exclude_edgetypes)
 	da_sids = {}
 	#searching for domain admin SID
 	
@@ -157,13 +170,14 @@ def query_path_da(graphid, format = 'vis'):
 	
 	res = GraphData()
 	for sid in da_sids:
-		res += current_app.config['JACKDAW_GRAPH_DICT'][graphid].shortest_paths(None, sid)
+		res += current_app.config['JACKDAW_GRAPH_DICT'][graphid].shortest_paths(None, sid, exclude = exclude_edgetypes)
 
 
 	#print(res)
 	return res.to_dict(format = format)
 
-def query_path_dcsync(graphid, format = 'vis'):
+def query_path_dcsync(graphid, exclude = None, format = 'vis'):
+	exclude_edgetypes = __exclude_parse(exclude)
 	if graphid not in current_app.config['JACKDAW_GRAPH_DICT']:
 		load(graphid)
 
@@ -187,11 +201,12 @@ def query_path_dcsync(graphid, format = 'vis'):
 	res = GraphData()
 	for dst_sid in da_sids:
 		for src_sid in target_sids:
-			res += current_app.config['JACKDAW_GRAPH_DICT'][graphid].shortest_paths(src_sid, dst_sid)
+			res += current_app.config['JACKDAW_GRAPH_DICT'][graphid].shortest_paths(src_sid, dst_sid, exclude = exclude_edgetypes)
 
 	return res.to_dict(format = format)
 
-def query_path_kerberoastda(graphid, format = 'vis'):
+def query_path_kerberoastda(graphid, exclude = None, format = 'vis'):
+	exclude_edgetypes = __exclude_parse(exclude)
 	if graphid not in current_app.config['JACKDAW_GRAPH_DICT']:
 		load(graphid)
 
@@ -211,11 +226,12 @@ def query_path_kerberoastda(graphid, format = 'vis'):
 	res = GraphData()
 	for dst_sid in da_sids:
 		for src_sid in target_sids:
-			res += current_app.config['JACKDAW_GRAPH_DICT'][graphid].shortest_paths(src_sid, dst_sid)
+			res += current_app.config['JACKDAW_GRAPH_DICT'][graphid].shortest_paths(src_sid, dst_sid, exclude = exclude_edgetypes)
 
 	return res.to_dict(format = format)
 
-def query_path_kerberoastany(graphid, format = 'vis'):
+def query_path_kerberoastany(graphid, exclude = None, format = 'vis'):
+	exclude_edgetypes = __exclude_parse(exclude)
 	if graphid not in current_app.config['JACKDAW_GRAPH_DICT']:
 		load(graphid)
 
@@ -237,14 +253,15 @@ def query_path_kerberoastany(graphid, format = 'vis'):
 	for src_sid in target_sids:
 		for domain_sid in domain_sids:
 			if current_app.config['JACKDAW_GRAPH_DICT'][graphid].has_path(src_sid, domain_sid) is False:
-				res += current_app.config['JACKDAW_GRAPH_DICT'][graphid].shortest_paths(src_sid=src_sid, dst_sid = None)
+				res += current_app.config['JACKDAW_GRAPH_DICT'][graphid].shortest_paths(src_sid=src_sid, dst_sid = None, exclude = exclude_edgetypes)
 			else:
 				path_to_da.append(src_sid)
 
 	#TODO: send the path_to_da as well!
 	return res.to_dict(format = format)
 
-def query_path_asreproast(graphid, format = 'vis'):
+def query_path_asreproast(graphid, exclude=None, format = 'vis'):
+	exclude_edgetypes = __exclude_parse(exclude)
 	if graphid not in current_app.config['JACKDAW_GRAPH_DICT']:
 		load(graphid)
 
@@ -264,11 +281,12 @@ def query_path_asreproast(graphid, format = 'vis'):
 	res = GraphData()
 	for dst_sid in da_sids:
 		for src_sid in target_sids:
-			res += current_app.config['JACKDAW_GRAPH_DICT'][graphid].shortest_paths(src_sid, dst_sid)
+			res += current_app.config['JACKDAW_GRAPH_DICT'][graphid].shortest_paths(src_sid, dst_sid, exclude = exclude_edgetypes)
 
 	return res.to_dict(format = format)
 
-def query_path_tohighvalue(graphid, format = 'vis'):
+def query_path_tohighvalue(graphid, exclude = None, format = 'vis'):
+	exclude_edgetypes = __exclude_parse(exclude)
 	if graphid not in current_app.config['JACKDAW_GRAPH_DICT']:
 		load(graphid)
 
@@ -286,11 +304,12 @@ def query_path_tohighvalue(graphid, format = 'vis'):
 
 	res = GraphData()
 	for dst_sid in target_sids:
-		res += current_app.config['JACKDAW_GRAPH_DICT'][graphid].shortest_paths(dst_sid=dst_sid, ignore_notfound = True)
+		res += current_app.config['JACKDAW_GRAPH_DICT'][graphid].shortest_paths(dst_sid=dst_sid, ignore_notfound = True, exclude = exclude_edgetypes)
 		
 	return res.to_dict(format = format)
 
-def query_path_ownedda(graphid, format = 'vis'):
+def query_path_ownedda(graphid, exclude = None, format = 'vis'):
+	exclude_edgetypes = __exclude_parse(exclude)
 	if graphid not in current_app.config['JACKDAW_GRAPH_DICT']:
 		load(graphid)
 
@@ -314,11 +333,12 @@ def query_path_ownedda(graphid, format = 'vis'):
 	res = GraphData()
 	for dst_sid in da_sids:
 		for src_sid in target_sids:
-			res += current_app.config['JACKDAW_GRAPH_DICT'][graphid].shortest_paths(src_sid, dst_sid)
+			res += current_app.config['JACKDAW_GRAPH_DICT'][graphid].shortest_paths(src_sid, dst_sid, exclude = exclude_edgetypes)
 
 	return res.to_dict(format = format)
 
-def query_path_fromowned(graphid, format = 'vis'):
+def query_path_fromowned(graphid, exclude = None, format = 'vis'):
+	exclude_edgetypes = __exclude_parse(exclude)
 	if graphid not in current_app.config['JACKDAW_GRAPH_DICT']:
 		load(graphid)
 
@@ -336,7 +356,7 @@ def query_path_fromowned(graphid, format = 'vis'):
 
 	res = GraphData()
 	for src_sid in target_sids:
-		res += current_app.config['JACKDAW_GRAPH_DICT'][graphid].shortest_paths(src_sid=src_sid)
+		res += current_app.config['JACKDAW_GRAPH_DICT'][graphid].shortest_paths(src_sid=src_sid, exclude = exclude_edgetypes)
 
 	return res.to_dict(format = format)
 

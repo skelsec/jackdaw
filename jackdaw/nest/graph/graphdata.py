@@ -2,6 +2,9 @@
 
 import math
 
+class NodeNotFoundException(Exception):
+	pass
+
 class GraphNode:
 	def __init__(self, gid, name, domainid, gtype = None, properties = {}, owned = False, highvalue = False):
 		self.name = name
@@ -98,9 +101,9 @@ class GraphData:
 	
 	def add_edge(self, src, dst, label = '', weight = 1, properties = {}):
 		if src not in self.nodes:
-			raise Exception('Node (src) with id %s is not present' % src)
+			raise NodeNotFoundException('Node (src) with id %s is not present' % src)
 		if dst not in self.nodes:
-			raise Exception('Node (dst) with id %s is not present' % dst)
+			raise NodeNotFoundException('Node (dst) with id %s is not present' % dst)
 		
 		key = str(src) + str(dst) + str(label)
 

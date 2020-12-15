@@ -15,7 +15,7 @@ from jackdaw.dbmodel.graphinfo import GraphInfo, GraphInfoAD
 from jackdaw.dbmodel.edge import Edge
 from jackdaw.dbmodel.edgelookup import EdgeLookup
 from jackdaw.dbmodel import windowed_query
-from jackdaw.nest.graph.graphdata import GraphData, GraphNode
+from jackdaw.nest.graph.graphdata import GraphData, GraphNode, NodeNotFoundException
 from jackdaw.nest.graph.construct import GraphConstruct
 from jackdaw.dbmodel.adobjprops import ADObjProps
 from jackdaw.wintypes.well_known_sids import get_name_or_sid, get_sid_for_name
@@ -179,7 +179,7 @@ class JackDawDomainGraphNetworkx:
 		
 		return nv
 
-	def shortest_paths(self, src_sid = None, dst_sid = None, ignore_notfound = False):
+	def shortest_paths(self, src_sid = None, dst_sid = None, ignore_notfound = False, exclude = []):
 		nv = GraphData()
 		try:
 			if src_sid is None and dst_sid is None:
@@ -192,7 +192,7 @@ class JackDawDomainGraphNetworkx:
 
 				res = shortest_path(self.graph, target=dst)
 				for k in res:
-					self.__result_path_add(nv, res[k])
+					self.__result_path_add(nv, res[k], exclude = exclude)
 
 
 
@@ -207,7 +207,7 @@ class JackDawDomainGraphNetworkx:
 				
 				try:
 					res = shortest_path(self.graph, src, dst)
-					self.__result_path_add(nv, res)
+					self.__result_path_add(nv, res, exclude = exclude)
 				except nx.exception.NetworkXNoPath:
 					pass
 
@@ -219,7 +219,7 @@ class JackDawDomainGraphNetworkx:
 				try:
 					res = shortest_path(self.graph, src)
 					for k in res:
-						self.__result_path_add(nv, res[k])
+						self.__result_path_add(nv, res[k], exclude = exclude)
 				except nx.exception.NetworkXNoPath:
 					pass
 				
@@ -243,20 +243,23 @@ class JackDawDomainGraphNetworkx:
 
 		return has_path(self.graph, src, dst)
 
-	def __result_path_add(self, network, path):
+	def __result_path_add(self, network, path, exclude = []):
 		# enable this for raw path logging
 		# print(path)
-		
+		for i in range(len(path) - 1):
+			self.__result_edge_add(network, int(path[i]), int(path[i+1]), path, exclude = exclude)
+
+	def __add_nodes_from_path(self, network, path):
 		if path == []:
 			return
 		path = [i for i in path]
-		delete_this = []
+		#delete_this = []
 		for d, node_id in enumerate(path):
 			sid, otype = self.__nodename_to_sid(node_id)
 			res = self.dbsession.query(EdgeLookup).filter_by(oid = sid).first()
 			domain_id = res.ad_id
 			owned, highvalue = self.__get_props(sid)
-			delete_this.append('%s(%s) -> ' % (sid, otype))
+			#delete_this.append('%s(%s) -> ' % (sid, otype))
 			network.add_node(
 				sid, 
 				name = self.__sid2cn(sid, otype), 
@@ -267,41 +270,41 @@ class JackDawDomainGraphNetworkx:
 			)
 			network.nodes[sid].set_distance(len(path)-d-1)
 
-		print(''.join(delete_this))
-		for i in range(len(path) - 1):
-			self.__result_edge_add(network, int(path[i]), int(path[i+1]))
+		#print(''.join(delete_this))
 
-	def __result_edge_add(self, network, src_id, dst_id):
+	def __result_edge_add(self, network, src_id, dst_id, path, exclude = []):
 		for label in self.__resolv_edge_types(src_id, dst_id):
+			if label not in exclude:
 				try:
 					src = self.__nodename_to_sid(src_id)
 					dst = self.__nodename_to_sid(dst_id)
-					network.add_edge(src[0],dst[0], label=label[0])
+					try:
+						network.add_edge(src[0],dst[0], label=label)
+					except NodeNotFoundException:
+						self.__add_nodes_from_path(network, path)
+						network.add_edge(src[0],dst[0], label=label)
 					print('%s -> %s [%s]' % (src, dst, label))
 				except Exception as e:
 					import traceback
 					traceback.print_exc()
 					print(e)
+					raise e
 	
 	def __nodename_to_sid(self, node_name):
-		#print('__nodename_to_sid node_name %s' % node_name)
 		node_name = int(node_name)
 		if node_name in self.lookup:
 			return self.lookup[node_name]
 		t = self.dbsession.query(EdgeLookup).get(node_name) #node_name is the ID of the edgelookup
-		#print('__nodename_to_sid t %s' % t)
 		self.lookup[node_name] = (t.oid, t.otype)
 		return t.oid, t.otype
 
 	def __get_props(self, oid):
 		if oid not in self.props_lookup:
 			qry = self.dbsession.query(ADObjProps).filter_by(oid=oid).filter(ADObjProps.graph_id==self.graph_id)
-			owned_res = qry.filter(ADObjProps.prop == 'OWNED').scalar()
-			#print(owned_res)
+			owned_res = qry.filter(ADObjProps.prop == 'OWNED').first()
 			if owned_res is not None:
 				owned_res = True
-			highvalue_res = qry.filter(ADObjProps.prop == 'HVT').scalar()
-			#print(highvalue_res)
+			highvalue_res = qry.filter(ADObjProps.prop == 'HVT').first()
 			if highvalue_res is not None:
 				highvalue_res = True
 			self.props_lookup[oid] = (owned_res, highvalue_res)
@@ -309,16 +312,16 @@ class JackDawDomainGraphNetworkx:
 
 	
 	def __resolv_edge_types(self, src_id, dst_id):
-		t = []
+		#t = []
 		for domain_id in self.adids:
 			for res in self.dbsession.query(Edge.label).distinct(Edge.label).filter_by(graph_id = self.graph_id).filter(Edge.ad_id == domain_id).filter(Edge.src == src_id).filter(Edge.dst == dst_id).all():
-				t.append(res)
+				yield res[0]
 		
 		#testing!!!!
-		if len(t) == 0:
-			print('e src %s' % src_id)
-			print('e dst %s' % dst_id)
-		return t
+		#if len(t) == 0:
+		#	print('e src %s' % src_id)
+		#	print('e dst %s' % dst_id)
+		#return t
 
 	def __resolve_sid_to_id(self, sid):
 		#print('__resolve_sid_to_id sid %s' % sid)

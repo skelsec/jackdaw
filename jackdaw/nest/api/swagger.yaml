@@ -176,6 +176,11 @@ paths:
           description: return format. either vis or d3
           type: string
           required: False
+        - name: exclude
+          in: query
+          description: edge type to be excluded in the path calc
+          required: False
+          type: string
       responses:
         200:
           description: Returns the graph data with all the shortest paths between the two SIDs
@@ -204,6 +209,11 @@ paths:
           description: return format. either vis or d3
           type: string
           required: False
+        - name: exclude
+          in: query
+          description: edge type to be excluded in the path calc
+          required: False
+          type: string
       responses:
         200:
           description: Returns graph view data with all the nodes and edges
@@ -232,6 +242,11 @@ paths:
           description: return format. either vis or d3
           type: string
           required: False
+        - name: exclude
+          in: query
+          description: edge type to be excluded in the path calc
+          required: False
+          type: string
       responses:
         200:
           description: All paths to domain admins group
@@ -260,6 +275,11 @@ paths:
           description: return format. either vis or d3
           type: string
           required: False
+        - name: exclude
+          in: query
+          description: edge type to be excluded in the path calc
+          required: False
+          type: string
       responses:
         200:
           description: TODO
@@ -288,6 +308,11 @@ paths:
           description: return format. either vis or d3
           type: string
           required: False
+        - name: exclude
+          in: query
+          description: edge type to be excluded in the path calc
+          required: False
+          type: string
       responses:
         200:
           description: TODO
@@ -316,6 +341,11 @@ paths:
           description: return format. either vis or d3
           type: string
           required: False
+        - name: exclude
+          in: query
+          description: edge type to be excluded in the path calc
+          required: False
+          type: string
       responses:
         200:
           description: TODO
@@ -345,6 +375,11 @@ paths:
           description: return format. either vis or d3
           type: string
           required: False
+        - name: exclude
+          in: query
+          description: edge type to be excluded in the path calc
+          required: False
+          type: string
       responses:
         200:
           description: TODO
@@ -373,6 +408,11 @@ paths:
           description: return format. either vis or d3
           type: string
           required: False
+        - name: exclude
+          in: query
+          description: edge type to be excluded in the path calc
+          required: False
+          type: string
       responses:
         200:
           description: TODO
@@ -401,6 +441,11 @@ paths:
           description: return format. either vis or d3
           type: string
           required: False
+        - name: exclude
+          in: query
+          description: edge type to be excluded in the path calc
+          required: False
+          type: string
       responses:
         200:
           description: TODO
@@ -429,6 +474,11 @@ paths:
           description: return format. either vis or d3
           type: string
           required: False
+        - name: exclude
+          in: query
+          description: edge type to be excluded in the path calc
+          required: False
+          type: string
       responses:
         200:
           description: TODO

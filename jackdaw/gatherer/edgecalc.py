@@ -506,7 +506,7 @@ class EdgeCalc:
 				self.session.commit()
 
 				res = self.session.query(GraphInfo).get(self.graph_id)
-				for giad in self.session.query(GraphInfoAD).filter_by(graph_id == self.graph_id).all():
+				for giad in self.session.query(GraphInfoAD).filter_by(graph_id = self.graph_id).all():
 					self.ad_id = giad.ad_id
 					_, err = await self.start_calc()
 					if err is not None:
