@@ -18,6 +18,7 @@ import ApiClient from '../../Components/ApiClient';
 import ExpansionPane from '../../Components/ExpansionPane';
 import ItemDetails from '../../Components/ItemDetails';
 import { ContextMenu } from './ContextMenu';
+import { RequestModifier } from './RequestModifier';
 import _ from 'lodash';
 
 const styles = () => ({
@@ -174,6 +175,7 @@ class GraphPageComponent extends ApiClient {
             left: null,
         },
         selectedContextNode: null,
+        requestModifiers: []
     }
 
     constructor(props) {
@@ -289,40 +291,42 @@ class GraphPageComponent extends ApiClient {
 
     fetchGraph = async(d) => {
         let url = "";
+        const excludeParameter = this.state.requestModifiers.length > 0 ? `/?exclude=${this.state.requestModifiers.join()}` : ''
+        const excludeAddParameter = this.state.requestModifiers.length > 0 ? `&exclude=${this.state.requestModifiers.join()}` : ''
 
         switch(d) {
             case "domainadmins":
-                url = `/graph/${this.state.graph}/query/path/da/?format=vis`;
+                url = `/graph/${this.state.graph}/query/path/da/?format=vis${excludeAddParameter}`;
                 break;
             case "src":
-                url = `/graph/${this.state.graph}/query/path?src=${this.state.srcsid}&format=vis`;
+                url = `/graph/${this.state.graph}/query/path?src=${this.state.srcsid}&format=vis${excludeAddParameter}`;
                 break;
             case "dst":
-                url = `/graph/${this.state.graph}/query/path?dst=${this.state.srcsid}&format=vis`;
+                url = `/graph/${this.state.graph}/query/path?dst=${this.state.srcsid}&format=vis${excludeAddParameter}`;
                 break;
             case "path":
-                url = `/graph/${this.state.graph}/query/path?dst=${this.state.dstsidSelected.sid}&src=${this.state.srcsidSelected.sid}&format=vis`;
+                url = `/graph/${this.state.graph}/query/path?dst=${this.state.dstsidSelected.sid}&src=${this.state.srcsidSelected.sid}&format=vis${excludeAddParameter}`;
                 break;
             case "ownedtoda":
-                url = `/graph/${this.state.graph}/query/path/ownedtoda`;
+                url = `/graph/${this.state.graph}/query/path/ownedtoda${excludeParameter}`;
                 break;
             case "fromowned":
-                url = `/graph/${this.state.graph}/query/path/fromowned`;
+                url = `/graph/${this.state.graph}/query/path/fromowned${excludeParameter}`;
                 break;
             case "dcsync":
-                url = `/graph/${this.state.graph}/query/path/dcsync`;
+                url = `/graph/${this.state.graph}/query/path/dcsync${excludeParameter}`;
                 break;
             case "kerberoasttoda":
-                url = `/graph/${this.state.graph}/query/path/kerberoasttoda`;
+                url = `/graph/${this.state.graph}/query/path/kerberoasttoda${excludeParameter}`;
                 break;
             case "kerberoastany":
-                url = `/graph/${this.state.graph}/query/path/kerberoastany`;
+                url = `/graph/${this.state.graph}/query/path/kerberoastany${excludeParameter}`;
                 break;
             case "asreproastda":
-                url = `/graph/${this.state.graph}/query/path/asreproastda`;
+                url = `/graph/${this.state.graph}/query/path/asreproastda${excludeParameter}`;
                 break;
             case "highvalue":
-                url = `/graph/${this.state.graph}/query/path/tohighvalue`;
+                url = `/graph/${this.state.graph}/query/path/tohighvalue${excludeParameter}`;
                 break;
             default:
                 return;
@@ -580,6 +584,8 @@ class GraphPageComponent extends ApiClient {
         );
     }
 
+    setModifiers = array => this.setState({requestModifiers: array})
+
     renderGraphControls = () => {
         return (
             <VBox className="mbox pbox">
@@ -594,6 +600,9 @@ class GraphPageComponent extends ApiClient {
                 </Box>
                 <Box className="margin-top">
                     {this.renderModeSelector()}
+                </Box>
+                <Box className="margin-top">
+                    <RequestModifier onChange={this.setModifiers}/>
                 </Box>
                 <VBox className="margin-top">
                     <Box className="margin-top margin-bottom">
