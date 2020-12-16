@@ -18,6 +18,7 @@ import ApiClient from '../../Components/ApiClient';
 import ExpansionPane from '../../Components/ExpansionPane';
 import ItemDetails from '../../Components/ItemDetails';
 import { ContextMenu } from './ContextMenu';
+import { RequestModifier } from './RequestModifier';
 import _ from 'lodash';
 
 const styles = () => ({
@@ -174,6 +175,7 @@ class GraphPageComponent extends ApiClient {
             left: null,
         },
         selectedContextNode: null,
+        requestModifiers: []
     }
 
     constructor(props) {
@@ -327,7 +329,8 @@ class GraphPageComponent extends ApiClient {
             default:
                 return;
         }
-        let gd = await this.apiFetch(url);
+        const excludeParameter = this.state.requestModifiers.length > 0 ? `/?exclude=${this.state.requestModifiers.join()}` : ''
+        let gd = await this.apiFetch(`${url}${excludeParameter}`);
         gd.data.nodes = this.preProcessNodes(gd.data.nodes);
         gd.data.edges = this.applySmoothToEdges(gd.data.edges)
         this.setState({ graphData: gd.data });
@@ -580,6 +583,8 @@ class GraphPageComponent extends ApiClient {
         );
     }
 
+    setModifiers = array => this.setState({requestModifiers: array})
+
     renderGraphControls = () => {
         return (
             <VBox className="mbox pbox">
@@ -594,6 +599,9 @@ class GraphPageComponent extends ApiClient {
                 </Box>
                 <Box className="margin-top">
                     {this.renderModeSelector()}
+                </Box>
+                <Box className="margin-top">
+                    <RequestModifier onChange={this.setModifiers}/>
                 </Box>
                 <VBox className="margin-top">
                     <Box className="margin-top margin-bottom">
