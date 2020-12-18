@@ -175,7 +175,8 @@ class GraphPageComponent extends ApiClient {
             left: null,
         },
         selectedContextNode: null,
-        requestModifiers: []
+        requestModifiers: [],
+        clustering: true,
     }
 
     constructor(props) {
@@ -197,6 +198,27 @@ class GraphPageComponent extends ApiClient {
             graphs: graphList.data
         });
     }
+
+    componentDidUpdate(prevProps, prevState) {
+        if (this.state.network !== prevState.network) {
+            if (this.state.clustering) {
+                // TODO: Change hardcoded nodeID below
+                this.state.network.clusterByConnection('S-1-5-32-544')
+            }
+        }
+
+        if (this.state.clustering !== prevState.clustering) {
+            if (this.state.network) {
+                if (this.state.clustering) {
+                    this.state.network.clusterByConnection('S-1-5-32-544')
+                } else {
+                    for(let i in this.state.network.clustering.clusteredNodes) {
+                        this.state.network.openCluster(this.state.network.clustering.clusteredNodes[i].clusterId)
+                    }
+                }
+        }
+        }
+      }
 
     applySmoothToEdges = array => {
         const newArray = [...array]
@@ -249,6 +271,23 @@ class GraphPageComponent extends ApiClient {
             </FormGroup>
         );
     }
+
+    renderClusteringSwitch = () => (
+        <FormGroup row>
+            <FormControlLabel
+                control={
+                    <Switch
+                        checked={this.state.clustering}
+                        onChange={e => {
+                            this.setState({clustering: e.target.checked})
+                        }}
+                        value="clustering"
+                    />
+                }
+                label="Clustering"
+                />
+        </FormGroup>
+    )
 
     getNodeTitle = (node) => {
         return `<table class="node-label-wrapper"><tr class="node-label-name"><td class="node-label-name-key">Name:</td><td class="node-label-name-value">${node.label}</td></tr><tr class="node-label-type"><td class="node-label-type-key">Type:</td><td class="node-label-type-value">${node.type}</td></tr><tr class="node-label-id"><td class="node-label-id-key">ID:</td><td class="node-label-id-value">${node.id}</td></tr></table>`;
@@ -466,7 +505,12 @@ class GraphPageComponent extends ApiClient {
 
     processSelection = async(event) => {
         this.setState({contextMenu: {opened: false}})
-        var { nodes } = event;
+        const { nodes } = event;
+
+        if (this.state.network.isCluster(nodes[0])) {
+            this.state.network.openCluster(nodes[0]);
+        }
+
         const node = this.state.graphData.nodes.filter(item => item.id == nodes[0]);
         if (node.length == 0) return;
         const targetNode = node[0];
@@ -602,6 +646,9 @@ class GraphPageComponent extends ApiClient {
                     {this.renderModeSelector()}
                 </Box>
                 <Box className="margin-top">
+                    {this.renderClusteringSwitch()}
+                </Box>
+                <Box className="margin-top">
                     <RequestModifier onChange={this.setModifiers}/>
                 </Box>
                 <VBox className="margin-top">
@@ -702,7 +749,7 @@ class GraphPageComponent extends ApiClient {
 
     render() {
         const { classes, theme } = this.props;
-
+        
         return (
             <Paper className="mbox pbox" height="100%" >
                 <VBox fit>
