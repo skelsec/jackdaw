@@ -30,6 +30,7 @@ export const RequestModifier = ({onChange}) => {
         AddMember: true,
         GenericALL: true,
         WriteDacl: true,
+        member: true,
     })
 
     useEffect(() => {
