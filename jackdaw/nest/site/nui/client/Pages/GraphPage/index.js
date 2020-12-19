@@ -112,23 +112,23 @@ const graphOptions = {
             springLength: 175,
             springConstant: 0.04,
             damping: 0.09,
-            avoidOverlap: 0
+            avoidOverlap: 0.2
         },
-        forceAtlas2Based: {
-            gravitationalConstant: -50,
-            centralGravity: 0.01,
-            springConstant: 0.08,
-            springLength: 100,
-            damping: 0.4,
-            avoidOverlap: 0
-        },
-        repulsion: {
-            centralGravity: 0.2,
-            springLength: 200,
-            springConstant: 0.05,
-            nodeDistance: 100,
-            damping: 0.09
-        },
+        //forceAtlas2Based: {
+        //    gravitationalConstant: -50,
+        //    centralGravity: 0.01,
+        //    springConstant: 0.08,
+        //    springLength: 100,
+        //    damping: 0.4,
+        //    avoidOverlap: 0
+        //},
+        //repulsion: {
+        //    centralGravity: 0.2,
+        //    springLength: 200,
+        //    springConstant: 0.05,
+        //    nodeDistance: 100,
+        //    damping: 0.09
+        //},
         hierarchicalRepulsion: {
             centralGravity: 0.0,
             springLength: 100,
@@ -202,23 +202,75 @@ class GraphPageComponent extends ApiClient {
     componentDidUpdate(prevProps, prevState) {
         if (this.state.network !== prevState.network) {
             if (this.state.clustering) {
+
                 // TODO: Change hardcoded nodeID below
-                this.state.network.clusterByConnection('S-1-5-32-544')
+                //this.state.network.clusterByConnection('S-1-5-32-544')
+                this.state.network.clusterByHubsize(50, undefined)
+                //this.state.network.clusterOutliers()
+                //this.state.network.clusterByEdgeCount(20)
+                //this.state.network.clusterByHubsize(undefined, undefined)
+                //
+                //const hubsize = 50;
+                //const nodesToCluster = [];
+                //for (let node in this.state.network.nodes) {
+                //    console.log(node.options)
+                //    if(node.options.md == 1 || node.options.md == 0 ||node.options.md == 2 || node.options.md == null){
+                //        if (node.edges.length >= hubsize) {
+                //            nodesToCluster.push(node.id);
+                //        }
+                //    }
+                //}
+                //
+                //for (let i = 0; i < nodesToCluster.length - 1; i++) {
+                //    this.state.network.clusterByConnection(nodesToCluster[i], undefined, false);
+                //}
+                //
+                //this.state.network.clusterByConnection(nodesToCluster[nodesToCluster.length], undefined, true);
+                //
             }
         }
 
         if (this.state.clustering !== prevState.clustering) {
             if (this.state.network) {
                 if (this.state.clustering) {
-                    this.state.network.clusterByConnection('S-1-5-32-544')
+                    //const hubsize = 50;
+                    //const nodesToCluster = [];
+                    //for (let node in this.state.network.nodes) {
+                    //    console.log(node.options)
+                    //    if(node.options.md == 1 || node.options.md == 0 ||node.options.md == 2 || node.options.md == null){
+                    //        if (node.edges.length >= hubsize) {
+                    //            nodesToCluster.push(node.id);
+                    //        }
+                    //    }
+                    //}
+                    //
+                    //for (let i = 0; i < nodesToCluster.length - 1; i++) {
+                    //    this.state.network.clusterByConnection(nodesToCluster[i], undefined, false);
+                    //}
+                    //
+                    //this.state.network.clusterByConnection(nodesToCluster[nodesToCluster.length], undefined, true);
+                    
+                    
+                    
+                    //this.state.network.clusterByConnection('S-1-5-32-544')
+                    this.state.network.clusterByHubsize(50, undefined)
+                    //this.state.network.clusterOutliers()
+                    //this.state.network.clusterByEdgeCount(20)
+                    //this.state.network.clusterByHubsize(undefined, undefined)
                 } else {
                     for(let i in this.state.network.clustering.clusteredNodes) {
-                        this.state.network.openCluster(this.state.network.clustering.clusteredNodes[i].clusterId)
+                        try{
+                            this.state.network.openCluster(this.state.network.clustering.clusteredNodes[i].clusterId)
+                        }
+                        catch (error) {
+                            console.log('openCluster Error! ' + error)
+                        }
+
                     }
                 }
+            }
         }
-        }
-      }
+    }
 
     applySmoothToEdges = array => {
         const newArray = [...array]
