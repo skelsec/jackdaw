@@ -5,6 +5,7 @@ import pathlib
 
 from jackdaw import logger
 from jackdaw.nest.ws.operator.operator import NestOperator
+from jackdaw.nest.ws.guac.guacproxy import GuacProxy
 
 
 class NestWebSocketServer:
@@ -27,6 +28,22 @@ class NestWebSocketServer:
 		self.operators[operator] = 1
 		await operator.run()
 		logger.info('Operator disconnected! %s:%s' % (remote_ip, remote_port))
+	
+	async def handle_guac_rdp(self, websocket, path):
+		guac_ip = '127.0.0.1'
+		guac_port = 4822
+		gp = GuacProxy(guac_ip, guac_port, websocket)
+		await gp.connect_rdp('10.10.10.102', domain ='TEST', username='victim', password= 'Passw0rd!1')
+		return
+
+	async def handle_incoming(self, websocket, path):
+		print(path)
+		if path == '/':
+			await self.handle_operator(websocket, path)
+		elif path.startswith('/rdp/'):
+			await self.handle_guac_rdp(websocket, path)
+		else:
+			logger.info('Cant handle path %s' % path)
 
 	async def run(self):
 		if self.graph_backend.upper() == 'networkx'.upper():
@@ -43,7 +60,7 @@ class NestWebSocketServer:
 		pathlib.Path(self.work_dir).joinpath('graphcache').mkdir(parents=True, exist_ok=True)
 
 		self.msg_queue = asyncio.Queue()
-		self.server = await websockets.serve(self.handle_operator, self.listen_ip, self.listen_port, ssl=self.ssl_ctx)
+		self.server = await websockets.serve(self.handle_incoming, self.listen_ip, self.listen_port, ssl=self.ssl_ctx)
 		print('[+] Server is running!')
 		await self.server.wait_closed()
 
