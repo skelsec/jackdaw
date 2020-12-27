@@ -21,13 +21,14 @@ from jackdaw.nest.ws.protocol.smbsessions import NestOpSMBSessions
 from jackdaw.nest.ws.protocol.tcpscan import NestOpTCPScan, NestOpTCPScanRes
 from jackdaw.nest.ws.protocol.pathres import NestOpPathRes
 from jackdaw.nest.ws.protocol.gatherstatus import NestOpGatherStatus
-from jackdaw.nest.ws.protocol.user import NestOpUserRes
-from jackdaw.nest.ws.protocol.computer import NestOpComputerRes
+from jackdaw.nest.ws.protocol.user import NestOpUserRes, NestOpUserBuffRes
+from jackdaw.nest.ws.protocol.computer import NestOpComputerRes, NestOpComputerBuffRes
 from jackdaw.nest.ws.protocol.smbsessionres import NestOpSMBSessionRes
-from jackdaw.nest.ws.protocol.smbshareres import NestOpSMBShareRes
+from jackdaw.nest.ws.protocol.smbshareres import NestOpSMBShareRes, NestOpSMBShareBuffRes
 from jackdaw.nest.ws.protocol.smblocalgroupres import NestOpSMBLocalGroupRes
 from jackdaw.nest.ws.protocol.loadad import NestOpLoadAD
-from jackdaw.nest.ws.protocol.group import NestOpGroupRes
+from jackdaw.nest.ws.protocol.group import NestOpGroupRes, NestOpGroupBuffRes
+from jackdaw.nest.ws.protocol.edge import NestOpEdgeRes, NestOpEdgeBuffRes
 
 
 __all__ = [
@@ -58,6 +59,12 @@ __all__ = [
 	'NestOpSMBLocalGroupRes',
 	'NestOpLoadAD',
 	'NestOpGroupRes',
+	'NestOpEdgeRes',
+	'NestOpEdgeBuffRes',
+	'NestOpUserBuffRes',
+	'NestOpGroupBuffRes',
+	'NestOpComputerBuffRes',
+	'NestOpSMBShareBuffRes',
 ]
 
 
@@ -99,5 +106,5 @@ type2obj = {
 	NestOpCmd.SMBSHARERES: NestOpSMBShareRes,
 	NestOpCmd.SMBLOCALGROUPRES: NestOpSMBLocalGroupRes,
 	NestOpCmd.LOADAD: NestOpLoadAD,
-	
+	NestOpCmd.EDGERES : NestOpEdgeRes,
 }

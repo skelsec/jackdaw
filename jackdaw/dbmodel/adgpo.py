@@ -1,5 +1,6 @@
 from . import Basemodel, lf, dt, bc
 import datetime
+import hashlib
 from sqlalchemy.orm import relationship
 from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Boolean
 from jackdaw.dbmodel.utils.serializer import Serializer
@@ -24,6 +25,22 @@ class GPO(Basemodel, Serializer):
 	gPCMachineExtensionNames = Column(String, index=True)
 	gPCUserExtensionNames = Column(String, index=True)
 	versionNumber = Column(String, index=True)
+
+	checksum = Column(String, index = True)
+
+	def gen_checksum(self):
+		ctx = hashlib.md5()
+		ctx.update(str(self.name).encode())
+		ctx.update(str(self.dn).encode())
+		ctx.update(str(self.cn).encode())
+		ctx.update(str(self.flags).encode())
+		ctx.update(str(self.path).encode())
+		ctx.update(str(self.gPCFunctionalityVersion).encode())
+		ctx.update(str(self.systemFlags).encode())
+		ctx.update(str(self.gPCMachineExtensionNames).encode())
+		ctx.update(str(self.gPCUserExtensionNames).encode())
+		ctx.update(str(self.versionNumber).encode())
+		self.checksum = ctx.hexdigest()
 	
 	def to_dict(self):
 		return {
@@ -39,6 +56,7 @@ class GPO(Basemodel, Serializer):
 			'gPCMachineExtensionNames' : self.gPCMachineExtensionNames ,
 			'gPCUserExtensionNames' : self.gPCUserExtensionNames ,
 			'versionNumber' : self.versionNumber ,
+			'checksum' : self.checksum,
 		}
 	
 	@staticmethod
@@ -57,6 +75,8 @@ class GPO(Basemodel, Serializer):
 		adou.gPCMachineExtensionNames = lf(u.gPCMachineExtensionNames)
 		adou.gPCUserExtensionNames = lf(u.gPCUserExtensionNames)
 		adou.versionNumber = lf(u.versionNumber)
-			
+
+		adou.gen_checksum()
+		
 		return adou
 		

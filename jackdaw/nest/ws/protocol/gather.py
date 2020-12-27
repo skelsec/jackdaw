@@ -51,3 +51,31 @@ class NestOpGather:
 	def from_json(jd):
 		return NestOpGather.from_dict(json.loads(jd))
 
+
+class NestOpGroupBuffRes:
+	def __init__(self):
+		self.cmd = NestOpCmd.GROUPBUFFRES
+		self.token = None
+		self.groups = []
+	
+	def to_dict(self):
+		return {
+			'cmd' : self.cmd.value,
+			'token' : self.token,
+			'groups' : [groups.to_dict() for groups in self.groups],
+		}
+	
+	def to_json(self):
+		return json.dumps(self.to_dict(), cls = UniversalEncoder)
+	
+	@staticmethod
+	def from_dict(d):
+		cmd = NestOpGroupBuffRes()
+		cmd.token = d['token']
+		return cmd
+
+	@staticmethod
+	def from_json(jd):
+		return NestOpGroupBuffRes.from_dict(json.loads(jd))
+
+

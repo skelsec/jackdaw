@@ -6,6 +6,7 @@
 
 from . import Basemodel, lf
 import datetime
+import hashlib
 from sqlalchemy.orm import relationship
 from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, BigInteger, Boolean
 from jackdaw._version import __version__
@@ -51,6 +52,24 @@ class ADInfo(Basemodel, Serializer):
 	ldap_members_finished = Column(Boolean)
 	ldap_sds_finished = Column(Boolean)
 	edges_finished = Column(Boolean)
+
+	checksum = Column(String, index = True)
+
+	def gen_checksum(self):
+		ctx = hashlib.md5()
+		ctx.update(str(self.forceLogoff).encode())
+		ctx.update(str(self.serverState).encode())
+		ctx.update(str(self.distinguishedName).encode())
+		ctx.update(str(self.whenCreated).encode())
+		ctx.update(str(self.domainmodelevel).encode())
+		ctx.update(str(self.systemFlags).encode())
+		ctx.update(str(self.masteredBy).encode())
+		ctx.update(str(self.pwdHistoryLength).encode())
+		ctx.update(str(self.pwdProperties).encode())
+		ctx.update(str(self.maxPwdAge).encode())
+		ctx.update(str(self.minPwdAge).encode())
+		ctx.update(str(self.minPwdLength).encode())
+		self.checksum = ctx.hexdigest()
 	
 	def to_dict(self):
 		return {
@@ -88,6 +107,7 @@ class ADInfo(Basemodel, Serializer):
 			'jdversion' : self.jdversion,
 			'ldap_enumeration_state' : self.ldap_enumeration_state,
 			'smb_enumeration_state' : self.smb_enumeration_state,
+			'checksum' : self.checksum,
 		}
 
 	@staticmethod
@@ -127,6 +147,7 @@ class ADInfo(Basemodel, Serializer):
 		adinfo.ldap_enumeration_state = d.get('ldap_enumeration_state')
 		adinfo.smb_enumeration_state = d.get('smb_enumeration_state')
 		adinfo.domainmodelevel = d.get('domainmodelevel')
+		adinfo.gen_checksum()
 		return adinfo
 
 
@@ -163,4 +184,5 @@ class ADInfo(Basemodel, Serializer):
 		adinfo.whenChanged = d.whenChanged
 		adinfo.whenCreated = d.whenCreated
 		adinfo.jdversion = __version__
+		adinfo.gen_checksum()
 		return adinfo

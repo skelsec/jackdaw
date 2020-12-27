@@ -1,4 +1,5 @@
 from . import Basemodel, lf
+import hashlib
 import datetime
 from sqlalchemy.orm import relationship
 from sqlalchemy import Column, Integer, String, DateTime, ForeignKey
@@ -26,6 +27,18 @@ class Group(Basemodel, Serializer):
 	whenCreated = Column(DateTime, index=True)
 	adminCount = Column(Integer, index=True)
 
+	checksum = Column(String, index = True)
+
+	def gen_checksum(self):
+		ctx = hashlib.md5()
+		ctx.update(str(self.sAMAccountName).encode())
+		ctx.update(str(self.adminCount).encode())
+		ctx.update(str(self.dn).encode())
+		ctx.update(str(self.cn).encode())
+		ctx.update(str(self.member).encode())
+		ctx.update(str(self.systemFlags).encode())
+		self.checksum = ctx.hexdigest()
+
 	def to_dict(self):
 		return {
 			'id' : self.id ,
@@ -40,6 +53,7 @@ class Group(Basemodel, Serializer):
 			'systemFlags' : self.systemFlags ,
 			'whenChanged' : self.whenChanged ,
 			'whenCreated' : self.whenCreated ,
+			'checksum' : self.checksum,
 		}
 
 	@staticmethod
@@ -58,4 +72,5 @@ class Group(Basemodel, Serializer):
 		group.systemFlags = d.get('systemFlags')
 		group.whenChanged = d.get('whenChanged')
 		group.whenCreated = d.get('whenCreated')
+		group.gen_checksum()
 		return group

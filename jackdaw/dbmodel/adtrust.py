@@ -1,4 +1,5 @@
 from . import Basemodel, lf
+import hashlib
 import datetime
 from sqlalchemy.orm import relationship
 from sqlalchemy import Column, Integer, String, DateTime, ForeignKey
@@ -25,6 +26,22 @@ class ADTrust(Basemodel, Serializer):
 	trustAttributes = Column(String, index=True)
 	flatName = Column(String, index=True)
 
+	checksum = Column(String, index = True)
+
+	def gen_checksum(self):
+		ctx = hashlib.md5()
+		ctx.update(str(self.cn).encode())
+		ctx.update(str(self.dn).encode())
+		ctx.update(str(self.name).encode())
+		ctx.update(str(self.whenCreated).encode())
+		ctx.update(str(self.trustDirection).encode())
+		ctx.update(str(self.trustPartner).encode())
+		ctx.update(str(self.trustPosixOffset).encode())
+		ctx.update(str(self.trustType).encode())
+		ctx.update(str(self.trustAttributes).encode())
+		ctx.update(str(self.flatName).encode())
+		self.checksum = ctx.hexdigest()
+
 	@staticmethod
 	def from_ldapdict(d):
 		trust = ADTrust()
@@ -45,6 +62,7 @@ class ADTrust(Basemodel, Serializer):
 		trust.trustType = t.name if t is not None else None
 		trust.trustAttributes = lf(d.get('trustAttributes'))
 		trust.flatName = lf(d.get('flatName'))
+		trust.gen_checksum()
 
 		return trust
 
@@ -66,4 +84,5 @@ class ADTrust(Basemodel, Serializer):
 			'trustType' : self.trustType ,
 			'trustAttributes' : self.trustAttributes ,
 			'flatName' : self.flatName ,
+			'checksum' : self.checksumm
 		}

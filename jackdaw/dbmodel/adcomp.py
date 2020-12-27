@@ -1,4 +1,5 @@
 import datetime
+import hashlib
 
 from . import Basemodel, lf, dt, bc
 
@@ -80,8 +81,19 @@ class Machine(Basemodel, Serializer):
 	UAC_PASSWORD_EXPIRED = Column(Boolean)
 	UAC_TRUSTED_TO_AUTHENTICATE_FOR_DELEGATION = Column(Boolean)
 
-
+	checksum = Column(String, index = True)
 	Index('machinednslower', func.lower(dNSHostName))
+
+	def gen_checksum(self):
+		ctx = hashlib.md5()
+		ctx.update(str(self.sAMAccountName).encode())
+		ctx.update(str(self.userAccountControl).encode())
+		#ctx.update(str(self.adminCount))
+		ctx.update(str(self.sAMAccountType).encode())
+		ctx.update(str(self.dn).encode())
+		ctx.update(str(self.cn).encode())
+		ctx.update(str(self.servicePrincipalName).encode())
+		self.checksum = ctx.hexdigest()
 
 	def to_dict(self):
 		return {
@@ -138,6 +150,7 @@ class Machine(Basemodel, Serializer):
 			'when_pw_expires' : self.when_pw_expires ,
 			'must_change_pw' : self.must_change_pw ,
 			'canLogon' : self.canLogon ,
+			'checksum' : self.checksum,
 		}
 	
 	@staticmethod
@@ -185,5 +198,6 @@ class Machine(Basemodel, Serializer):
 		machine.canLogon = bc(u.canLogon)
 		
 		calc_uac_flags(machine)
+		machine.gen_checksum()
 		
 		return machine

@@ -4,21 +4,15 @@ from jackdaw.utils.encoder import UniversalEncoder
 from jackdaw.nest.ws.protocol.cmdtypes import NestOpCmd
 
 
-class NestOpUserRes:
+class NestOpEdgeRes:
 	def __init__(self):
-		self.cmd = NestOpCmd.USERRES
+		self.cmd = NestOpCmd.EDGERES
 		self.token = None
-		self.name = None
 		self.adid = None
-		self.sid = None
-		self.kerberoast = None
-		self.asreproast = None
-		self.nopassw = None
-		self.cleartext = None
-		self.smartcard = None
-		self.active = None
-		self.description = None
-		self.is_admin = False
+		self.graphid = None
+		self.src = None #oid!
+		self.dst = None #oid!
+		self.weight = 1
 	
 	def to_dict(self):
 		return self.__dict__
@@ -28,28 +22,25 @@ class NestOpUserRes:
 	
 	@staticmethod
 	def from_dict(d):
-		cmd = NestOpUserRes()
+		cmd = NestOpEdgeRes()
 		cmd.token = d['token']
-		if 'exclude' in d:
-			cmd.exclude = d['exclude']
 		return cmd
 
 	@staticmethod
 	def from_json(jd):
-		return NestOpUserRes.from_dict(json.loads(jd))
+		return NestOpEdgeRes.from_dict(json.loads(jd))
 
-
-class NestOpUserBuffRes:
+class NestOpEdgeBuffRes:
 	def __init__(self):
-		self.cmd = NestOpCmd.USERBUFFRES
+		self.cmd = NestOpCmd.EDGEBUFFRES
 		self.token = None
-		self.users = [] #NestOpEdgeRes
+		self.edges = [] #NestOpEdgeRes
 	
 	def to_dict(self):
 		return {
 			'cmd' : self.cmd.value,
 			'token' : self.token,
-			'users' : [users.to_dict() for users in self.users],
+			'edges' : [edge.to_dict() for edge in self.edges],
 		}
 	
 	def to_json(self):
@@ -57,10 +48,11 @@ class NestOpUserBuffRes:
 	
 	@staticmethod
 	def from_dict(d):
-		cmd = NestOpUserBuffRes()
+		cmd = NestOpEdgeBuffRes()
 		cmd.token = d['token']
 		return cmd
 
 	@staticmethod
 	def from_json(jd):
-		return NestOpUserBuffRes.from_dict(json.loads(jd))
+		return NestOpEdgeBuffRes.from_dict(json.loads(jd))
+

@@ -6,6 +6,7 @@ from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Boolean
 import json
 from jackdaw.utils.encoder import UniversalEncoder
 from jackdaw.dbmodel.utils.serializer import Serializer
+import hashlib
 
 class ADUser(Basemodel, Serializer):
 	__tablename__ = 'users'
@@ -81,7 +82,22 @@ class ADUser(Basemodel, Serializer):
 	UAC_USE_DES_KEY_ONLY = Column(Boolean)
 	UAC_DONT_REQUIRE_PREAUTH = Column(Boolean)
 	UAC_PASSWORD_EXPIRED = Column(Boolean)
-	UAC_TRUSTED_TO_AUTHENTICATE_FOR_DELEGATION = Column(Boolean)	
+	UAC_TRUSTED_TO_AUTHENTICATE_FOR_DELEGATION = Column(Boolean)
+
+	checksum = Column(String, index = True)
+
+	def gen_checksum(self):
+		ctx = hashlib.md5()
+		ctx.update(str(self.sAMAccountName).encode())
+		ctx.update(str(self.userAccountControl).encode())
+		ctx.update(str(self.adminCount).encode())
+		ctx.update(str(self.sAMAccountType).encode())
+		ctx.update(str(self.dn).encode())
+		ctx.update(str(self.cn).encode())
+		ctx.update(str(self.servicePrincipalName).encode())
+		ctx.update(str(self.memberOf).encode())
+		ctx.update(str(self.member).encode())
+		self.checksum = ctx.hexdigest()
 
 	def to_dict(self):
 		return {
@@ -136,6 +152,7 @@ class ADUser(Basemodel, Serializer):
 			'UAC_DONT_REQUIRE_PREAUTH' : self.UAC_DONT_REQUIRE_PREAUTH ,
 			'UAC_PASSWORD_EXPIRED' : self.UAC_PASSWORD_EXPIRED ,
 			'UAC_TRUSTED_TO_AUTHENTICATE_FOR_DELEGATION' : self.UAC_TRUSTED_TO_AUTHENTICATE_FOR_DELEGATION ,
+			'checksum' : self.checksum,
 		}
 
 	def to_json(self):
@@ -188,5 +205,5 @@ class ADUser(Basemodel, Serializer):
 		user.canLogon = bc(u.canLogon)
 		user.isAdmin = bc(getattr(u,'isAdmin', None))
 		calc_uac_flags(user)
-			
+		user.gen_checksum()
 		return user
