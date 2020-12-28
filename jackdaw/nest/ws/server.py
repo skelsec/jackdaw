@@ -7,6 +7,8 @@ from jackdaw import logger
 from jackdaw.nest.ws.operator.operator import NestOperator
 from jackdaw.nest.ws.guac.guacproxy import GuacProxy
 
+# https://gist.github.com/artizirk/04eb23d957d7916c01ca632bb27d5436
+# https://www.howtoforge.com/how-to-install-and-configure-guacamole-on-ubuntu-2004/
 
 class NestWebSocketServer:
 	def __init__(self, listen_ip, listen_port, db_url, work_dir, backend, ssl_ctx = None):
