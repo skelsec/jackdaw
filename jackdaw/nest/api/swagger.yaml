@@ -2385,4 +2385,94 @@ paths:
               graph:
                 type: string
                 description: Placeholder TODO
+
+  /storedcred/:
+    put:
+      operationId: jackdaw.nest.api.customcred.store
+      tags:
+        - StoredCred
+      summary: Upload a new stored credential
+      description: Upload a new stored credential, returns ID
+      parameters:
+        - name: data
+          in: body
+          description: search filter
+          schema:
+            properties:
+              domain:
+                type: string
+              username:
+                type: string
+              password:
+                type: string
+              description:
+                type: string
+
+      responses:
+        200:
+          description: TODO
+          schema:
+            type: object
+            properties:
+              graph:
+                type: string
+                description: Placeholder TODO
+
+    get:
+      operationId: jackdaw.nest.api.storedcred.list
+      tags:
+        - StoredCred
+      summary: Lists available stroed credentials ID and description
+      description: Lists available stroed credentials ID and description
+      responses:
+        200:
+          description: Nah
+          schema:
+            type: object
+            properties:
+              graph:
+                type: string
+                description: Placeholder TODO
   
+  /customtarget/:
+    put:
+      operationId: jackdaw.nest.api.customtarget.store
+      tags:
+        - CustomTarget
+      summary: Create a custom target (hostname/ip)
+      description: Create a custom target (hostname/ip)
+      parameters:
+        - name: data
+          in: body
+          description: search filter
+          schema:
+            properties:
+              hostname:
+                type: string
+              description:
+                type: string
+      responses:
+        200:
+          description: TODO
+          schema:
+            type: object
+            properties:
+              graph:
+                type: string
+                description: Placeholder TODO
+
+    get:
+      operationId: jackdaw.nest.api.customtarget.list
+      tags:
+        - CustomTarget
+      summary: Lists available custom targets
+      description: Lists available custom targets
+      responses:
+        200:
+          description: Nah
+          schema:
+            type: object
+            properties:
+              graph:
+                type: string
+                description: Placeholder TODO

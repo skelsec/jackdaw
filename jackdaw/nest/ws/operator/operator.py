@@ -2,6 +2,7 @@ import asyncio
 import multiprocessing
 import platform
 import datetime
+import traceback
 
 from jackdaw.dbmodel.adinfo import ADInfo
 from jackdaw.dbmodel.edgelookup import EdgeLookup
@@ -14,6 +15,9 @@ from jackdaw.dbmodel.netsession import NetSession
 from jackdaw.dbmodel.localgroup import LocalGroup
 from jackdaw.dbmodel.edge import Edge
 from jackdaw.dbmodel.edgelookup import EdgeLookup
+from jackdaw.dbmodel.customtarget import CustomTarget
+from jackdaw.dbmodel.storedcreds import StoredCred
+from jackdaw.dbmodel.graphinfo import GraphInfoAD, GraphInfo
 
 
 
@@ -68,13 +72,13 @@ class NestOperator:
 		
 		return True
 
-	def listgraphs(self):
-		t = []
-		graph_cache_dir = self.work_dir.joinpath('graphcache')
-		x = [f for f in graph_cache_dir.iterdir() if f.is_dir()]
-		for d in x:
-			t.append(int(str(d.name)))
-		return t
+	#def listgraphs(self):
+	#	t = []
+	#	graph_cache_dir = self.work_dir.joinpath('graphcache')
+	#	x = [f for f in graph_cache_dir.iterdir() if f.is_dir()]
+	#	for d in x:
+	#		t.append(int(str(d.name)))
+	#	return t
 
 	def lookup_oid(self, oint, ad_id, token):
 		try:
@@ -87,8 +91,14 @@ class NestOperator:
 			logger.exception('lookup_oid')
 
 	async def do_listgraphs(self, cmd):
-		res = self.listgraphs()
-		await self.send_result(cmd, res)
+		gr = NestOpListGraphRes()
+		gr.token = cmd.token
+		
+		for res in self.db_session.query(GraphInfo).all():	
+			gr.gids.append(res.id)
+		
+		await self.websocket.send(gr.to_json())
+		await self.send_ok(cmd)
 
 	async def do_changegraph(self, cmd):
 		if cmd.graphid not in self.listgraphs():
@@ -414,206 +424,216 @@ class NestOperator:
 
 			await self.send_result(cmd, obj)
 
-	async def do_load_ad(self, cmd):
+	async def do_load_graph(self, cmd):
 		try:
 			# loads an AD scan and sends all results to the client
-			
+			logger.info('do_load_graph')
 			# sanity check if the AD exists
-			res = self.db_session.query(ADInfo).get(cmd.adid)
-			if res is None:
+			qry_res = self.db_session.query(GraphInfoAD.ad_id).filter_by(graph_id = cmd.graphid).all()
+			if qry_res is None:
 				await self.send_error(cmd, 'No AD ID exists with that ID')
 				return
-			
-			#sending machines
-			logger.info('computer!')
-			compbuff = NestOpComputerBuffRes()
-			compbuff.token = cmd.token
-			qry = self.db_session.query(Machine).filter_by(ad_id = cmd.adid)
-			for computer  in windowed_query(qry, Machine.id, 100):
-				await asyncio.sleep(0)
-				reply = NestOpComputerRes()
-				reply.token = cmd.token
-				reply.name = computer.sAMAccountName
-				reply.adid = computer.ad_id
-				reply.sid = computer.objectSid
-				reply.domainname = computer.dNSHostName
-				reply.osver = computer.operatingSystem
-				reply.ostype = computer.operatingSystemVersion
-				reply.description = computer.description
-				if computer.isAdmin is not None:
-					reply.is_admin = int(computer.isAdmin)
-				reply.isinactive = 1
-				if computer.lastLogonTimestamp is not None:
-					if (datetime.datetime.utcnow() - computer.lastLogonTimestamp).days > (6 * 30):
-						reply.isinactive = 0
+			res = []
+			for r in qry_res:
+				res.append(r[0]) #ugly, pls fix!
 				
-				if computer.UAC_SERVER_TRUST_ACCOUNT is True:
-					reply.computertype = 'DOMAIN_CONTROLLER'
-				elif computer.operatingSystem is not None:
-					if computer.operatingSystem.lower().find('windows') != -1:
-						if computer.operatingSystem.lower().find('server') != -1:
-							reply.computertype = 'SERVER'
+			logger.info('res %s' % res)
+			for adid in res:
+				#sending machines
+				logger.info('computer!')
+				compbuff = NestOpComputerBuffRes()
+				compbuff.token = cmd.token
+				qry = self.db_session.query(Machine).filter_by(ad_id = adid)
+				for computer  in windowed_query(qry, Machine.id, 100):
+					await asyncio.sleep(0)
+					reply = NestOpComputerRes()
+					reply.token = cmd.token
+					reply.name = computer.sAMAccountName
+					reply.adid = computer.ad_id
+					reply.sid = computer.objectSid
+					reply.domainname = computer.dNSHostName
+					reply.osver = computer.operatingSystem
+					reply.ostype = computer.operatingSystemVersion
+					reply.description = computer.description
+					if computer.isAdmin is not None:
+						reply.is_admin = int(computer.isAdmin)
+					reply.isinactive = 1
+					if computer.lastLogonTimestamp is not None:
+						if (datetime.datetime.utcnow() - computer.lastLogonTimestamp).days > (6 * 30):
+							reply.isinactive = 0
+					
+					if computer.UAC_SERVER_TRUST_ACCOUNT is True:
+						reply.computertype = 'DOMAIN_CONTROLLER'
+					elif computer.operatingSystem is not None:
+						if computer.operatingSystem.lower().find('windows') != -1:
+							if computer.operatingSystem.lower().find('server') != -1:
+								reply.computertype = 'SERVER'
+							else:
+								reply.computertype = 'WORKSTATION'
 						else:
-							reply.computertype = 'WORKSTATION'
+							reply.computertype = 'NIX'
 					else:
-						reply.computertype = 'NIX'
-				else:
-					reply.computertype = 'DUNNO'
-						
+						reply.computertype = 'DUNNO'
+							
 
-				compbuff.computers.append(reply)
-				if len(compbuff.computers) >= 100:
+					compbuff.computers.append(reply)
+					if len(compbuff.computers) >= 100:
+						await self.websocket.send(compbuff.to_json())
+						compbuff = NestOpComputerBuffRes()
+						compbuff.token = cmd.token
+
+				if len(compbuff.computers) > 0:
 					await self.websocket.send(compbuff.to_json())
 					compbuff = NestOpComputerBuffRes()
 					compbuff.token = cmd.token
 
-			if len(compbuff.computers) > 0:
-				await self.websocket.send(compbuff.to_json())
-				compbuff = NestOpComputerBuffRes()
-				compbuff.token = cmd.token
 
+			for adid in res:
+				#sending users
+				logger.info('users!')
+				userbuff = NestOpUserBuffRes()
+				userbuff.token = cmd.token
+				qry = self.db_session.query(ADUser).filter_by(ad_id = adid)
+				for user in windowed_query(qry, ADUser.id, 100):
+					await asyncio.sleep(0)
+					reply = NestOpUserRes()
+					reply.token = cmd.token
+					reply.name = user.sAMAccountName
+					reply.adid = user.ad_id
+					reply.sid = user.objectSid
+					reply.kerberoast = 1 if user.servicePrincipalName is not None else 0
+					reply.asreproast = int(user.UAC_DONT_REQUIRE_PREAUTH)
+					reply.nopassw = int(user.UAC_PASSWD_NOTREQD)
+					reply.cleartext = int(user.UAC_ENCRYPTED_TEXT_PASSWORD_ALLOWED)
+					reply.smartcard = int(user.UAC_SMARTCARD_REQUIRED)
+					reply.active = int(user.canLogon)
+					reply.description = user.description
+					if user.adminCount is not None:
+						reply.is_admin = int(user.adminCount)
+					else:
+						reply.is_admin = 0
+					userbuff.users.append(reply)
+					if len(userbuff.users) >= 100:
+						await self.websocket.send(userbuff.to_json())
+						userbuff = NestOpUserBuffRes()
+						userbuff.token = cmd.token
 
-
-			#sending users
-			logger.info('users!')
-			userbuff = NestOpUserBuffRes()
-			userbuff.token = cmd.token
-			qry = self.db_session.query(ADUser).filter_by(ad_id = cmd.adid)
-			for user in windowed_query(qry, ADUser.id, 100):
-				await asyncio.sleep(0)
-				reply = NestOpUserRes()
-				reply.token = cmd.token
-				reply.name = user.sAMAccountName
-				reply.adid = user.ad_id
-				reply.sid = user.objectSid
-				reply.kerberoast = 1 if user.servicePrincipalName is not None else 0
-				reply.asreproast = int(user.UAC_DONT_REQUIRE_PREAUTH)
-				reply.nopassw = int(user.UAC_PASSWD_NOTREQD)
-				reply.cleartext = int(user.UAC_ENCRYPTED_TEXT_PASSWORD_ALLOWED)
-				reply.smartcard = int(user.UAC_SMARTCARD_REQUIRED)
-				reply.active = int(user.canLogon)
-				reply.description = user.description
-				if user.adminCount is not None:
-					reply.is_admin = int(user.adminCount)
-				else:
-					reply.is_admin = 0
-				userbuff.users.append(reply)
-				if len(userbuff.users) >= 100:
+				if len(userbuff.users) > 0:
 					await self.websocket.send(userbuff.to_json())
 					userbuff = NestOpUserBuffRes()
 					userbuff.token = cmd.token
-
-			if len(userbuff.users) > 0:
-				await self.websocket.send(userbuff.to_json())
-				userbuff = NestOpUserBuffRes()
-				userbuff.token = cmd.token
-
-			#sending localgroups
-			logger.info('localgroups!')
-			for lgroup in self.db_session.query(LocalGroup).filter_by(ad_id = cmd.adid).all():
-				await asyncio.sleep(0)
-				reply = NestOpSMBLocalGroupRes()
-				reply.token = cmd.token
-				reply.adid = lgroup.ad_id
-				reply.machinesid = lgroup.machine_sid
-				reply.usersid = lgroup.sid
-				reply.groupname = lgroup.groupname
-				await self.websocket.send(reply.to_json())
 			
-			#sending smb shares
-			logger.info('SHARES!')
-			sharebuffer = NestOpSMBShareBuffRes()
-			sharebuffer.token = cmd.token
-			qry = self.db_session.query(NetShare).filter_by(ad_id = cmd.adid)
-			for share in windowed_query(qry, NetShare.id, 100):
-				await asyncio.sleep(0)
-				reply = NestOpSMBShareRes()
-				reply.token = cmd.token
-				reply.adid = share.ad_id
-				reply.machinesid = share.machine_sid
-				reply.netname = share.netname
-				if len(sharebuffer.shares) >= 100:
+			for adid in res:
+				#sending localgroups
+				logger.info('localgroups!')
+				for lgroup in self.db_session.query(LocalGroup).filter_by(ad_id = adid).all():
+					await asyncio.sleep(0)
+					reply = NestOpSMBLocalGroupRes()
+					reply.token = cmd.token
+					reply.adid = lgroup.ad_id
+					reply.machinesid = lgroup.machine_sid
+					reply.usersid = lgroup.sid
+					reply.groupname = lgroup.groupname
+					await self.websocket.send(reply.to_json())
+			
+			for adid in res:
+				#sending smb shares
+				logger.info('SHARES!')
+				sharebuffer = NestOpSMBShareBuffRes()
+				sharebuffer.token = cmd.token
+				qry = self.db_session.query(NetShare).filter_by(ad_id = adid)
+				for share in windowed_query(qry, NetShare.id, 100):
+					await asyncio.sleep(0)
+					reply = NestOpSMBShareRes()
+					reply.token = cmd.token
+					reply.adid = share.ad_id
+					reply.machinesid = share.machine_sid
+					reply.netname = share.netname
+					if len(sharebuffer.shares) >= 100:
+						await self.websocket.send(sharebuffer.to_json())
+						sharebuffer = NestOpSMBShareBuffRes()
+						sharebuffer.token = cmd.token
+				
+				if len(sharebuffer.shares) > 0:
 					await self.websocket.send(sharebuffer.to_json())
 					sharebuffer = NestOpSMBShareBuffRes()
 					sharebuffer.token = cmd.token
 			
-			if len(sharebuffer.shares) > 0:
-				await self.websocket.send(sharebuffer.to_json())
-				sharebuffer = NestOpSMBShareBuffRes()
-				sharebuffer.token = cmd.token
-			
-			#sending smb sessions
-			logger.info('SESSIONS!')
-			for session in self.db_session.query(NetSession).filter_by(ad_id = cmd.adid).all():
-				await asyncio.sleep(0)
-				reply = NestOpSMBSessionRes()
-				reply.token = cmd.token
-				reply.adid = session.ad_id
-				reply.machinesid = session.machine_sid
-				reply.username = session.username
-				await self.websocket.send(reply.to_json())
+			for adid in res:
+				#sending smb sessions
+				logger.info('SESSIONS!')
+				for session in self.db_session.query(NetSession).filter_by(ad_id = adid).all():
+					await asyncio.sleep(0)
+					reply = NestOpSMBSessionRes()
+					reply.token = cmd.token
+					reply.adid = session.ad_id
+					reply.machinesid = session.machine_sid
+					reply.username = session.username
+					await self.websocket.send(reply.to_json())
 
-			#sending groups
-			logger.info('GROUPS!')
-			groupbuffer = NestOpGroupBuffRes()
-			groupbuffer.token = cmd.token
-			qry = self.db_session.query(Group).filter_by(ad_id = cmd.adid)
-			for group in windowed_query(qry, Group.id, 100):
-				await asyncio.sleep(0)
-				reply = NestOpGroupRes()
-				reply.token = cmd.token
-				reply.adid = group.ad_id
-				reply.name = group.sAMAccountName
-				reply.dn = group.dn
-				reply.guid = group.objectGUID
-				reply.sid = group.objectSid
-				reply.description = group.description
-				if group.adminCount is not None:
-					reply.is_admin = int(group.adminCount)
-				else:
-					reply.is_admin = 0
+			for adid in res:
+				#sending groups
+				logger.info('GROUPS!')
+				groupbuffer = NestOpGroupBuffRes()
+				groupbuffer.token = cmd.token
+				qry = self.db_session.query(Group).filter_by(ad_id = adid)
+				for group in windowed_query(qry, Group.id, 100):
+					await asyncio.sleep(0)
+					reply = NestOpGroupRes()
+					reply.token = cmd.token
+					reply.adid = group.ad_id
+					reply.name = group.sAMAccountName
+					reply.dn = group.dn
+					reply.guid = group.objectGUID
+					reply.sid = group.objectSid
+					reply.description = group.description
+					if group.adminCount is not None:
+						reply.is_admin = int(group.adminCount)
+					else:
+						reply.is_admin = 0
 
-				groupbuffer.groups.append(reply)
+					groupbuffer.groups.append(reply)
 
-				if len(groupbuffer.groups) >= 100:
+					if len(groupbuffer.groups) >= 100:
+						await self.websocket.send(groupbuffer.to_json())
+						groupbuffer = NestOpGroupBuffRes()
+						groupbuffer.token = cmd.token
+				
+				if len(groupbuffer.groups) > 0:
 					await self.websocket.send(groupbuffer.to_json())
 					groupbuffer = NestOpGroupBuffRes()
 					groupbuffer.token = cmd.token
 			
-			if len(groupbuffer.groups) > 0:
-				await self.websocket.send(groupbuffer.to_json())
-				groupbuffer = NestOpGroupBuffRes()
-				groupbuffer.token = cmd.token
-			
-			#sending edges
-			logger.info('EDGES!')
-			edgebuffer = NestOpEdgeBuffRes()
-			edgebuffer.token = cmd.token
+			for adid in res:
+				#sending edges
+				logger.info('EDGES!')
+				edgebuffer = NestOpEdgeBuffRes()
+				edgebuffer.token = cmd.token
 
-			qry = self.db_session.query(Edge).filter_by(ad_id = cmd.adid)
-			for edge in windowed_query(qry, Edge.id, 100):
-				await asyncio.sleep(0)
-				reply = NestOpEdgeRes()
-				reply.token = cmd.token
-				reply.adid = edge.ad_id
-				reply.graphid = edge.graph_id
-				reply.src = self.lookup_oid(edge.src, edge.ad_id, cmd.token)
-				reply.dst = self.lookup_oid(edge.dst, edge.ad_id, cmd.token)
-				reply.label = edge.label
-				if reply.src is None or reply.src == '':
-					#print('ERROR!!! %s %s' % (edge.src, reply.src))
-					continue
+				qry = self.db_session.query(Edge).filter_by(ad_id = adid)
+				for edge in windowed_query(qry, Edge.id, 100):
+					await asyncio.sleep(0)
+					reply = NestOpEdgeRes()
+					reply.token = cmd.token
+					reply.adid = edge.ad_id
+					reply.graphid = edge.graph_id
+					reply.src = self.lookup_oid(edge.src, edge.ad_id, cmd.token)
+					reply.dst = self.lookup_oid(edge.dst, edge.ad_id, cmd.token)
+					reply.label = edge.label
+					if reply.src is None or reply.src == '':
+						#print('ERROR!!! %s %s' % (edge.src, reply.src))
+						continue
 
-				edgebuffer.edges.append(reply)
-				if len(edgebuffer.edges) >= 100:
+					edgebuffer.edges.append(reply)
+					if len(edgebuffer.edges) >= 100:
+						await self.websocket.send(edgebuffer.to_json())
+						edgebuffer = NestOpEdgeBuffRes()
+						edgebuffer.token = cmd.token
+				
+				if len(edgebuffer.edges) > 0:
 					await self.websocket.send(edgebuffer.to_json())
 					edgebuffer = NestOpEdgeBuffRes()
 					edgebuffer.token = cmd.token
-			
-			if len(edgebuffer.edges) > 0:
-				await self.websocket.send(edgebuffer.to_json())
-				edgebuffer = NestOpEdgeBuffRes()
-				edgebuffer.token = cmd.token
 
 
 			await self.send_ok(cmd)
@@ -648,7 +668,90 @@ class NestOperator:
 			res += self.graphs[self.graph_id].shortest_paths(None, sid)
 
 		await self.send_result(cmd, res)
-	
+
+	async def do_add_cred(self, cmd):
+		logger.info('do_add_cred')
+		sc = StoredCred(cmd.username, cmd.password, cmd.description, cmd.domain, ownerid=None) #TODO: fill out owner id
+		self.db_session.add(sc)
+		self.db_session.commit()
+		self.db_session.refresh(sc)
+		cr = NestOpCredRes()
+		cr.token = cmd.token
+		cr.cid = sc.id
+		cr.description = sc.description
+		await self.websocket.send(cr.to_json())
+		await self.send_ok(cmd)
+		logger.info('OK!')
+
+
+	async def do_get_cred(self, cmd):
+		logger.info('do_get_cred')
+		sc = self.db_session.query(StoredCred).get(cmd.cid)
+		cr = NestOpCredRes()
+		cr.token = cmd.token
+		cr.cid = sc.id
+		cr.description = sc.description
+		await self.websocket.send(cr.to_json())
+		await self.send_ok(cmd)
+		logger.info('OK!')
+
+	async def do_list_cred(self, cmd):
+		logger.info('do_list_cred')
+		ownerid = None
+		for res in db.session.query(StoredCred.id, StoredCred.description).filter_by(ownerid = ownerid).all():
+			await asyncio.sleep(0)
+			cr = NestOpCredRes()
+			cr.token = cmd.token
+			cr.cid = res.id
+			cr.description = res.description
+			await self.websocket.send(cr.to_json())
+		await self.send_ok(cmd)
+		logger.info('OK!')
+
+	async def do_add_target(self, cmd):
+		logger.info('do_add_target')
+		ownerid = None
+		sc = CustomTarget(cmd.hostname, cmd.description, ownerid=ownerid) #TODO: fill out owner id
+		self.db_session.add(sc)
+		self.db_session.commit()
+		self.db_session.refresh(sc)
+
+		cr = NestOpTargetRes()
+		cr.token = cmd.token
+		cr.tid = sc.id
+		cr.hostname = sc.hostname
+		cr.description = sc.description
+		await self.websocket.send(cr.to_json())
+		await self.send_ok(cmd)
+		logger.info('OK!')
+
+	async def do_get_target(self, cmd):
+		logger.info('do_get_target')
+		sc = self.db_session.query(CustomTarget).get(cmd.tid)
+		cr = NestOpTargetRes()
+		cr.token = cmd.token
+		cr.tid = sc.id
+		cr.hostname = sc.hostname
+		cr.description = sc.description
+		await self.websocket.send(cr.to_json())
+		await self.send_ok(cmd)
+		logger.info('OK!')
+
+	async def do_list_target(self, cmd):
+		logger.info('do_list_target')
+		ownerid = None
+		for res in db.session.query(CustomTarget).filter_by(ownerid = ownerid).all():
+			await asyncio.sleep(0)
+			cr = NestOpTargetRes()
+			cr.token = cmd.token
+			cr.tid = res.id
+			cr.hostname = res.hostname
+			cr.description = res.description
+			await self.websocket.send(cr.to_json())
+
+		await self.send_ok(cmd)
+		logger.info('OK!')
+
 	async def __scanmonitor(self, cmd, results_queue):
 		try:
 			while True:
@@ -733,15 +836,29 @@ class NestOperator:
 						asyncio.create_task(self.do_changegraph(cmd))
 					elif cmd.cmd == NestOpCmd.TCPSCAN:
 						asyncio.create_task(self.do_tcpscan(cmd))
-					elif cmd.cmd == NestOpCmd.LOADAD:
-						asyncio.create_task(self.do_load_ad(cmd))
+					#elif cmd.cmd == NestOpCmd.LOADAD:
+					#	asyncio.create_task(self.do_load_ad(cmd))
+					elif cmd.cmd == NestOpCmd.LOADGRAPH:
+						asyncio.create_task(self.do_load_graph(cmd))
+					elif cmd.cmd == NestOpCmd.ADDCRED:
+						asyncio.create_task(self.do_add_cred(cmd))
+					elif cmd.cmd == NestOpCmd.GETCRED:
+						asyncio.create_task(self.do_get_cred(cmd))
+					elif cmd.cmd == NestOpCmd.LISTCRED:
+						asyncio.create_task(self.do_list_cred(cmd))
+					elif cmd.cmd == NestOpCmd.ADDTARGET:
+						asyncio.create_task(self.do_add_target(cmd))
+					elif cmd.cmd == NestOpCmd.GETTARGET:
+						asyncio.create_task(self.do_get_target(cmd))
+					elif cmd.cmd == NestOpCmd.LISTTARGET:
+						asyncio.create_task(self.do_list_target(cmd))
 					else:
 						print('Unknown Command')
 
 				except asyncio.CancelledError:
 					return
 				except Exception as e:
-					print(e)
+					traceback.print_exc()
 					return
 
 		except asyncio.CancelledError:

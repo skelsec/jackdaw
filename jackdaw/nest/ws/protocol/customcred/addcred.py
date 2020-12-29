@@ -1,13 +1,17 @@
+
 import json
 
 from jackdaw.utils.encoder import UniversalEncoder 
 from jackdaw.nest.ws.protocol.cmdtypes import NestOpCmd
 
-
-class NestOpListGraphs:
+class NestOpAddCred:
 	def __init__(self):
-		self.cmd = NestOpCmd.LISTGRAPHS
+		self.cmd = NestOpCmd.ADDCRED
 		self.token = None
+		self.username = None
+		self.domain = None
+		self.password = None
+		self.description = None
 	
 	def to_dict(self):
 		return self.__dict__
@@ -17,10 +21,15 @@ class NestOpListGraphs:
 	
 	@staticmethod
 	def from_dict(d):
-		cmd = NestOpListGraphs()
+		cmd = NestOpAddCred()
 		cmd.token = d['token']
+		cmd.username = d['username']
+		cmd.domain = d['domain']
+		cmd.password = d['password']
+		cmd.description = d['description']
 		return cmd
 
 	@staticmethod
 	def from_json(jd):
-		return NestOpListGraphs.from_dict(json.loads(jd))
+		return NestOpAddCred.from_dict(json.loads(jd))
+

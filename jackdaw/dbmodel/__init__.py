@@ -53,6 +53,8 @@ def set_sqlite_pragma(dbapi_connection, connection_record):
 	cursor.execute("PRAGMA cache_size = 500000")
 	cursor.close()
 
+
+
 def lf(x, sep = ','):
 	"""
 	flattens objects
@@ -127,13 +129,23 @@ from .smbvuln import SMBVuln
 from .adallowedtoact import MachineAllowedToAct
 from .dnslookup import DNSLookup
 from .adschemaentry import ADSchemaEntry
-
+from .storedcreds import StoredCred
+from .portaluser import PortalUser
+from .customtarget import CustomTarget
 
 
 def create_db(connection, verbosity = 0):
 	logging.info('Creating database %s' % connection)
 	engine = create_engine(connection, echo=True if verbosity > 1 else False) #'sqlite:///dump.db'	
 	Basemodel.metadata.create_all(engine)
+	Session = sessionmaker(engine)
+	try:
+		session = Session()
+		#inserting test data...
+		session.add(StoredCred('jackdaw', 'jackdaw', 'test', domain=None))
+		session.commit()
+	finally:
+		session.close()
 	logging.info('Done creating database %s' % connection)
 
 def get_session(connection, verbosity = 0):
