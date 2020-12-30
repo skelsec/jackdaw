@@ -32,7 +32,7 @@
 
 		// Instantiate client, using an HTTP tunnel for communications.
 		var guac = new Guacamole.Client(
-			new Guacamole.WebSocketTunnel("ws://127.0.0.1:33333/guac/vnc/")
+			new Guacamole.WebSocketTunnel("") //empty string will set the URL without the query here
 		);
 
 		// Add client to display div

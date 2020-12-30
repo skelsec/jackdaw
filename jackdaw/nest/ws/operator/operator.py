@@ -436,8 +436,8 @@ class NestOperator:
 			res = []
 			for r in qry_res:
 				res.append(r[0]) #ugly, pls fix!
-				
-			logger.info('res %s' % res)
+
+			#logger.info('res %s' % res)
 			for adid in res:
 				#sending machines
 				logger.info('computer!')
@@ -812,7 +812,6 @@ class NestOperator:
 			while True:
 				try:
 					cmd_raw = await self.websocket.recv()
-					print(cmd_raw)
 					cmd = NestOpCmdDeserializer.from_json(cmd_raw)
 					if cmd.cmd == NestOpCmd.GATHER:
 						asyncio.create_task(self.do_gather(cmd))

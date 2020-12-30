@@ -105,7 +105,7 @@ class GuacProxy:
 			# constructing the connect message
 			pt = [b'7.connect', b'13.VERSION_1_1_0']
 			for key in handshake_res[2:]:
-				if key not in connect_params:
+				if key not in connect_params or connect_params[key] is None:
 					pt.append(b'0.')
 					continue
 				pt.append(('%s.%s' % (len(connect_params[key]), connect_params[key])).encode())
@@ -140,7 +140,8 @@ class GuacProxy:
 				'timezone' : 'America/New_York',
 				'ignore-cert' : 'true',
 			}
-			token = await self.handshake('rdp', connect_params)			
+			token = await self.handshake('rdp', connect_params)
+			#print(token)	
 			token_cmd = '0.,%s.%s;' % (len(token), token)
 			#print(token_cmd)
 			await self.ws.send(token_cmd)

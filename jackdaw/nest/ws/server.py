@@ -15,6 +15,7 @@ from jackdaw.dbmodel.adcomp import Machine
 from jackdaw.dbmodel.dnslookup import DNSLookup
 from jackdaw.dbmodel.credential import Credential
 from jackdaw.dbmodel.storedcreds import StoredCred
+from jackdaw.dbmodel.customtarget import CustomTarget
 
 # https://gist.github.com/artizirk/04eb23d957d7916c01ca632bb27d5436
 # https://www.howtoforge.com/how-to-install-and-configure-guacamole-on-ubuntu-2004/
@@ -43,13 +44,18 @@ class NestWebSocketServer:
 
 	def get_target_address(self, ad_id, taget_sid):
 		hostname = None
-		res = self.db_session.query(Machine.dNSHostName).filter_by(objectSid = taget_sid).filter(Machine.ad_id == ad_id).first()
-		if res is not None:
-			hostname = res[0]
+		if str(ad_id) == '0':
+			res = self.db_session.query(CustomTarget).get(taget_sid)
+			if res is not None:
+				hostname = res.hostname
 		else:
-			res = self.db_session.query(DNSLookup.ip).filter_by(sid = taget_sid).filter(DNSLookup.ad_id == ad_id).first()
+			res = self.db_session.query(Machine.dNSHostName).filter_by(objectSid = taget_sid).filter(Machine.ad_id == ad_id).first()
 			if res is not None:
 				hostname = res[0]
+			else:
+				res = self.db_session.query(DNSLookup.ip).filter_by(sid = taget_sid).filter(DNSLookup.ad_id == ad_id).first()
+				if res is not None:
+					hostname = res[0]
 
 		print(hostname)
 		return hostname
@@ -59,10 +65,11 @@ class NestWebSocketServer:
 		username = None
 		password = None
 
-		if ad_id is not None:
-			res = self.db_session.query(Credential).filter_by(object_sid = user_sid).filter(Credential.ad_id == ad_id).first()
-		else:
+		if str(ad_id) == '0':
 			res = self.db_session.query(StoredCred).get(user_sid)
+			
+		else:
+			res = self.db_session.query(Credential).filter_by(object_sid = user_sid).filter(Credential.ad_id == ad_id).first()
 		
 		if res is None:
 			return False, None, None, None
@@ -70,7 +77,7 @@ class NestWebSocketServer:
 		domain   = res.domain
 		username = res.username
 		password = res.password
-		return domain, username, password
+		return True, domain, username, password
 
 	async def handle_operator(self, websocket, path):
 		remote_ip, remote_port = websocket.remote_address
@@ -108,11 +115,11 @@ class NestWebSocketServer:
 		if protocol == 'rdp':
 			port = q.get('port', ['3389'])[0]
 			await gp.connect_rdp(
-				hostname='10.10.10.102', 
+				hostname= hostname, 
 				port = port,
-				domain ='TEST',
-				username='victim',
-				password='Passw0rd!1'
+				domain = domain,
+				username= username,
+				password= password
 			)
 		elif protocol == 'ssh':
 			port = q.get('port', ['22'])[0]
