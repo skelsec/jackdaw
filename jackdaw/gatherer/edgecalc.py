@@ -3,8 +3,12 @@ import asyncio
 import logging
 import datetime
 import tempfile
-import multiprocessing as mp
 from gzip import GzipFile
+
+try:
+	import multiprocessing as mp
+except ImportError:
+	mp = None
 
 from jackdaw import logger
 from jackdaw.dbmodel import get_session, windowed_query
@@ -269,13 +273,23 @@ class EdgeCalc:
 		#logger.info('Added %s groupmembership edges' % cnt)
 
 	def calc_sds_batch(self, buffer, testfile):
-		for res in self.mp_pool.imap_unordered(calc_sd_edges, buffer):
-			for r in res:
-				src,dst,label,ad_id = r
-				src = self.get_id_for_sid(src, with_boost=True)
-				dst = self.get_id_for_sid(dst, with_boost=True)
-				self.sd_edges_written += 1
-				testfile.write('%s,%s,%s,%s\r\n' % (src, dst, label, ad_id))
+		if self.mp_pool is not None:
+			for res in self.mp_pool.imap_unordered(calc_sd_edges, buffer):
+				for r in res:
+					src,dst,label,ad_id = r
+					src = self.get_id_for_sid(src, with_boost=True)
+					dst = self.get_id_for_sid(dst, with_boost=True)
+					self.sd_edges_written += 1
+					testfile.write('%s,%s,%s,%s\r\n' % (src, dst, label, ad_id))
+		else:
+			#this will take forever like this...
+			for adsd in buffer:
+				for res in calc_sd_edges(adsd):
+					src,dst,label,ad_id = res
+					src = self.get_id_for_sid(src, with_boost=True)
+					dst = self.get_id_for_sid(dst, with_boost=True)
+					self.sd_edges_written += 1
+					testfile.write('%s,%s,%s,%s\r\n' % (src, dst, label, ad_id))
 
 	async def calc_sds_mp(self):
 		await self.log_msg('Calculating SD edges')
@@ -301,8 +315,11 @@ class EdgeCalc:
 			testfile = tempfile.TemporaryFile('w+', newline = '')
 			buffer = []
 			if self.mp_pool is None:
-				self.mp_pool = mp.Pool()
-
+				try:
+					self.mp_pool = mp.Pool()
+				except ImportError:
+					self.mp_pool = None
+					
 			logger.debug('calc_sds_mp starting calc')
 			tf = 0
 			last_stat_cnt = 0
@@ -374,7 +391,7 @@ class EdgeCalc:
 				logger.exception('SD calc exception!')
 				raise e
 			finally:
-				if self.foreign_pool is False:
+				if self.foreign_pool is False and self.mp_pool is not None:
 					self.mp_pool.close()
 
 			if self.progress_queue is not None:

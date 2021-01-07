@@ -29,7 +29,6 @@ from jackdaw.dbmodel.adschemaentry import ADSchemaEntry
 
 class LDAPGathererAgent:
 	def __init__(self, ldap_mgr, agent_in_q, agent_out_q):
-		#multiprocessing.Process.__init__(self)
 		self.ldap_mgr = ldap_mgr
 		self.agent_in_q = agent_in_q
 		self.agent_out_q = agent_out_q

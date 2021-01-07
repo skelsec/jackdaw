@@ -4,7 +4,6 @@ import hashlib
 from sqlalchemy.orm import relationship
 from sqlalchemy import Column, Integer, String, ForeignKey, Index, DateTime, Boolean
 
-from pypykatz.pypykatz import pypykatz
 from jackdaw.dbmodel.utils.serializer import Serializer
 
 

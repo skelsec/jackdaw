@@ -5,7 +5,6 @@ import platform
 
 from jackdaw import logger
 from jackdaw.gatherer.smb.smb import SMBGatherer
-from jackdaw.gatherer.smb.smb_file import SMBShareGathererSettings, ShareGathererManager
 from jackdaw.gatherer.ldap.aioldap import LDAPGatherer
 from jackdaw.gatherer.kerberos.kerberos import KerberoastGatherer
 
@@ -321,6 +320,7 @@ class Gatherer:
 			return None, e
 
 	async def share_enum(self):
+		from jackdaw.gatherer.smb.smb_file import SMBShareGathererSettings, ShareGathererManager
 		settings_base = SMBShareGathererSettings(self.ad_id, self.smb_mgr, None, None, None)
 		settings_base.dir_depth = self.smb_folder_depth
 		mgr = ShareGathererManager(settings_base, db_conn = self.db_conn, worker_cnt = args.smb_workers)

@@ -4,11 +4,15 @@
 #  Tamas Jos (@skelsec)
 #
 
-import multiprocessing as mp
 import threading
 import enum
 import gzip
 import json
+
+try:
+	import multiprocessing as mp
+except ImportError:
+	mp = None
 
 from sqlalchemy import func
 from sqlalchemy import not_, and_, or_, case
@@ -193,7 +197,7 @@ class SDEgdeCalc:
 		self.buffer_size = buffer_size
 		self.worker_count = worker_count
 		if self.worker_count is None:
-			self.worker_count = mp.cpu_count()
+			self.worker_count = mp.cpu_count() if mp is not None else 1
 		
 		self.workers = None
 		self.writer = None

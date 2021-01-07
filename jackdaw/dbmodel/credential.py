@@ -5,9 +5,11 @@ from sqlalchemy.orm import relationship
 from sqlalchemy import Column, Integer, String, ForeignKey, Index, DateTime
 from jackdaw.dbmodel.utils.serializer import Serializer
 
-from pypykatz.pypykatz import pypykatz
-from pypykatz.utils.crypto.winhash import LM, NT
-
+try:
+	from pypykatz.pypykatz import pypykatz
+	from pypykatz.utils.crypto.winhash import LM, NT
+except ImportError:
+	print('[JACKDAW] pypykatz not installed! storing creds will not work')
 # It may be tempting to use SIDs to link credentials with users in the domain
 # However some credentials format don't give SIDs (impacket) others have SIDs 
 # that only identify the primary user, but not the owner of the actual credential
