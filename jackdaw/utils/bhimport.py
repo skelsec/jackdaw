@@ -5,7 +5,10 @@ import pprint
 import datetime
 import traceback
 
+import platform
 from tqdm import tqdm
+if platform.system() == 'Emscripten':
+	tqdm.monitor_interval = 0
 
 from jackdaw import logger
 from jackdaw.dbmodel import *
@@ -80,6 +83,7 @@ class BHImport:
 		self.sid_name_cache = {} #oname -> sid v2
 		self.edges = []
 		self.spns = []
+		self.disable_print_progress = True if platform.system() == 'Emscripten' else False
 
 
 	def setup_db(self):
@@ -222,7 +226,7 @@ class BHImport:
 		return res.id
 	
 	def insert_edges(self):
-		for srcsid, srctype, dstsid, dsttype, label, adid in tqdm(self.edges, desc='Edges   ', total=len(self.edges)):
+		for srcsid, srctype, dstsid, dsttype, label, adid in tqdm(self.edges, desc='Edges   ', total=len(self.edges), disable = self.disable_print_progress):
 			dst = self.sid_to_id(dstsid, dsttype, adid)
 			src = self.sid_to_id(srcsid, srctype, adid)
 			edge = Edge(adid, self.graphid, src, dst, label)
@@ -262,7 +266,7 @@ class BHImport:
 
 	def insert_all_acls(self):
 		if self.bloodhound_version == '2':
-			for dstsid, dsttype, acl, adid in tqdm(self.acls, desc='ACLs    ', total=len(self.acls)):
+			for dstsid, dsttype, acl, adid in tqdm(self.acls, desc='ACLs    ', total=len(self.acls), disable=self.disable_print_progress):
 				for ace in acl:
 					try:
 						if self.debug is True:
@@ -284,7 +288,7 @@ class BHImport:
 			self.db_session.commit()
 		
 		else:
-			for dstsid, dsttype, acl, adid in tqdm(self.acls, desc='ACLs    ', total=len(self.acls)):
+			for dstsid, dsttype, acl, adid in tqdm(self.acls, desc='ACLs    ', total=len(self.acls), disable=self.disable_print_progress):
 				for ace in acl:
 					if self.debug is True:
 						print(ace)
@@ -332,7 +336,7 @@ class BHImport:
 		logger.debug('[BHIMPORT] Importing machines')
 		meta = self.get_file('computers')['meta']
 		total = meta['count']
-		for machine in tqdm(self.get_file('computers')['computers'], desc='Machines', total=total):
+		for machine in tqdm(self.get_file('computers')['computers'], desc='Machines', total=total, disable=self.disable_print_progress):
 			if self.debug is True:
 				pretty(machine)
 				input()
@@ -495,7 +499,7 @@ class BHImport:
 		meta = self.get_file('users')['meta']
 		total = meta['count']
 		
-		for user in tqdm(self.get_file('users')['users'], desc='Users   ', total=total):
+		for user in tqdm(self.get_file('users')['users'], desc='Users   ', total=total, disable=self.disable_print_progress):
 			try:
 				if self.debug is True:
 					pretty(user)
@@ -572,7 +576,7 @@ class BHImport:
 		meta = self.get_file('sessions')['meta']
 		total = meta['count']
 
-		for session in tqdm(self.get_file('sessions')['sessions'], desc='Sessions', total=total):
+		for session in tqdm(self.get_file('sessions')['sessions'], desc='Sessions', total=total, disable=self.disable_print_progress):
 			if self.debug is True:
 				pprint.pprint(session)
 				input()
@@ -621,7 +625,7 @@ class BHImport:
 	
 		meta = self.get_file('ous')['meta']
 		total = meta['count']
-		for ou in tqdm(self.get_file('ous')['ous'], desc='OUs     ', total=total):
+		for ou in tqdm(self.get_file('ous')['ous'], desc='OUs     ', total=total, disable=self.disable_print_progress):
 			if self.debug is True:
 				pprint.pprint(ou)
 				input()
@@ -703,7 +707,7 @@ class BHImport:
 			self.bloodhound_version = str(meta['version'])
 		logger.debug('[BHIMPORT] Selecting bloodhound file version %s' % self.bloodhound_version)
 		total = meta['count']
-		for domain in tqdm(self.get_file('domains')['domains'], desc='Domains ', total=total): #['computers']:
+		for domain in tqdm(self.get_file('domains')['domains'], desc='Domains ', total=total, disable=self.disable_print_progress): #['computers']:
 			try:
 				if self.debug is True:
 					pretty(domain)
@@ -759,7 +763,7 @@ class BHImport:
 		meta = self.get_file('gpos')['meta']
 		total = meta['count']
 
-		for gpo in tqdm(self.get_file('gpos')['gpos'], desc='GPOs    ', total=total):
+		for gpo in tqdm(self.get_file('gpos')['gpos'], desc='GPOs    ', total=total, disable=self.disable_print_progress):
 			if self.debug is True:
 				pprint.pprint(gpo)
 				input('GPO')
@@ -811,7 +815,7 @@ class BHImport:
 		logger.debug('[BHIMPORT] Importing groups')
 		meta = self.get_file('groups')['meta']
 		total = meta['count']
-		for groups in tqdm(self.get_file('groups')['groups'], desc = 'Groups  ', total=total):
+		for groups in tqdm(self.get_file('groups')['groups'], desc = 'Groups  ', total=total, disable=self.disable_print_progress):
 			if self.debug is True:
 				pretty(groups)
 				input()

@@ -3,6 +3,7 @@ import asyncio
 import logging
 import datetime
 import tempfile
+import platform
 from gzip import GzipFile
 
 try:
@@ -63,6 +64,7 @@ class EdgeCalc:
 		self.graph_id = graph_id
 		self.domain_name = None
 		self.progress_last_updated = datetime.datetime.utcnow()
+		self.disable_tqdm = True if platform.system() == 'Emscripten' else False
 
 		self.total_edges = 0
 		self.sd_edges_written = 0
@@ -310,7 +312,7 @@ class EdgeCalc:
 
 			sdcalc_pbar = None
 			if self.show_progress is True:
-				sdcalc_pbar = tqdm(desc ='Writing SD edges to file', total=total)
+				sdcalc_pbar = tqdm(desc ='Writing SD edges to file', total=total, disable=self.disable_tqdm)
 
 			testfile = tempfile.TemporaryFile('w+', newline = '')
 			buffer = []
@@ -406,7 +408,7 @@ class EdgeCalc:
 			await self.log_msg('Writing SD edge file contents to DB')
 			sdcalcupload_pbar = None
 			if self.show_progress is True:
-				sdcalcupload_pbar = tqdm(desc = 'Writing SD edge file contents to DB', total = cnt)
+				sdcalcupload_pbar = tqdm(desc = 'Writing SD edge file contents to DB', total = cnt, disable=self.disable_tqdm)
 
 			testfile.seek(0,0)
 			last_stat_cnt = 0

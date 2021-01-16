@@ -21,7 +21,10 @@ from jackdaw.dbmodel.adobjprops import ADObjProps
 from jackdaw.wintypes.well_known_sids import get_name_or_sid, get_sid_for_name
 import threading
 from sqlalchemy import func
+import platform
 from tqdm import tqdm
+if platform.system() == 'Emscripten':
+	tqdm.monitor_interval = 0
 
 def short_worker(inqueue, outqueue, graph, dst_sid):
 	"""
@@ -85,21 +88,11 @@ class JackDawDomainGraphNetworkx:
 		
 		for ad_id in adids:
 			ad_id = ad_id[0]
-			## remove this
-			#fi = dbsession.query(EdgeLookup.id).filter_by(ad_id = ad_id).filter(EdgeLookup.oid == 'S-1-5-32-545').first()
-			#if fi is not None:
-			#	fi = fi[0]
-			##
-
 			t2 = dbsession.query(func.count(Edge.id)).filter_by(graph_id = graph_id).filter(EdgeLookup.id == Edge.src).filter(EdgeLookup.oid != None).scalar()
 			q = dbsession.query(Edge).filter_by(graph_id = graph_id).filter(EdgeLookup.id == Edge.src).filter(EdgeLookup.oid != None)
 
 			with open(graph_file, 'w', newline = '') as f:
 				for edge in tqdm(windowed_query(q,Edge.id, 10000), desc = 'edge', total = t2):
-					#if edge.src  == fi:
-					#	continue
-					#if edge.dst  == fi:
-					#	continue
 					r = '%s %s\r\n' % (edge.src, edge.dst)
 					f.write(r)
 		logger.debug('Graph created!')
@@ -283,7 +276,7 @@ class JackDawDomainGraphNetworkx:
 					except NodeNotFoundException:
 						self.__add_nodes_from_path(network, path)
 						network.add_edge(src[0],dst[0], label=label)
-					print('%s -> %s [%s]' % (src, dst, label))
+					#print('%s -> %s [%s]' % (src, dst, label))
 				except Exception as e:
 					import traceback
 					traceback.print_exc()
