@@ -2386,11 +2386,11 @@ paths:
                 type: string
                 description: Placeholder TODO
 
-  /storedcred/:
+  /customdcred/:
     put:
       operationId: jackdaw.nest.api.customcred.store
       tags:
-        - StoredCred
+        - CustomCred
       summary: Upload a new stored credential
       description: Upload a new stored credential, returns ID
       parameters:
@@ -2419,9 +2419,9 @@ paths:
                 description: Placeholder TODO
 
     get:
-      operationId: jackdaw.nest.api.storedcred.list
+      operationId: jackdaw.nest.api.customcred.list
       tags:
-        - StoredCred
+        - CustomCred
       summary: Lists available stroed credentials ID and description
       description: Lists available stroed credentials ID and description
       responses:
