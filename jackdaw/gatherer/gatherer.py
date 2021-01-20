@@ -17,9 +17,10 @@ from tqdm import tqdm
 from jackdaw.gatherer.progress import *
 
 class Gatherer:
-	def __init__(self, db_url, work_dir, ldap_url, smb_url, kerb_url = None, ad_id = None, calc_edges = True, ldap_worker_cnt = 4, smb_worker_cnt = 100, mp_pool = None, smb_enum_shares = False, smb_gather_types = ['all'], progress_queue = None, show_progress = True, dns = None, store_to_db = True, graph_id = None, stream_data = False):
+	def __init__(self, db_url, work_dir, ldap_url, smb_url, kerb_url = None, ad_id = None, calc_edges = True, ldap_worker_cnt = 4, smb_worker_cnt = 100, mp_pool = None, smb_enum_shares = False, smb_gather_types = ['all'], progress_queue = None, show_progress = True, dns = None, store_to_db = True, graph_id = None, stream_data = False, no_work_dir = False):
 		self.db_url = db_url
 		self.work_dir = work_dir
+		self.no_work_dir = no_work_dir
 		self.mp_pool = mp_pool
 		self.ldap_worker_cnt = ldap_worker_cnt
 		self.smb_worker_cnt = smb_worker_cnt
@@ -257,7 +258,8 @@ class Gatherer:
 				ad_id = self.ad_id, #this should be none, or resumption is indicated!
 				store_to_db = self.store_to_db,
 				base_collection_finish_evt = self.base_collection_finish_evt,
-				stream_data = self.stream_data
+				stream_data = self.stream_data,
+				no_work_dir=self.no_work_dir
 			)
 			ad_id, graph_id, err = await self.ldap_gatherer.run()
 			if err is not None:
@@ -345,18 +347,19 @@ class Gatherer:
 
 	async def setup(self):
 		try:
-			logger.debug('Setting up working directory')
-			if self.work_dir is not None:
-				if isinstance(self.work_dir, str):
-					self.work_dir = pathlib.Path(self.work_dir)
-			else:
-				self.work_dir = pathlib.Path()
+			if self.no_work_dir is False:
+				logger.debug('Setting up working directory')
+				if self.work_dir is not None:
+					if isinstance(self.work_dir, str):
+						self.work_dir = pathlib.Path(self.work_dir)
+				else:
+					self.work_dir = pathlib.Path()
 
-			self.work_dir.mkdir(parents=True, exist_ok=True)
-			self.ldap_work_dir = self.work_dir.joinpath('ldap')
-			self.ldap_work_dir.mkdir(parents=True, exist_ok=True)
-			self.smb_work_dir = self.work_dir.joinpath('smb')
-			self.smb_work_dir.mkdir(parents=True, exist_ok=True)
+				self.work_dir.mkdir(parents=True, exist_ok=True)
+				self.ldap_work_dir = self.work_dir.joinpath('ldap')
+				self.ldap_work_dir.mkdir(parents=True, exist_ok=True)
+				self.smb_work_dir = self.work_dir.joinpath('smb')
+				self.smb_work_dir.mkdir(parents=True, exist_ok=True)
 
 
 			logger.debug('Setting up connection objects')

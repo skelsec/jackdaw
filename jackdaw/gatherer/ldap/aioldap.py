@@ -52,10 +52,11 @@ from jackdaw.gatherer.ldap.collectors.membership import MembershipCollector
 import pathlib
 
 class LDAPGatherer:
-	def __init__(self, db_conn, ldap_mgr, agent_cnt = None, progress_queue = None, ad_id = None, graph_id = None, work_dir = None, show_progress = True, store_to_db = True, base_collection_finish_evt = None, stream_data = False):
+	def __init__(self, db_conn, ldap_mgr, agent_cnt = None, progress_queue = None, ad_id = None, graph_id = None, work_dir = None, show_progress = True, store_to_db = True, base_collection_finish_evt = None, stream_data = False, no_work_dir = False):
 		self.db_conn = db_conn
 		self.ldap_mgr = ldap_mgr
 		self.work_dir = work_dir
+		self.no_work_dir = no_work_dir
 		self.show_progress = show_progress
 		self.store_to_db = store_to_db
 		self.progress_queue = progress_queue
@@ -166,14 +167,19 @@ class LDAPGatherer:
 			logger.debug('[+] Starting LDAP information acqusition. This might take a while...')
 			self.session = get_session(self.db_conn)
 
-			if self.work_dir is None:
-				self.work_dir = pathlib.Path('./workdir')
-				self.work_dir.mkdir(parents=True, exist_ok=True)
-			if isinstance(self.work_dir, str) is True:
-				self.work_dir = pathlib.Path(self.work_dir)
+			if self.no_work_dir is False:
+				if self.work_dir is None:
+					self.work_dir = pathlib.Path('./workdir')
+					self.work_dir.mkdir(parents=True, exist_ok=True)
+				if isinstance(self.work_dir, str) is True:
+					self.work_dir = pathlib.Path(self.work_dir)
+				
+				self.members_target_file_name = str(self.work_dir.joinpath('temp_members_list.gz'))
+				self.sd_target_file_name = str(self.work_dir.joinpath('temp_sd_list.gz'))
 			
-			self.members_target_file_name = str(self.work_dir.joinpath('temp_members_list.gz'))
-			self.sd_target_file_name = (self.work_dir.joinpath('temp_sd_list.gz'))
+			else:
+				self.members_target_file_name = 'temp_members_list.gz'
+				self.sd_target_file_name = 'temp_sd_list.gz'
 
 			if self.resumption is False:
 				self.members_file_handle = gzip.GzipFile(self.members_target_file_name,mode='wb')

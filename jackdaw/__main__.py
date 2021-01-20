@@ -33,7 +33,7 @@ from msldap.commons.url import MSLDAPURLDecoder
 import multiprocessing
 
 
-async def run_auto(ldap_worker_cnt = None, smb_worker_cnt = 500, dns = None, work_dir = './workdir', db_conn = None, show_progress = True):
+async def run_auto(ldap_worker_cnt = None, smb_worker_cnt = 500, dns = None, work_dir = './workdir', db_conn = None, show_progress = True, no_work_dir = False):
 	try:
 		if platform.system() != 'Windows':
 			raise Exception('auto mode only works on windows!')
@@ -93,7 +93,8 @@ async def run_auto(ldap_worker_cnt = None, smb_worker_cnt = 500, dns = None, wor
 				progress_queue=None, 
 				show_progress=show_progress,
 				calc_edges=True,
-				dns=dns
+				dns=dns,
+				no_work_dir=no_work_dir
 			)
 			res, err = await gatherer.run()
 			if err is not None:
@@ -161,7 +162,8 @@ async def run(args):
 					show_progress=args.silent,
 					calc_edges=True,
 					ad_id=None,
-					dns=args.dns
+					dns=args.dns,
+					no_work_dir=args.no_work_dir
 				)
 				res, err = await gatherer.run()
 				if err is not None:
@@ -174,6 +176,7 @@ async def run(args):
 				dns=args.dns,
 				work_dir=work_dir,
 				show_progress=args.silent,
+				no_work_dir=args.no_work_dir
 			)
 			if err is not None:
 				print(err)
@@ -208,7 +211,8 @@ async def run(args):
 					progress_queue=None, 
 					show_progress=args.silent,
 					calc_edges=args.calculate_edges,
-					ad_id=args.ad_id
+					ad_id=args.ad_id,
+					no_work_dir=args.no_work_dir
 				)
 				await gatherer.run()
 
@@ -397,11 +401,13 @@ def main():
 	ldap_group.add_argument('--ldap-queue-size', type=int, default = 4, help='LDAP worker queue max size.')
 	ldap_group.add_argument('-d', '--ad-id', help='AD id from DB. signals resumption task')
 	ldap_group.add_argument('-c', '--calculate-edges', action='store_true', help='Calculate edges after enumeration')
+	ldap_group.add_argument('--no-work-dir', action='store_true', help='Skip creating subdirs for temp files')
 	
 	auto_group = subparsers.add_parser('auto', help='auto mode, windows only!')
 	auto_group.add_argument('--ldap-workers', type=int, default = 4, help='LDAP worker count for parallelization')
 	auto_group.add_argument('--smb-workers', type=int, default = 50, help='SMB worker count for parallelization')
 	auto_group.add_argument('-d','--dns', help='DNS server for resolving IPs')
+	auto_group.add_argument('--no-work-dir', action='store_true', help='Skip creating subdirs for temp files')
 
 	recalc_group = subparsers.add_parser('recalc', help='Recalculate edges from SDs')
 	recalc_group.add_argument('graphid', help='graph id from DB.')
@@ -418,6 +424,7 @@ def main():
 	enum_group.add_argument('-d','--dns', help='DNS server for resolving IPs')
 	enum_group.add_argument('-n','--do-not-store', action='store_false', help='Skip storing membership and SD info to DB. Will skip edge calculation, and will leave the raw file on disk')
 	enum_group.add_argument('-k','--kerberoast', help='Kerberos URL for kerberoasting')
+	enum_group.add_argument('--no-work-dir', action='store_true', help='Skip creating subdirs for temp files')
 
 	share_group = subparsers.add_parser('shares', help='Enumerate shares on target')
 	share_group.add_argument('ad_id', help='ID of the domainfo to poll targets rom the DB')
