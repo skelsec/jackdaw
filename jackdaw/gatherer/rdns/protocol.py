@@ -147,6 +147,21 @@ class DNSPacket():
 			return DNSPacket.from_bytes(plen_bytes + data, proto = proto)
 
 	@staticmethod
+	async def from_queue(in_q, prevdata, proto = socket.SOCK_DGRAM):
+		if proto == socket.SOCK_DGRAM:
+			data = await in_q.get()
+			return DNSPacket.from_bytes(data)
+		else:
+			t, err = await in_q.get()
+			if err is not None:
+				raise err
+
+			prevdata += t
+			plen_bytes = prevdata[:2]
+			plen = int.from_bytes(plen_bytes, byteorder = 'big', signed=False)
+			return DNSPacket.from_bytes(plen_bytes + prevdata[2:2+plen], proto = proto), prevdata[plen:]
+
+	@staticmethod
 	def from_bytes(bbuff, proto = socket.SOCK_DGRAM):
 		return DNSPacket.from_buffer(io.BytesIO(bbuff), proto)
 
