@@ -1,6 +1,8 @@
 
 from gzip import GzipFile
 import pathlib
+import itertools
+import copy
 import multiprocessing as mp
 import networkx as nx
 from networkx.algorithms.shortest_paths.generic import shortest_path, has_path
@@ -172,24 +174,34 @@ class JackDawDomainGraphNetworkx:
 		
 		return nv
 
-	def shortest_paths(self, src_sid = None, dst_sid = None, ignore_notfound = False, exclude = []):
+	def shortest_paths(self, src_sid = None, dst_sid = None, ignore_notfound = False, exclude = [], pathonly = False):
+		print('!!!!!!!!!!!!!!!!!!!!!!!')
+		print(src_sid)
+		print(dst_sid)
+
 		nv = GraphData()
+		if pathonly is True:
+			nv = []
 		try:
 			if src_sid is None and dst_sid is None:
 				raise Exception('src_sid or dst_sid must be set')
 			
 			elif src_sid is None and dst_sid is not None:
+				
 				dst = self.__resolve_sid_to_id(dst_sid)
 				if dst is None:
 					raise Exception('SID not found!')
-
+				
+				
 				res = shortest_path(self.graph, target=dst)
+				print(res)
 				for k in res:
-					self.__result_path_add(nv, res[k], exclude = exclude)
+					self.__result_path_add(nv, res[k], exclude = exclude, pathonly = pathonly)
 
 
 
 			elif src_sid is not None and dst_sid is not None:
+				print(1)
 				dst = self.__resolve_sid_to_id(dst_sid)
 				if dst is None:
 					raise Exception('SID not found!')
@@ -197,11 +209,16 @@ class JackDawDomainGraphNetworkx:
 				src = self.__resolve_sid_to_id(src_sid)
 				if src is None:
 					raise Exception('SID not found!')
-				
+				print(2)
+
 				try:
+					print(3)
 					res = shortest_path(self.graph, src, dst)
-					self.__result_path_add(nv, res, exclude = exclude)
+					print(4)
+					print(res)
+					self.__result_path_add(nv, res, exclude = exclude, pathonly = pathonly)
 				except nx.exception.NetworkXNoPath:
+					print(5)
 					pass
 
 			elif src_sid is not None and dst_sid is None:
@@ -211,8 +228,9 @@ class JackDawDomainGraphNetworkx:
 				
 				try:
 					res = shortest_path(self.graph, src)
+					print(res)
 					for k in res:
-						self.__result_path_add(nv, res[k], exclude = exclude)
+						self.__result_path_add(nv, res[k], exclude = exclude, pathonly = pathonly)
 				except nx.exception.NetworkXNoPath:
 					pass
 				
@@ -236,11 +254,48 @@ class JackDawDomainGraphNetworkx:
 
 		return has_path(self.graph, src, dst)
 
-	def __result_path_add(self, network, path, exclude = []):
+	def __result_path_add(self, network, path, exclude = [], pathonly = False):
 		# enable this for raw path logging
 		# print(path)
-		for i in range(len(path) - 1):
-			self.__result_edge_add(network, int(path[i]), int(path[i+1]), path, exclude = exclude)
+		if pathonly is False:
+			for i in range(len(path) - 1):
+				self.__result_edge_add(network, int(path[i]), int(path[i+1]), path, exclude = exclude)
+		else:
+			res = [[]]
+			nolabel = False
+			for i in range(len(path) - 1):
+				for r in res:
+					r.append(self.__nodename_to_sid(int(path[i])))
+				labels = []
+				for label in self.__resolv_edge_types(int(path[i]), int(path[i+1])):
+					if label not in exclude:
+						labels.append(label)
+				if len(labels) == 0:
+					nolabel = True
+					break
+				if len(labels) == 1:
+					for r in res:
+						r.append(labels[0])
+				else:
+					temp = []
+					for label in labels:
+						for r in res:
+							#print(r)
+							x = copy.deepcopy(r)
+							x.append(label)
+							print(x)
+							temp.append(x)
+
+					res = temp
+
+				#res.append(labels)
+			if nolabel is True:
+				return
+			for r in res:
+				r.append(self.__nodename_to_sid(int(path[-1])))
+			
+			
+			network += res
 
 	def __add_nodes_from_path(self, network, path):
 		if path == []:

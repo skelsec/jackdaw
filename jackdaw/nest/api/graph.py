@@ -134,7 +134,23 @@ def get(graphid):
 	res = current_app.config['JACKDAW_GRAPH_DICT'][graphid].all_shortest_paths()
 	return res.to_dict()
 
+def getdomainsids(graphid):
+	if graphid not in current_app.config['JACKDAW_GRAPH_DICT']:
+		load(graphid)
+
+	dsids = []
+	for domain_id in current_app.config['JACKDAW_GRAPH_DICT'][graphid].adids:
+		adinfo = current_app.db.session.query(ADInfo).get(domain_id)
+		dsids.append(adinfo.objectSid)
+	
+	return dsids
+
+
 def query_path(graphid, src = None, dst = None, exclude = None, format = 'd3'):
+	pathonly = False
+	if format.lower() == 'path':
+		pathonly = True
+
 	exclude_edgetypes = __exclude_parse(exclude)
 	if graphid not in current_app.config['JACKDAW_GRAPH_DICT']:
 		load(graphid)
@@ -144,12 +160,17 @@ def query_path(graphid, src = None, dst = None, exclude = None, format = 'd3'):
 		dst = None
 	if src is None and dst is None:
 		return {}
-	res = current_app.config['JACKDAW_GRAPH_DICT'][graphid].shortest_paths(src, dst, exclude = exclude_edgetypes)
+	res = current_app.config['JACKDAW_GRAPH_DICT'][graphid].shortest_paths(src, dst, exclude = exclude_edgetypes, pathonly = pathonly)
+	if pathonly is True:
+		return res
 	return res.to_dict(format = format)
 
 def query_path_da(graphid, exclude = None, format = 'vis'):
 	if graphid not in current_app.config['JACKDAW_GRAPH_DICT']:
 		load(graphid)
+	pathonly = False
+	if format.lower() == 'path':
+		pathonly = True
 	
 	exclude_edgetypes = __exclude_parse(exclude)
 	print(exclude_edgetypes)
@@ -169,8 +190,10 @@ def query_path_da(graphid, exclude = None, format = 'vis'):
 		return 'No domain administrator group found', 404
 	
 	res = GraphData()
+	if pathonly is True:
+		res = []
 	for sid in da_sids:
-		res += current_app.config['JACKDAW_GRAPH_DICT'][graphid].shortest_paths(None, sid, exclude = exclude_edgetypes)
+		res += current_app.config['JACKDAW_GRAPH_DICT'][graphid].shortest_paths(None, sid, exclude = exclude_edgetypes, pathonly=pathonly)
 
 
 	#print(res)
