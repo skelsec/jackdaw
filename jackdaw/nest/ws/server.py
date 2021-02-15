@@ -33,6 +33,7 @@ class NestWebSocketServer:
 		self.work_dir = pathlib.Path(work_dir)
 		self.graph_backend = backend
 		self.graph_type = None
+		self.subprotocols = ['guacamole']
 
 		self.guac_ip = '127.0.0.1'
 		self.guac_port = 4822
@@ -203,7 +204,12 @@ class NestWebSocketServer:
 			return HTTPStatus.INTERNAL_SERVER_ERROR, response_headers, b''
 
 	async def run(self):
-		self.db_session = get_session(self.db_url)
+		if self.db_url is None:
+			raise Exception('db_url must be either sqlalchemy url or an established db session')
+		if isinstance(self.db_url, str):
+			self.db_session = get_session(self.db_url)
+		else:
+			self.db_session = self.db_url
 
 		if self.graph_backend.upper() == 'networkx'.upper():
 			from jackdaw.nest.graph.backends.networkx.domaingraph import JackDawDomainGraphNetworkx
@@ -226,7 +232,7 @@ class NestWebSocketServer:
 			self.listen_port, 
 			ssl=self.ssl_ctx,
 			process_request=self.preprocess_request,
-			#extra_headers = [('Sec-WebSocket-Protocol', 'guacamole')]
+			subprotocols=self.subprotocols
 		)
 		print('[+] Server is running!')
 		await self.server.wait_closed()

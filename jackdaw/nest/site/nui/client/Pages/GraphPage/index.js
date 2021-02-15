@@ -396,7 +396,18 @@ class GraphPageComponent extends ApiClient {
                 url = `/graph/${this.state.graph}/query/path?dst=${this.state.srcsid}&format=vis${excludeAddParameter}`;
                 break;
             case "path":
-                url = `/graph/${this.state.graph}/query/path?dst=${this.state.dstsidSelected.sid}&src=${this.state.srcsidSelected.sid}&format=vis${excludeAddParameter}`;
+                if(this.state.dstsidSelected != null && this.state.srcsidSelected != null){
+                    url = `/graph/${this.state.graph}/query/path?dst=${this.state.dstsidSelected.sid}&src=${this.state.srcsidSelected.sid}&format=vis${excludeAddParameter}`;
+                }
+                if(this.state.dstsidSelected == null && this.state.srcsidSelected != null){
+                    url = `/graph/${this.state.graph}/query/path?src=${this.state.srcsidSelected.sid}&format=vis${excludeAddParameter}`;
+                }
+                if(this.state.dstsidSelected != null && this.state.srcsidSelected == null){
+                    url = `/graph/${this.state.graph}/query/path?dst=${this.state.dstsidSelected.sid}&format=vis${excludeAddParameter}`;
+                }
+                if(this.state.dstsidSelected == null && this.state.srcsidSelected == null){
+                    console.log("At least SRC or DST must be set!");
+                }
                 break;
             case "ownedtoda":
                 url = `/graph/${this.state.graph}/query/path/ownedtoda${excludeParameter}`;
