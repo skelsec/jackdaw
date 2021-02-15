@@ -174,7 +174,7 @@ class JackDawDomainGraphNetworkx:
 		
 		return nv
 
-	def shortest_paths(self, src_sid = None, dst_sid = None, ignore_notfound = False, exclude = [], pathonly = False):
+	def shortest_paths(self, src_sid = None, dst_sid = None, ignore_notfound = False, exclude = [], pathonly = False, maxhops = None):
 		print('!!!!!!!!!!!!!!!!!!!!!!!')
 		print(src_sid)
 		print(dst_sid)
@@ -194,14 +194,12 @@ class JackDawDomainGraphNetworkx:
 				
 				
 				res = shortest_path(self.graph, target=dst)
-				print(res)
 				for k in res:
-					self.__result_path_add(nv, res[k], exclude = exclude, pathonly = pathonly)
+					self.__result_path_add(nv, res[k][:maxhops], exclude = exclude, pathonly = pathonly)
 
 
 
 			elif src_sid is not None and dst_sid is not None:
-				print(1)
 				dst = self.__resolve_sid_to_id(dst_sid)
 				if dst is None:
 					raise Exception('SID not found!')
@@ -209,16 +207,11 @@ class JackDawDomainGraphNetworkx:
 				src = self.__resolve_sid_to_id(src_sid)
 				if src is None:
 					raise Exception('SID not found!')
-				print(2)
 
 				try:
-					print(3)
 					res = shortest_path(self.graph, src, dst)
-					print(4)
-					print(res)
 					self.__result_path_add(nv, res, exclude = exclude, pathonly = pathonly)
 				except nx.exception.NetworkXNoPath:
-					print(5)
 					pass
 
 			elif src_sid is not None and dst_sid is None:
@@ -228,9 +221,10 @@ class JackDawDomainGraphNetworkx:
 				
 				try:
 					res = shortest_path(self.graph, src)
-					print(res)
 					for k in res:
-						self.__result_path_add(nv, res[k], exclude = exclude, pathonly = pathonly)
+						if len(res[k]) > maxhops:
+							continue
+						self.__result_path_add(nv, res[k][:maxhops], exclude = exclude, pathonly = pathonly)
 				except nx.exception.NetworkXNoPath:
 					pass
 				
