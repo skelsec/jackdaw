@@ -177,6 +177,7 @@ class GraphPageComponent extends ApiClient {
         selectedContextNode: null,
         requestModifiers: [],
         clustering: true,
+        maxHops: '',
     }
 
     constructor(props) {
@@ -397,13 +398,13 @@ class GraphPageComponent extends ApiClient {
                 break;
             case "path":
                 if(this.state.dstsidSelected != null && this.state.srcsidSelected != null){
-                    url = `/graph/${this.state.graph}/query/path?dst=${this.state.dstsidSelected.sid}&src=${this.state.srcsidSelected.sid}&format=vis${excludeAddParameter}`;
+                    url = `/graph/${this.state.graph}/query/path?dst=${this.state.dstsidSelected.sid}&src=${this.state.srcsidSelected.sid}&format=vis${excludeAddParameter}&maxhops=${this.state.maxHops}`;
                 }
                 if(this.state.dstsidSelected == null && this.state.srcsidSelected != null){
-                    url = `/graph/${this.state.graph}/query/path?src=${this.state.srcsidSelected.sid}&format=vis${excludeAddParameter}`;
+                    url = `/graph/${this.state.graph}/query/path?src=${this.state.srcsidSelected.sid}&format=vis${excludeAddParameter}&maxhops=${this.state.maxHops}`;
                 }
                 if(this.state.dstsidSelected != null && this.state.srcsidSelected == null){
-                    url = `/graph/${this.state.graph}/query/path?dst=${this.state.dstsidSelected.sid}&format=vis${excludeAddParameter}`;
+                    url = `/graph/${this.state.graph}/query/path?dst=${this.state.dstsidSelected.sid}&format=vis${excludeAddParameter}&maxhops=${this.state.maxHops}`;
                 }
                 if(this.state.dstsidSelected == null && this.state.srcsidSelected == null){
                     console.log("At least SRC or DST must be set!");
@@ -566,6 +567,16 @@ class GraphPageComponent extends ApiClient {
         );
     }
 
+    renderMaxDisplayHops = () => {
+        return (
+            <FormControl>
+                <InputLabel htmlFor="maxhopsInput">Max Display Distance</InputLabel>
+                <Input id="maxhops" aria-describedby="maxHopsInputHelperText" onChange={ (e) => this.setState({ maxHops: e.target.value }) }/>
+                <FormHelperText id="maxHopsInputHelperText">Reduces the distance for each path returned, capping it to this size</FormHelperText>
+            </FormControl>
+        );
+    }
+
     processSelection = async(event) => {
         this.setState({contextMenu: {opened: false}})
         const { nodes } = event;
@@ -700,10 +711,13 @@ class GraphPageComponent extends ApiClient {
                     {this.renderGraphSelector()}
                 </Box>
                 <Box className="margin-top" column>
-                    {this.renderTextField('srcsid', 'SRC SID', 'Source SID')}
+                    {this.renderTextField('srcsid', 'SRC', 'Source Node')}
                 </Box>
                 <Box className="margin-top" column>
-                    {this.renderTextField('dstsid', 'DST SID', 'Destination SID')}
+                    {this.renderTextField('dstsid', 'DST', 'Destination Node')}
+                </Box>
+                <Box className="margin-top" column>
+                    {this.renderMaxDisplayHops()}
                 </Box>
                 <Box className="margin-top">
                     {this.renderModeSelector()}

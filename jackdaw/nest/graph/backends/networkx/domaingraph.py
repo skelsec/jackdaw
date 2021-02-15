@@ -187,17 +187,13 @@ class JackDawDomainGraphNetworkx:
 				raise Exception('src_sid or dst_sid must be set')
 			
 			elif src_sid is None and dst_sid is not None:
-				
 				dst = self.__resolve_sid_to_id(dst_sid)
 				if dst is None:
 					raise Exception('SID not found!')
 				
-				
 				res = shortest_path(self.graph, target=dst)
 				for k in res:
 					self.__result_path_add(nv, res[k][:maxhops], exclude = exclude, pathonly = pathonly)
-
-
 
 			elif src_sid is not None and dst_sid is not None:
 				dst = self.__resolve_sid_to_id(dst_sid)
@@ -222,8 +218,6 @@ class JackDawDomainGraphNetworkx:
 				try:
 					res = shortest_path(self.graph, src)
 					for k in res:
-						if len(res[k]) > maxhops:
-							continue
 						self.__result_path_add(nv, res[k][:maxhops], exclude = exclude, pathonly = pathonly)
 				except nx.exception.NetworkXNoPath:
 					pass

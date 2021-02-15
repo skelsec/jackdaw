@@ -146,7 +146,7 @@ def getdomainsids(graphid):
 	return dsids
 
 
-def query_path(graphid, src = None, dst = None, exclude = None, format = 'd3'):
+def query_path(graphid, src = None, dst = None, exclude = None, format = 'd3', maxhops = None):
 	pathonly = False
 	if format.lower() == 'path':
 		pathonly = True
@@ -158,9 +158,15 @@ def query_path(graphid, src = None, dst = None, exclude = None, format = 'd3'):
 		src = None
 	if dst == '':
 		dst = None
+	if maxhops == '':
+		maxhops = None
+	else:
+		maxhops = int(maxhops)
+		if maxhops < 2:
+			maxhops = 2
 	if src is None and dst is None:
 		return {}
-	res = current_app.config['JACKDAW_GRAPH_DICT'][graphid].shortest_paths(src, dst, exclude = exclude_edgetypes, pathonly = pathonly)
+	res = current_app.config['JACKDAW_GRAPH_DICT'][graphid].shortest_paths(src, dst, exclude = exclude_edgetypes, pathonly = pathonly, maxhops = maxhops)
 	if pathonly is True:
 		return res
 	return res.to_dict(format = format)

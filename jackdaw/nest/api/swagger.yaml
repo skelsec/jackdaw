@@ -181,6 +181,11 @@ paths:
           description: edge type to be excluded in the path calc
           required: False
           type: string
+        - name: maxhops
+          in: query
+          description: maximum distance to be returned from full path (min 2)
+          required: False
+          type: string
       responses:
         200:
           description: Returns the graph data with all the shortest paths between the two SIDs
