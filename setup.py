@@ -61,6 +61,7 @@ setup(
 		'colorama; platform_system=="Windows"',
 		'winacl>=0.1.0',
 		'pypykatz>=0.3.14',
+		'python-igraph>=0.8.3',
 	],
 	entry_points={
 		'console_scripts': [
