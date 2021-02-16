@@ -84,7 +84,7 @@ class JackDawDomainGraphNetworkx:
 		print(paths)
 		with open(cache_file_path, 'w', newline = '') as f:
 			if isinstance(paths, list):
-				ps = ','.join([int(x) for x in paths]) + '\r\n'
+				ps = ','.join([str(x) for x in paths]) + '\r\n'
 				print(ps)
 				f.write(ps)
 			else:
