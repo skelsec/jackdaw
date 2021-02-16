@@ -232,6 +232,10 @@ def query_path_dcsync(graphid, exclude = None, format = 'vis'):
 		for src_sid in target_sids:
 			res += current_app.config['JACKDAW_GRAPH_DICT'][graphid].shortest_paths(src_sid, dst_sid, exclude = exclude_edgetypes)
 
+	for src_sid in target_sids:
+		res += current_app.config['JACKDAW_GRAPH_DICT'][graphid].shortest_paths(None, src_sid, exclude = exclude_edgetypes)
+
+
 	return res.to_dict(format = format)
 
 def query_path_kerberoastda(graphid, exclude = None, format = 'vis'):

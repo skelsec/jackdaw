@@ -61,14 +61,65 @@ def short_node_gen(graph, inqueue, dst_sid, procno):
 
 class JackDawDomainGraphNetworkx:
 	graph_file_name = 'networkx.csv'
-	def __init__(self, session, graph_id):
+	def __init__(self, session, graph_id, graph_dir, use_cache = False):
 		self.dbsession = session
 		self.graph_id = int(graph_id)
 		self.constructs = {}
 		self.graph = None
 		self.adids = []
-		self.lookup = {}
+		self.name_sid_lookup = {}
 		self.props_lookup = {}
+		self.sid_adid_lookup = {}
+		self.sid_name_lookup = {}
+		self.label_lookup = {}
+		self.use_cache = use_cache
+		self.graph_dir = graph_dir
+
+	def write_cachefile(self, src_sid, dst_sid, paths):
+		src_sid = str(src_sid)
+		dst_sid = str(dst_sid)
+
+		fname = '%s_%s.cache' % (src_sid, dst_sid)
+		cache_file_path = self.graph_dir.joinpath(fname)
+		print(paths)
+		with open(cache_file_path, 'w', newline = '') as f:
+			if isinstance(paths, list):
+				ps = ','.join([int(x) for x in paths]) + '\r\n'
+				print(ps)
+				f.write(ps)
+			else:
+				for src in paths:
+					ps = ','.join([str(x) for x in paths[src]]) + '\r\n'
+					print(ps)
+					f.write(ps)
+		print('Done!')
+	
+	def read_cachefile(self, src_sid, dst_sid):
+		both = False
+		if src_sid is not None and dst_sid is not None:
+			both = True
+		src_sid = str(src_sid)
+		dst_sid = str(dst_sid)
+
+		fname = '%s_%s.cache' % (src_sid, dst_sid)
+		cache_file_path = self.graph_dir.joinpath(fname)
+		try:
+			res = {} if both is False else []
+			with open(cache_file_path, 'r') as f:
+				print('Found cache file for %s' % fname)
+				for line in f:
+					line=line.strip()
+					if line == '':
+						continue
+					if both is True:
+						res.append(line.split(','))
+					else:
+						path = [int(x) for x in line.split(',')]
+						res[path[0]] = path
+			return res
+		except Exception as e:
+			print(e)
+			return None
 
 	def save(self):
 		pass
@@ -100,10 +151,10 @@ class JackDawDomainGraphNetworkx:
 		logger.debug('Graph created!')
 
 	@staticmethod
-	def load(dbsession, graph_id, graph_cache_dir):
+	def load(dbsession, graph_id, graph_cache_dir, use_cache = True):
 		graph_file = graph_cache_dir.joinpath(JackDawDomainGraphNetworkx.graph_file_name)
 		graph = nx.DiGraph()
-		g = JackDawDomainGraphNetworkx(dbsession, graph_id)
+		g = JackDawDomainGraphNetworkx(dbsession, graph_id, graph_dir=graph_cache_dir, use_cache=use_cache)
 		g.graph = nx.read_edgelist(str(graph_file), nodetype=int, create_using=graph)
 		g.setup()
 		logger.debug('Graph loaded to memory')
@@ -186,12 +237,20 @@ class JackDawDomainGraphNetworkx:
 			if src_sid is None and dst_sid is None:
 				raise Exception('src_sid or dst_sid must be set')
 			
-			elif src_sid is None and dst_sid is not None:
+			res = None
+			if self.use_cache is True:
+				res = self.read_cachefile(src_sid, dst_sid)
+
+			if src_sid is None and dst_sid is not None:
 				dst = self.__resolve_sid_to_id(dst_sid)
 				if dst is None:
 					raise Exception('SID not found!')
 				
-				res = shortest_path(self.graph, target=dst)
+				if res is None:
+					res = shortest_path(self.graph, target=dst)
+					if self.use_cache is True:
+						self.write_cachefile(src_sid, dst_sid, res)
+				print(res)
 				for k in res:
 					self.__result_path_add(nv, res[k][:maxhops], exclude = exclude, pathonly = pathonly)
 
@@ -205,7 +264,10 @@ class JackDawDomainGraphNetworkx:
 					raise Exception('SID not found!')
 
 				try:
-					res = shortest_path(self.graph, src, dst)
+					if res is None:
+						res = shortest_path(self.graph, src, dst)
+						if self.use_cache is True:
+							self.write_cachefile(src_sid, dst_sid, res)
 					self.__result_path_add(nv, res, exclude = exclude, pathonly = pathonly)
 				except nx.exception.NetworkXNoPath:
 					pass
@@ -216,7 +278,10 @@ class JackDawDomainGraphNetworkx:
 					raise Exception('SID not found!')
 				
 				try:
-					res = shortest_path(self.graph, src)
+					if res is None:
+						res = shortest_path(self.graph, src)
+						if self.use_cache is True:
+							self.write_cachefile(src_sid, dst_sid, res)
 					for k in res:
 						self.__result_path_add(nv, res[k][:maxhops], exclude = exclude, pathonly = pathonly)
 				except nx.exception.NetworkXNoPath:
@@ -292,8 +357,12 @@ class JackDawDomainGraphNetworkx:
 		#delete_this = []
 		for d, node_id in enumerate(path):
 			sid, otype = self.__nodename_to_sid(node_id)
-			res = self.dbsession.query(EdgeLookup).filter_by(oid = sid).first()
-			domain_id = res.ad_id
+		
+			if sid not in self.sid_adid_lookup:
+				res = self.dbsession.query(EdgeLookup).filter_by(oid = sid).first()
+				self.sid_adid_lookup[sid] = res.ad_id
+			
+			domain_id = self.sid_adid_lookup[sid]
 			owned, highvalue = self.__get_props(sid)
 			#delete_this.append('%s(%s) -> ' % (sid, otype))
 			network.add_node(
@@ -328,10 +397,10 @@ class JackDawDomainGraphNetworkx:
 	
 	def __nodename_to_sid(self, node_name):
 		node_name = int(node_name)
-		if node_name in self.lookup:
-			return self.lookup[node_name]
+		if node_name in self.name_sid_lookup:
+			return self.name_sid_lookup[node_name]
 		t = self.dbsession.query(EdgeLookup).get(node_name) #node_name is the ID of the edgelookup
-		self.lookup[node_name] = (t.oid, t.otype)
+		self.name_sid_lookup[node_name] = (t.oid, t.otype)
 		return t.oid, t.otype
 
 	def __get_props(self, oid):
@@ -348,10 +417,15 @@ class JackDawDomainGraphNetworkx:
 
 	
 	def __resolv_edge_types(self, src_id, dst_id):
-		#t = []
-		for domain_id in self.adids:
-			for res in self.dbsession.query(Edge.label).distinct(Edge.label).filter_by(graph_id = self.graph_id).filter(Edge.ad_id == domain_id).filter(Edge.src == src_id).filter(Edge.dst == dst_id).all():
-				yield res[0]
+		key = '%s_%s' % (str(src_id), str(dst_id))
+		if key not in self.label_lookup:
+			self.label_lookup[key] = []
+			for domain_id in self.adids:
+				for res in self.dbsession.query(Edge.label).distinct(Edge.label).filter_by(graph_id = self.graph_id).filter(Edge.ad_id == domain_id).filter(Edge.src == src_id).filter(Edge.dst == dst_id).all():
+					self.label_lookup[key].append(res[0])
+		
+		for label in self.label_lookup[key]:
+			yield label
 		
 		#testing!!!!
 		#if len(t) == 0:
@@ -369,29 +443,32 @@ class JackDawDomainGraphNetworkx:
 
 
 	def __sid2cn(self, sid, otype):
-		if otype == 'user':
-			tsid = self.dbsession.query(ADUser.sAMAccountName).filter(ADUser.objectSid == sid).first()
-			if tsid is not None:
-				return tsid[0]
-		
-		elif otype == 'group':
-			tsid = self.dbsession.query(Group.sAMAccountName).filter(Group.objectSid == sid).first()
-			if tsid is not None:
-				return tsid[0]
+		if sid not in self.sid_name_lookup:
+			if otype == 'user':
+				tsid = self.dbsession.query(ADUser.sAMAccountName).filter(ADUser.objectSid == sid).first()
+				if tsid is not None:
+					self.sid_name_lookup[sid] = tsid[0]
+			
+			elif otype == 'group':
+				tsid = self.dbsession.query(Group.sAMAccountName).filter(Group.objectSid == sid).first()
+				if tsid is not None:
+					self.sid_name_lookup[sid] = tsid[0]
 
-		elif otype == 'machine':
-			tsid = self.dbsession.query(Machine.sAMAccountName).filter(Machine.objectSid == sid).first()
-			if tsid is not None:
-				return tsid[0]
+			elif otype == 'machine':
+				tsid = self.dbsession.query(Machine.sAMAccountName).filter(Machine.objectSid == sid).first()
+				if tsid is not None:
+					self.sid_name_lookup[sid] = tsid[0]
 
-		elif otype == 'trust':
-			tsid = self.dbsession.query(ADTrust.dn).filter(ADTrust.securityIdentifier == sid).first()
-			if tsid is not None:
-				return tsid[0]
+			elif otype == 'trust':
+				tsid = self.dbsession.query(ADTrust.dn).filter(ADTrust.securityIdentifier == sid).first()
+				if tsid is not None:
+					self.sid_name_lookup[sid] = tsid[0]
 		
-		else:
-			print('__sid2cn unknown otype "%s" for sid %s' % (otype, sid))
-			return None
+			else:
+				print('__sid2cn unknown otype "%s" for sid %s' % (otype, sid))
+				self.sid_name_lookup[sid] = None
+		
+		return self.sid_name_lookup[sid]
 
 	def get_domainsids(self):
 		pass
