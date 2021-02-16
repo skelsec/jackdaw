@@ -96,6 +96,11 @@ class GraphData:
 		self.nodes = {}
 		self.edges = {}
 
+	def node_present(self, node):
+		if node in self.nodes:
+			return True
+		return False
+
 	def add_node(self, gid, name, domainid, node_type, properties = {}, owned = False, highvalue = False):
 		self.nodes[gid] = GraphNode(gid, name, domainid, node_type, properties, owned = owned, highvalue = highvalue)
 	

@@ -28,36 +28,6 @@ from tqdm import tqdm
 if platform.system() == 'Emscripten':
 	tqdm.monitor_interval = 0
 
-def short_worker(inqueue, outqueue, graph, dst_sid):
-	"""
-	Calculates the shortest parth for a given destination node
-	This function is "multiprocessed"
-	"""
-	while True:
-		node = inqueue.get()
-		if node is None:
-			outqueue.put(None)
-			return
-		try:
-			for path in nx.all_shortest_paths(graph, source = node, target = dst_sid):
-				outqueue.put(path)
-									
-		except nx.exception.NetworkXNoPath:
-			continue
-
-def short_node_gen(graph, inqueue, dst_sid, procno):
-	"""
-	Adding all nodes from the graph to the inqueue. At the end it adds terminating object in the amount of proccount.
-	This function will be threaded. 
-	"""
-	for node in graph.nodes:
-		if node == dst_sid:
-			continue
-		inqueue.put(node)
-			
-	for _ in range(procno):
-		inqueue.put(None)
-
 
 class JackDawDomainGraphNetworkx:
 	graph_file_name = 'networkx.csv'
@@ -160,70 +130,6 @@ class JackDawDomainGraphNetworkx:
 		logger.debug('Graph loaded to memory')
 		return g
 		
-
-	def all_shortest_paths(self, src_sid = None, dst_sid = None):
-		nv = GraphData()
-		
-		if not src_sid and not dst_sid:
-			raise Exception('Either source or destination MUST be specified')
-
-		elif src_sid is not None and dst_sid is not None:
-			src = self.__resolve_sid_to_id(src_sid)
-			if src is None:
-				raise Exception('SID not found!')
-
-			dst = self.__resolve_sid_to_id(dst_sid)
-			if dst is None:
-				raise Exception('SID not found!')
-			
-			for path in nx.all_shortest_paths(self.graph, src, dst):
-				self.__result_path_add(nv, path)
-		
-		elif not src_sid and dst_sid:
-			try:
-				dst = self.__resolve_sid_to_id(dst_sid)
-				if dst is None:
-					raise Exception('SID not found!')
-				#for each node we calculate the shortest path to the destination node, silently skip the ones who do not have path to dst
-				inqueue = mp.Queue()
-				outqueue = mp.Queue()
-				procno = mp.cpu_count()
-				logger.debug('[DST_CALC] Starting processes')
-				procs = [mp.Process(target = short_worker, args = (inqueue, outqueue, self.graph, dst_sid)) for i in range(procno)]			
-				for proc in procs:
-					proc.daemon = True
-					proc.start()
-				logger.debug('[DST_CALC] Starting generator thread')
-				node_gen_th = threading.Thread(target = short_node_gen, args = (self.graph, inqueue, dst_sid, procno))
-				node_gen_th.daemon = True
-				node_gen_th.start()
-
-				p_cnt = 0
-				while True:
-					path = outqueue.get()
-					if path is None:
-						procno -= 1
-						logger.debug('[DST_CALC] Proc X - Finished!')
-						if procno == 0:
-							break
-						continue
-					self.__result_path_add(nv, path)
-					p_cnt += 1
-
-				logger.debug('[DST_CALC] Found %s paths to dst node %s' % (p_cnt, dst_sid))
-
-				logger.debug('[DST_CALC] joining processes')
-				for proc in procs:
-					proc.join()
-				logger.debug('[DST_CALC] Finished!')
-
-			except:
-				logger.exception('[DST_CALC]')
-			
-		else:
-			raise Exception('Working on it')
-		
-		return nv
 
 	def shortest_paths(self, src_sid = None, dst_sid = None, ignore_notfound = False, exclude = [], pathonly = False, maxhops = None):
 		print('!!!!!!!!!!!!!!!!!!!!!!!')
