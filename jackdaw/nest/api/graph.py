@@ -60,6 +60,12 @@ def list_graphs():
 def create(adids):
 	if len(adids) != 1:
 		logger.warning('More than one adid requested, but only one is supported currently!')
+	
+	sqlite_file = None
+	if current_app.config['SQLALCHEMY_DATABASE_URI'].lower().startswith('sqlite') is True:
+		sqlite_file = current_app.config['SQLALCHEMY_DATABASE_URI'].replace('sqlite:///', '')
+
+	logger.error(sqlite_file)
 	for ad_id in adids:
 		domaininfo = current_app.db.session.query(ADInfo).get(ad_id)
 		domain_sid = domaininfo.objectSid
@@ -77,7 +83,7 @@ def create(adids):
 			logger.warning('Graph cache dir with ID %s already exists, skipping! Err %s' % (str(gi.id), str(e)))
 			continue
 			
-		current_app.config.get('JACKDAW_GRAPH_BACKEND_OBJ').create(current_app.db.session, str(gi.id), graph_dir)
+		current_app.config.get('JACKDAW_GRAPH_BACKEND_OBJ').create(current_app.db.session, str(gi.id), graph_dir, sqlite_file = sqlite_file)
 	
 	#TODO: fix this, need noew UI to handle the logic :(
 	return {'graphid' : graphid}

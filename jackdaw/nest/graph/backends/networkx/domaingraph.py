@@ -21,6 +21,7 @@ from jackdaw.nest.graph.graphdata import GraphData, GraphNode, NodeNotFoundExcep
 from jackdaw.nest.graph.construct import GraphConstruct
 from jackdaw.dbmodel.adobjprops import ADObjProps
 from jackdaw.wintypes.well_known_sids import get_name_or_sid, get_sid_for_name
+from sqlalchemy.orm import sessionmaker
 import threading
 from sqlalchemy import func
 import platform
@@ -100,7 +101,8 @@ class JackDawDomainGraphNetworkx:
 			self.adids.append(graphad.ad_id)
 
 	@staticmethod
-	def create(dbsession, graph_id, graph_dir):
+	def create(dbsession, graph_id, graph_dir, sqlite_file = None):
+		graph_id = int(graph_id)
 		graph_file = graph_dir.joinpath(JackDawDomainGraphNetworkx.graph_file_name)
 
 		logger.debug('Creating a new graph file: %s' % graph_file)
@@ -109,15 +111,42 @@ class JackDawDomainGraphNetworkx:
 		if adids is None:
 			raise Exception('No ADIDS were found for graph %s' % graph_id)
 		
-		for ad_id in adids:
-			ad_id = ad_id[0]
-			t2 = dbsession.query(func.count(Edge.id)).filter_by(graph_id = graph_id).filter(EdgeLookup.id == Edge.src).filter(EdgeLookup.oid != None).scalar()
-			q = dbsession.query(Edge).filter_by(graph_id = graph_id).filter(EdgeLookup.id == Edge.src).filter(EdgeLookup.oid != None)
+		using_sqlite_tool = False
+		if sqlite_file is not None:
+			# This is a hack.
+			# Problem: using sqlalchemy to dump a large table (to get the graph data file) is extremely resource intensive 
+			# Solution: if sqlite is used as the database backend we can use the sqlite3 cmdline utility to do the dumping much faster
+			# 
 
-			with open(graph_file, 'w', newline = '') as f:
-				for edge in tqdm(windowed_query(q,Edge.id, 10000), desc = 'edge', total = t2):
-					r = '%s %s\r\n' % (edge.src, edge.dst)
-					f.write(r)
+			qry_str = '.open %s\r\n.mode csv\r\n.output %s\r\n.separator " "\r\nSELECT src,dst FROM adedges, adedgelookup WHERE adedges.graph_id = %s AND adedgelookup.id = adedges.src AND adedgelookup.oid IS NOT NULL;\r\n.exit' % (sqlite_file, graph_file, graph_id)
+			with open('buildnode.sql', 'w') as f:
+				f.write(qry_str)
+			
+			import subprocess
+			import shlex
+					
+			cmd = 'cat buildnode.sql | sqlite3'
+			process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
+			stdout, stderr = process.communicate()
+			process.wait()
+			
+			if process.returncode == 0:
+				using_sqlite_tool = True
+			else:
+				logger.warining('Failed to use the sqlite3 tool to speed up graph datafile generation. Reason: %s' % stderr)
+				
+
+		if using_sqlite_tool is False:
+		
+			for ad_id in adids:
+				ad_id = ad_id[0]
+				t2 = dbsession.query(func.count(Edge.id)).filter_by(graph_id = graph_id).filter(EdgeLookup.id == Edge.src).filter(EdgeLookup.oid != None).scalar()
+				q = dbsession.query(Edge).filter_by(graph_id = graph_id).filter(EdgeLookup.id == Edge.src).filter(EdgeLookup.oid != None)
+
+				with open(graph_file, 'w', newline = '') as f:
+					for edge in tqdm(windowed_query(q,Edge.id, 10000), desc = 'edge', total = t2):
+						r = '%s %s\r\n' % (edge.src, edge.dst)
+						f.write(r)
 		logger.debug('Graph created!')
 
 	@staticmethod
