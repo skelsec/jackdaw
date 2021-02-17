@@ -65,6 +65,7 @@ class JackDawDomainGraphIGraph:
 	
 	@staticmethod
 	def create(dbsession, graph_id, graph_dir, sqlite_file = None):
+		logger.info('Create called!')
 		graph_id = int(graph_id)
 		graph_file = graph_dir.joinpath(JackDawDomainGraphIGraph.graph_file_name)
 
@@ -76,6 +77,7 @@ class JackDawDomainGraphIGraph:
 		
 		using_sqlite_tool = False
 		if sqlite_file is not None:
+			logger.info('Trying sqlite3 dumping method...')
 			# This is a hack.
 			# Problem: using sqlalchemy to dump a large table (to get the graph data file) is extremely resource intensive 
 			# Solution: if sqlite is used as the database backend we can use the sqlite3 cmdline utility to do the dumping much faster
@@ -95,6 +97,7 @@ class JackDawDomainGraphIGraph:
 			
 			if process.returncode == 0:
 				using_sqlite_tool = True
+				logger.info('sqlite3 dumping method OK!')
 			else:
 				logger.warining('Failed to use the sqlite3 tool to speed up graph datafile generation. Reason: %s' % stderr)
 				
@@ -110,10 +113,11 @@ class JackDawDomainGraphIGraph:
 					for edge in tqdm(windowed_query(q,Edge.id, 10000), desc = 'edge', total = t2):
 						r = '%s %s\r\n' % (edge.src, edge.dst)
 						f.write(r)
-		logger.debug('Graph created!')
+		logger.info('Graphcache file created!')
 
 	@staticmethod
 	def load(dbsession, graph_id, graph_cache_dir, use_cache = True):
+		logger.info('Loading Graphcache file to memory')
 		graph_file = graph_cache_dir.joinpath(JackDawDomainGraphIGraph.graph_file_name)
 		g = JackDawDomainGraphIGraph(dbsession, graph_id, graph_dir=graph_cache_dir, use_cache=use_cache)
 
@@ -121,6 +125,7 @@ class JackDawDomainGraphIGraph:
 			g.graph = igraph.Graph.Read_Edgelist(f, directed=True)
 
 		g.setup()
+		logger.info('Loaded Graphcache file to memory OK')
 		return g
 
 	def has_path(self, src_sid, dst_sid):
@@ -139,6 +144,7 @@ class JackDawDomainGraphIGraph:
 		return False
 
 	def shortest_paths(self, src_sid = None, dst_sid = None, ignore_notfound = False, exclude = [], pathonly = False, maxhops = None):
+		logger.info('shortest_paths called!')
 		nv = GraphData()
 		if pathonly is True:
 			nv = []
@@ -219,9 +225,10 @@ class JackDawDomainGraphIGraph:
 			else:
 				raise Exception('Not implemented!')
 			
-			
+			logger.info('shortest_paths finished OK!')
 			return nv
 		except Exception as e:
+			logger.info('shortest_paths finished ERR!')
 			traceback.print_exc()
 			if ignore_notfound is True:
 				return nv

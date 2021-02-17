@@ -88,11 +88,13 @@ class JackDawDomainGraphGrapthTools:
 
 	@staticmethod
 	def load(dbsession, graph_id, graph_cache_dir):
+		logger.info('Loading Graphcache file to memory')
 		graph_file = graph_cache_dir.joinpath(JackDawDomainGraphGrapthTools.graph_file_name)
 		g = JackDawDomainGraphGrapthTools(dbsession, graph_id)
 		g.graph = graph_tool.load_graph_from_csv(str(graph_file), directed=True, string_vals=False, hashed=False)
 		g.setup()
 		logger.debug('Graph loaded to memory')
+		logger.info('Loaded Graphcache file to memory OK')
 		return g
 
 	def all_shortest_paths(self, src_sid = None, dst_sid = None):

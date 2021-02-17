@@ -52,7 +52,6 @@ class JackDawDomainGraphNetworkx:
 
 		fname = '%s_%s.cache' % (src_sid, dst_sid)
 		cache_file_path = self.graph_dir.joinpath(fname)
-		print(paths)
 		with open(cache_file_path, 'w', newline = '') as f:
 			if isinstance(paths, list):
 				ps = ','.join([str(x) for x in paths]) + '\r\n'
@@ -102,6 +101,7 @@ class JackDawDomainGraphNetworkx:
 
 	@staticmethod
 	def create(dbsession, graph_id, graph_dir, sqlite_file = None):
+		logger.info('Create called!')
 		graph_id = int(graph_id)
 		graph_file = graph_dir.joinpath(JackDawDomainGraphNetworkx.graph_file_name)
 
@@ -113,6 +113,7 @@ class JackDawDomainGraphNetworkx:
 		
 		using_sqlite_tool = False
 		if sqlite_file is not None:
+			logger.info('Trying sqlite3 dumping method...')
 			# This is a hack.
 			# Problem: using sqlalchemy to dump a large table (to get the graph data file) is extremely resource intensive 
 			# Solution: if sqlite is used as the database backend we can use the sqlite3 cmdline utility to do the dumping much faster
@@ -132,6 +133,7 @@ class JackDawDomainGraphNetworkx:
 			
 			if process.returncode == 0:
 				using_sqlite_tool = True
+				logger.info('sqlite3 dumping method OK!')
 			else:
 				logger.warining('Failed to use the sqlite3 tool to speed up graph datafile generation. Reason: %s' % stderr)
 				
@@ -147,24 +149,22 @@ class JackDawDomainGraphNetworkx:
 					for edge in tqdm(windowed_query(q,Edge.id, 10000), desc = 'edge', total = t2):
 						r = '%s %s\r\n' % (edge.src, edge.dst)
 						f.write(r)
-		logger.debug('Graph created!')
+		logger.info('Graphcache file created!')
 
 	@staticmethod
 	def load(dbsession, graph_id, graph_cache_dir, use_cache = True):
+		logger.info('Loading Graphcache file to memory')
 		graph_file = graph_cache_dir.joinpath(JackDawDomainGraphNetworkx.graph_file_name)
 		graph = nx.DiGraph()
 		g = JackDawDomainGraphNetworkx(dbsession, graph_id, graph_dir=graph_cache_dir, use_cache=use_cache)
 		g.graph = nx.read_edgelist(str(graph_file), nodetype=int, create_using=graph)
 		g.setup()
-		logger.debug('Graph loaded to memory')
+		logger.info('Loaded Graphcache file to memory OK')
 		return g
 		
 
 	def shortest_paths(self, src_sid = None, dst_sid = None, ignore_notfound = False, exclude = [], pathonly = False, maxhops = None):
-		print('!!!!!!!!!!!!!!!!!!!!!!!')
-		print(src_sid)
-		print(dst_sid)
-
+		logger.info('shortest_paths called!')
 		nv = GraphData()
 		if pathonly is True:
 			nv = []
@@ -185,7 +185,7 @@ class JackDawDomainGraphNetworkx:
 					res = shortest_path(self.graph, target=dst)
 					if self.use_cache is True:
 						self.write_cachefile(src_sid, dst_sid, res)
-				print(res)
+				
 				for k in res:
 					self.__result_path_add(nv, res[k][:maxhops], exclude = exclude, pathonly = pathonly)
 
@@ -224,9 +224,11 @@ class JackDawDomainGraphNetworkx:
 				
 			else:
 				raise Exception('Not implemented!')
-
+			
+			logger.info('shortest_paths finished OK!')
 			return nv
 		except nx.exception.NodeNotFound:
+			logger.info('shortest_paths finished ERR!')
 			if ignore_notfound is True:
 				return nv
 			raise
