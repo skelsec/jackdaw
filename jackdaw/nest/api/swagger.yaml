@@ -484,6 +484,39 @@ paths:
                 type: string
                 description: TODO
 
+  /graph/{graphid}/query/path/fromownedtohighvalue/:
+    get:
+      operationId: jackdaw.nest.api.graph.query_path_fromowned_tohighvalue
+      tags:
+        - Graph
+      summary: Paths from owned users to highvalue targets
+      description: Paths from owned users to highvalue targets
+      parameters:
+        - name: graphid
+          in: path
+          description: ID of the graph view
+          type: integer
+          required: True
+        - name: format
+          in: query
+          description: return format. either vis or d3
+          type: string
+          required: False
+        - name: exclude
+          in: query
+          description: edge type to be excluded in the path calc
+          required: False
+          type: string
+      responses:
+        200:
+          description: TODO
+          schema:
+            type: object
+            properties:
+              graph:
+                type: string
+                description: TODO
+
   /graph/{graphid}/query/path/tohighvalue/:
     get:
       operationId: jackdaw.nest.api.graph.query_path_tohighvalue

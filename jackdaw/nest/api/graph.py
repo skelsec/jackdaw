@@ -399,6 +399,42 @@ def query_path_fromowned(graphid, exclude = None, format = 'vis'):
 
 	return res.to_dict(format = format)
 
+def query_path_fromowned_tohighvalue(graphid, exclude = None, format = 'vis'):
+	exclude_edgetypes = __exclude_parse(exclude)
+	if graphid not in current_app.config['JACKDAW_GRAPH_DICT']:
+		load(graphid)
+
+	source_sids = {}
+
+	for domain_id in current_app.config['JACKDAW_GRAPH_DICT'][graphid].adids:
+		for res in current_app.db.session.query(EdgeLookup.oid)\
+			.filter_by(ad_id = domain_id)\
+			.filter(EdgeLookup.oid == ADObjProps.oid)\
+			.filter(ADObjProps.graph_id == graphid)\
+			.filter(ADObjProps.prop == 'OWNED')\
+			.all():
+			
+			source_sids[res[0]] = 0
+
+	target_sids = {}
+
+	for domain_id in current_app.config['JACKDAW_GRAPH_DICT'][graphid].adids:
+		for res in current_app.db.session.query(EdgeLookup.oid)\
+			.filter_by(ad_id = domain_id)\
+			.filter(EdgeLookup.oid == ADObjProps.oid)\
+			.filter(ADObjProps.graph_id == graphid)\
+			.filter(ADObjProps.prop == 'HVT')\
+			.all():
+			
+			target_sids[res[0]] = 0
+
+	res = GraphData()
+	for src_sid in source_sids:
+		for dst_sid in target_sids:
+			res += current_app.config['JACKDAW_GRAPH_DICT'][graphid].shortest_paths(src_sid=src_sid, dst_sid=dst_sid, exclude = exclude_edgetypes)
+
+	return res.to_dict(format = format)
+
 
 def list_nodes(graphid, with_data = False):
 	if graphid not in current_app.config['JACKDAW_GRAPH_DICT']:

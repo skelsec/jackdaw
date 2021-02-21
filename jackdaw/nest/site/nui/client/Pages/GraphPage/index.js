@@ -431,6 +431,9 @@ class GraphPageComponent extends ApiClient {
             case "highvalue":
                 url = `/graph/${this.state.graph}/query/path/tohighvalue${excludeParameter}`;
                 break;
+			case "fromownedtohighvalue":
+				url = `/graph/${this.state.graph}/query/path/fromownedtohighvalue${excludeParameter}`;
+				break;
             default:
                 return;
         }
@@ -817,6 +820,15 @@ class GraphPageComponent extends ApiClient {
                             onClick={() => this.fetchGraph('highvalue')}
                         >
                             Draw user paths to High Value targets
+                        </Button>
+                    </Box>
+					<Box className="margin-top">
+                        <Button
+                            color="primary"
+                            variant="contained"
+                            onClick={() => this.fetchGraph('fromownedtohighvalue')}
+                        >
+                            Draw paths from owned users to high value targets
                         </Button>
                     </Box>
                 </VBox>
