@@ -98,7 +98,7 @@ class JackDawDomainGraphIGraph:
 				using_sqlite_tool = True
 				logger.info('sqlite3 dumping method OK!')
 			else:
-				logger.warining('Failed to use the sqlite3 tool to speed up graph datafile generation. Reason: %s' % stderr)
+				logger.warning('Failed to use the sqlite3 tool to speed up graph datafile generation. Reason: %s' % stderr)
 				
 
 		if using_sqlite_tool is False:
