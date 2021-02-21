@@ -117,13 +117,13 @@ class JackDawDomainGraphNetworkx:
 			# Solution: if sqlite is used as the database backend we can use the sqlite3 cmdline utility to do the dumping much faster
 			# 
 
-			sf = sqlite_file
-			gf = graph_file
+			sf = str(sqlite_file)
+			gf = str(graph_file)
 			if platform.system() == 'Windows':
 				sf = sf.replace('\\', '\\\\')
 				gf = gf.replace('\\', '\\\\')
 
-			qry_str = '.open %s\r\n.mode csv\r\n.output %s\r\n.separator " "\r\nSELECT src,dst FROM adedges, adedgelookup WHERE adedges.graph_id = %s AND adedgelookup.id = adedges.src AND adedgelookup.oid IS NOT NULL;\r\n.exit' % (sqlite_file, graph_file, graph_id)
+			qry_str = '.open %s\r\n.mode csv\r\n.output %s\r\n.separator " "\r\nSELECT src,dst FROM adedges, adedgelookup WHERE adedges.graph_id = %s AND adedgelookup.id = adedges.src AND adedgelookup.oid IS NOT NULL;\r\n.exit' % (sf, gf, graph_id)
 			with open('buildnode.sql', 'w') as f:
 				f.write(qry_str)
 			
