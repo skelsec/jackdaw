@@ -1,11 +1,6 @@
 
-from gzip import GzipFile
-import pathlib
-import itertools
 import copy
-import multiprocessing as mp
-import networkx as nx
-from networkx.algorithms.shortest_paths.generic import shortest_path, has_path
+
 from jackdaw import logger
 from jackdaw.dbmodel.adtrust import ADTrust
 from jackdaw.dbmodel.adcomp import Machine
@@ -20,8 +15,12 @@ from jackdaw.nest.graph.graphdata import GraphData, GraphNode, NodeNotFoundExcep
 from jackdaw.nest.graph.construct import GraphConstruct
 from jackdaw.dbmodel.adobjprops import ADObjProps
 from jackdaw.wintypes.well_known_sids import get_name_or_sid, get_sid_for_name
+
+
 from sqlalchemy.orm import sessionmaker
-import threading
+import networkx as nx
+from networkx.algorithms.shortest_paths.generic import shortest_path, has_path
+
 from sqlalchemy import func
 import platform
 from tqdm import tqdm
@@ -118,14 +117,23 @@ class JackDawDomainGraphNetworkx:
 			# Solution: if sqlite is used as the database backend we can use the sqlite3 cmdline utility to do the dumping much faster
 			# 
 
+			sf = sqlite_file
+			gf = graph_file
+			if platform.system() == 'Windows':
+				sf = sf.replace('\\', '\\\\')
+				gf = gf.replace('\\', '\\\\')
+
 			qry_str = '.open %s\r\n.mode csv\r\n.output %s\r\n.separator " "\r\nSELECT src,dst FROM adedges, adedgelookup WHERE adedges.graph_id = %s AND adedgelookup.id = adedges.src AND adedgelookup.oid IS NOT NULL;\r\n.exit' % (sqlite_file, graph_file, graph_id)
 			with open('buildnode.sql', 'w') as f:
 				f.write(qry_str)
 			
 			import subprocess
 			import shlex
-					
+			
 			cmd = 'cat buildnode.sql | sqlite3'
+			if platform.system() == 'Windows':
+				cmd = 'type buildnode.sql | sqlite3'
+
 			process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
 			stdout, stderr = process.communicate()
 			process.wait()
