@@ -6,7 +6,6 @@ import copy
 import multiprocessing as mp
 import networkx as nx
 from networkx.algorithms.shortest_paths.generic import shortest_path, has_path
-from bidict import bidict
 from jackdaw import logger
 from jackdaw.dbmodel.adtrust import ADTrust
 from jackdaw.dbmodel.adcomp import Machine

@@ -57,11 +57,11 @@ setup(
 		'websockets',
         'swagger-ui-bundle>=0.0.2',
 		'werkzeug==0.16.1',
-		'bidict',
 		'colorama; platform_system=="Windows"',
 		'winacl>=0.1.0',
 		'pypykatz>=0.3.14',
 		'python-igraph>=0.8.3',
+		'aiohttp',
 	],
 	entry_points={
 		'console_scripts': [

@@ -1,7 +1,6 @@
 import os
 from gzip import GzipFile
 import pathlib
-from bidict import bidict
 from jackdaw import logger
 from jackdaw.dbmodel.adtrust import ADTrust
 from jackdaw.dbmodel.adcomp import Machine

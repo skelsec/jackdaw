@@ -9,9 +9,20 @@ It also comes with a handy feature to help you in a password-cracking project by
 # Quick usage info
  - If not using automatic collection (eg. not on Windows) you will need to create an initial empty database via `dbinit`
  - First you need to perform `enum`. This can be done automatically on windows by double-clicking on the executable, or typing `jackdaw.exe auto`.
- - Second you will need to run `nest` to get the web interface. By default it is served under `http://127.0.0.1:5000/nest` there is an API under `http://127.0.0.1:5000/ui`.
+ - Second you will need to run `nest` to get the web interface. By default it is served under `http://127.0.0.1:5000/nest` there is a SWAGGER documented API under `http://127.0.0.1:5000/ui`.
  - Web interface, you will need to go to the domain view and click on `Generate graph cache` only once to get the edge information in a cache file. it might take a while but in the command line you will see a progress bar.
  - After graph cache is done, you can play with the graph on the `graph view` but don't forget to select the corrrect cache number on the top left.
+
+# Performance tricts/tips
+This section will be regurarly updated based on user feedback.
+### Data gathering
+No advice here, while some improvements can be done in code there is nothing that a generic can do.
+### Graph data cache file generation
+Graph data cache file generation must be done on each graph once (and only once) which can take a while using the default sqlalchemy tool.  
+Performance and speed can be significantly (over 50x more speed and 20x less memory) if you use the sqlite backend AND put the "sqlite3" command line utility somewhere in the `PATH`. I'd recommend this to every user.
+### Path calulcation and Graph data load
+Now here comes the big tradeoff part. Early implementation of Jackdaw used the `networkx` module as the graph backend since it is completely written in Python. But this came at a really significant memory and speed cost. To have Jackdaw pure Python, this option still exists however using the `igraph` backend is now the default.  
+Note: `igraph` is a C++ library with Python bindings. It has precompiled wheels for Windows and major linux distros but if you use Jackdaw on something else (embedded systems/mobile phones/web browsers) you will either need to switch back to `networkx` or suffer with the hours long compilation time.
 
 # Example commands
 ### Automatic enumeration - windows only, with domain-joined user -
@@ -21,16 +32,17 @@ Using as a python script `jackdaw auto`
 
 ### DB init
 `jackdaw --sql sqlite:///<full path here>/test.db dbinit`  
+ON LINUX SYSTEMS `<full path here>` includes the firest `/` so you will have `////` four (4) dashes before the file name. Don't get freaked out.  
 
 ### Enumeration
 #### Full enumeration with integrated sspi - windows only
-`jackdaw --sql sqlite:///test.db enum 'ldap+sspi://10.10.10.2' 'smb+sspi-ntlm://10.10.10.2'`
+`jackdaw --sql sqlite:///test.db enum 'ldap+sspi-ntlm://<domain>\<placeholder>@10.10.10.2' 'smb+sspi-ntlm://<domain>\<placeholder>@10.10.10.2'`
 #### Full enumeration with username and password - platform independent
 The passowrd is `Passw0rd!`  
-`jackdaw --sql sqlite:///test.db enum 'ldap://TEST\victim:Passw0rd!@10.10.10.2' 'smb+ntlm-password://TEST\victim:Passw0rd!@10.10.10.2'`
+`jackdaw --sql sqlite:///test.db enum 'ldap+ntlm-password://TEST\victim:Passw0rd!@10.10.10.2' 'smb+ntlm-password://TEST\victim:Passw0rd!@10.10.10.2'`
 #### LDAP-only enumeration with username and password - platform independent
 The passowrd is `Passw0rd!`  
-`jackdaw --sql sqlite:///test.db ldap 'ldap://TEST\victim:Passw0rd!@10.10.10.2'`
+`jackdaw --sql sqlite:///test.db ldap 'ldap+ntlm-password://TEST\victim:Passw0rd!@10.10.10.2'`
 
 ### Start interactive web interface to plot graph and access additional features
 
