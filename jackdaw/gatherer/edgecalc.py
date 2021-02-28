@@ -1,10 +1,11 @@
 
+import os
 import asyncio
 import logging
 import datetime
 import tempfile
 import platform
-from gzip import GzipFile
+import pathlib
 
 try:
 	import multiprocessing as mp
@@ -52,11 +53,12 @@ class EdgeCalcProgress:
 		
 
 class EdgeCalc:
-	def __init__(self, db_conn, ad_id, graph_id, buffer_size = 100, show_progress = True, progress_queue = None, worker_count = None, mp_pool = None):
+	def __init__(self, db_conn, ad_id, graph_id, buffer_size = 100, show_progress = True, progress_queue = None, worker_count = None, mp_pool = None, work_dir = None):
 		self.db_conn = db_conn
 		self.ad_id = ad_id
 		self.buffer_size = buffer_size
 		self.show_progress = show_progress
+		self.work_dir = work_dir
 		self.progress_queue = progress_queue
 		self.progress_step_size = 1000
 		self.pbar = None
@@ -314,7 +316,11 @@ class EdgeCalc:
 			if self.show_progress is True:
 				sdcalc_pbar = tqdm(desc ='Writing SD edges to file', total=total, disable=self.disable_tqdm)
 
-			testfile = tempfile.TemporaryFile('w+', newline = '')
+			sdfilename = 'sdcalc.csv'
+			if self.work_dir is not None:
+				sdfilename = str(self.work_dir.joinpath('sdcalc.csv'))
+
+			testfile = open(sdfilename, 'w+', newline = '') #tempfile.TemporaryFile('w+', newline = '')
 			buffer = []
 			if self.mp_pool is None:
 				try:
@@ -410,22 +416,33 @@ class EdgeCalc:
 			if self.show_progress is True:
 				sdcalcupload_pbar = tqdm(desc = 'Writing SD edge file contents to DB', total = cnt, disable=self.disable_tqdm)
 
+			engine = self.session.get_bind()
+			print(engine)
+
 			testfile.seek(0,0)
 			last_stat_cnt = 0
 			i = 0
 
+			insert_buffer = []
 			for line in testfile:
 				i += 1
 				line = line.strip()
 				src_id, dst_id, label, _ = line.split(',')
-				edge = Edge(self.ad_id, self.graph_id, src_id, dst_id, label)
-				self.session.add(edge)
+				insert_buffer.append(
+					{
+						"ad_id": self.ad_id,
+						'graph_id' : self.graph_id,
+						'src' : int(src_id),
+						'dst' : int(dst_id),
+						'label' : label
+					}
+				)
 				if i % (self.buffer_size*100) == 0:
-					self.session.commit()
-
-				if self.show_progress is True:
-					sdcalcupload_pbar.update()
-
+					engine.execute(Edge.__table__.insert(), insert_buffer)
+					if self.show_progress is True:
+						sdcalcupload_pbar.update(self.buffer_size*100)
+					insert_buffer = []
+					
 				if self.progress_queue is not None and i % self.progress_step_size == 0:
 					last_stat_cnt += self.progress_step_size
 					now = datetime.datetime.utcnow()
@@ -443,25 +460,12 @@ class EdgeCalc:
 					msg.step_size = self.progress_step_size
 					await self.progress_queue.put(msg)
 					await asyncio.sleep(0)
-
-			self.session.commit()
-
-			if self.progress_queue is not None:
-				now = datetime.datetime.utcnow()
-				td = (now - self.progress_last_updated).total_seconds()
-				self.progress_last_updated = now
-				msg = GathererProgress()
-				msg.type = GathererProgressType.SDCALCUPLOAD
-				msg.msg_type = MSGTYPE.PROGRESS
-				msg.adid = self.ad_id
-				msg.domain_name = self.domain_name
-				msg.total = cnt
-				msg.total_finished = i
-				if td > 0:
-					msg.speed = str((i - last_stat_cnt) // td)
-				msg.step_size = i - last_stat_cnt
-				await self.progress_queue.put(msg)
-				await asyncio.sleep(0)
+			
+			if len(insert_buffer) > 0:
+				engine.execute(Edge.__table__.insert(), insert_buffer)
+				if self.show_progress is True:
+					sdcalcupload_pbar.update(len(insert_buffer))
+				insert_buffer = []
 
 			if self.progress_queue is not None:
 				msg = GathererProgress()
@@ -470,19 +474,24 @@ class EdgeCalc:
 				msg.adid = self.ad_id
 				msg.domain_name = self.domain_name
 				await self.progress_queue.put(msg)
-
-			if self.show_progress is True and sdcalcupload_pbar is not None:
-				sdcalcupload_pbar.refresh()
-				sdcalcupload_pbar.disable = True
 			
+			self.session.commit()
 			return True, None
 		except Exception as e:
 			logger.exception('sdcalc!')
 			return False, e
+		finally:
+			os.remove(sdfilename)
+			
+		
 
 	async def start_calc(self):
 		#call this only after setting the current ADID!!!!
 		try:
+			if self.work_dir is not None:
+				if isinstance(self.work_dir, str):
+					self.work_dir = pathlib.Path(self.work_dir)
+
 			adinfo = self.session.query(ADInfo).get(self.ad_id)
 			self.domain_name = str(adinfo.distinguishedName).replace(',','.').replace('DC=','')
 			

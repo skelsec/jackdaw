@@ -147,19 +147,36 @@ class MembershipCollector:
 			self.token_file.close()
 			cnt = 0
 			last_stat_cnt = 0
+			engine = self.session.get_bind()
+			insert_buffer = []
+
 			with gzip.GzipFile(self.token_file_path, 'r') as f:
 				for line in f:
-					sd = JackDawTokenGroup.from_json(line.strip())
-					src_id = self.sid_to_id_lookup(sd.sid, sd.ad_id, sd.object_type)
-					dst_id = self.sid_to_id_lookup(sd.member_sid, sd.ad_id, sd.object_type)
+					line = line.strip()
+					if line  == '':
+						continue
+					data = json.loads(line)
+					src_id = self.sid_to_id_lookup(data['sid'], int(data['ad_id']), data['object_type'])
+					dst_id = self.sid_to_id_lookup(data['member_sid'], int(data['ad_id']), data['object_type'])
 
-					edge = Edge(sd.ad_id, self.graph_id, src_id, dst_id, 'member')
+					#edge = Edge(sd.ad_id, self.graph_id, src_id, dst_id, 'member')
 
-					self.session.add(edge)
+					insert_buffer.append(
+						{
+							"ad_id": int(data['ad_id']),
+							'graph_id' : self.graph_id,
+							'src' : src_id,
+							'dst' : dst_id,
+							'label' : 'member'
+						}
+					)
+
+					#self.session.add(edge)
 					await asyncio.sleep(0)
 					cnt += 1
 					if cnt % 10000 == 0:
-						self.session.commit()
+						engine.execute(Edge.__table__.insert(), insert_buffer)
+						insert_buffer = []
 
 					if self.show_progress is True:
 						self.upload_pbar.update()
@@ -180,7 +197,11 @@ class MembershipCollector:
 							msg.speed = str(self.progress_step_size // td)
 						msg.step_size = self.progress_step_size
 						await self.progress_queue.put(msg)
-						
+
+			if len(insert_buffer) > 0:
+				engine.execute(Edge.__table__.insert(), insert_buffer)
+				insert_buffer = []
+
 			if self.progress_queue is not None:
 				now = datetime.datetime.utcnow()
 				td = (now - self.progress_last_updated).total_seconds()
@@ -205,7 +226,6 @@ class MembershipCollector:
 				msg.adid = self.ad_id
 				msg.domain_name = self.domain_name
 				await self.progress_queue.put(msg)
-
 
 			return True, None
 			

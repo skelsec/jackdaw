@@ -338,7 +338,8 @@ class Gatherer:
 				show_progress = False, 
 				progress_queue = self.progress_queue, 
 				worker_count = None, 
-				mp_pool = self.mp_pool
+				mp_pool = self.mp_pool,
+				work_dir=self.work_dir if self.no_work_dir is False else None
 			)
 			res, err = await ec.run()
 			return res, err

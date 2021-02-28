@@ -176,16 +176,32 @@ class SDCollector:
 			if self.sd_file is not None:
 				self.sd_file.close()
 				cnt = 0
-				buffer = []
+				engine = self.session.get_bind()
+				insert_buffer = []
 				last_stat_cnt = 0
 				with gzip.GzipFile(self.sd_file_path, 'r') as f:
 					for line in f:
-						buffer.append(JackDawSD.from_json(line.strip()))
+						line = line.strip()
+						if line == '':
+							continue
+						data = json.loads(line)
+						insert_buffer.append(
+							{
+								'ad_id': int(data['ad_id']),
+								'guid' : data['guid'],
+								'sid' : data['sid'],
+								'object_type' : data['object_type'],
+								'sd' : data['sd'],
+								'sd_hash' : data['sd_hash']
+							}
+						)
+
+						#insert_buffer.append(JackDawSD.from_json(line.strip()))
 						await asyncio.sleep(0)
 						cnt += 1
 						if cnt % 100 == 0:
-							self.session.bulk_save_objects(buffer)
-							buffer = []
+							engine.execute(JackDawSD.__table__.insert(), insert_buffer) #self.session.bulk_save_objects(insert_buffer)
+							insert_buffer = []
 						if self.show_progress is True:
 							self.sd_upload_pbar.update()
 						if self.progress_queue is not None and cnt % self.progress_step_size == 0:
@@ -206,9 +222,9 @@ class SDCollector:
 							await self.progress_queue.put(msg)
 							await asyncio.sleep(0)
 				
-				if len(buffer) > 0:
-					self.session.bulk_save_objects(buffer)
-					buffer = []
+				if len(insert_buffer) > 0:
+					engine.execute(JackDawSD.__table__.insert(), insert_buffer) #self.session.bulk_save_objects(insert_buffer)
+					insert_buffer = []
 				self.session.commit()
 
 				if self.progress_queue is not None:
