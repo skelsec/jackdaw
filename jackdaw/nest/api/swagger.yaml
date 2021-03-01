@@ -285,6 +285,29 @@ paths:
                 type: string
                 description: TODO
 
+  /graph/{graphid}/getdomainids/:
+    get:
+      operationId: jackdaw.nest.api.graph.getdomainids
+      tags:
+        - Graph
+      summary: Lists all domain IDs (unique db id) of domains belonging to this graph
+      description: Lists all domain IDs (unique db id) of domains belonging to this graph
+      parameters:
+        - name: graphid
+          in: path
+          description: ID of the graph view
+          type: integer
+          required: True
+      responses:
+        200:
+          description: TODO
+          schema:
+            type: object
+            properties:
+              graph:
+                type: string
+                description: TODO
+
   /graph/{graphid}/query/path/dcsync/:
     get:
       operationId: jackdaw.nest.api.graph.query_path_dcsync
@@ -990,6 +1013,36 @@ paths:
               graph:
                 type: string
                 description: Placeholder TODO
+
+  /user/{domainid}/by_samaccountname/{sam}:
+    get:
+      operationId: jackdaw.nest.api.user.get_sam
+      tags:
+        - User
+      summary: Returs the full information of a given user identified by SID
+      description: Returs the full information of a given user identified by SID
+      parameters:
+        - name: domainid
+          in: path
+          description: ID of the domain
+          type: integer
+          required: True
+        - name: sam
+          in: path
+          description: sAMAccountName of the user
+          type: string
+          required: True
+      responses:
+        200:
+          description: User info
+          schema:
+            type: object
+            properties:
+              graph:
+                type: string
+                description: Placeholder TODO
+
+                
 
   /user/{domainid}/by_id/{userid}:
     get:

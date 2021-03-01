@@ -51,6 +51,11 @@ def get_sid(domainid, usersid):
     for user in db.session.query(ADUser).filter_by(objectSid = usersid).filter(ADUser.ad_id == domainid).all():
         return user.to_dict()
 
+def get_sam(domainid, sam):
+    db = current_app.db
+    for user in db.session.query(ADUser).filter_by(sAMAccountName = sam).filter(ADUser.ad_id == domainid).all():
+        return user.to_dict()
+
 def filter(domainid, proplist):
     #TODO: add other properties to search for!
     db = current_app.db

@@ -1,6 +1,7 @@
 import os
 import pathlib
 import platform
+import copy
 
 from jackdaw import logger
 from jackdaw.dbmodel.adtrust import ADTrust
