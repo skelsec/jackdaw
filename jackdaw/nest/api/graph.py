@@ -233,31 +233,8 @@ def query_path_dcsync(graphid, exclude = None, format = 'vis'):
 	if graphid not in current_app.config['JACKDAW_GRAPH_DICT']:
 		load(graphid)
 
-	target_sids = {}
-	da_sids = {} #{current_app.config['JACKDAW_GRAPH_DICT'][graphid].domain_sid : 0}
-
-
-	for domain_id in current_app.config['JACKDAW_GRAPH_DICT'][graphid].adids:
-		for res in current_app.db.session.query(Group).filter_by(ad_id = domain_id).filter(Group.objectSid.like('%-512')).all():
-			da_sids[res.objectSid] = 0
-
-		for res in current_app.db.session.query(EdgeLookup.oid)\
-			.filter_by(ad_id = domain_id)\
-			.filter(EdgeLookup.id == Edge.src)\
-			.filter(EdgeLookup.oid != None)\
-			.filter(or_(Edge.label == 'GetChanges', Edge.label == 'GetChangesAll'))\
-			.all():
-			
-			target_sids[res[0]] = 0
-
 	res = GraphData()
-	for dst_sid in da_sids:
-		for src_sid in target_sids:
-			res += current_app.config['JACKDAW_GRAPH_DICT'][graphid].shortest_paths(src_sid, dst_sid, exclude = exclude_edgetypes)
-
-	#for src_sid in target_sids:
-	#	res += current_app.config['JACKDAW_GRAPH_DICT'][graphid].shortest_paths(None, src_sid, exclude = exclude_edgetypes)
-
+	res += current_app.config['JACKDAW_GRAPH_DICT'][graphid].get_dcsync()
 
 	return res.to_dict(format = format)
 

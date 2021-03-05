@@ -210,6 +210,11 @@ class JackDawDomainGraph:
 				tsid = self.dbsession.query(ADTrust.dn).filter(ADTrust.securityIdentifier == sid).first()
 				if tsid is not None:
 					self.sid_name_lookup[sid] = tsid[0]
+			
+			elif otype == 'domain':
+				tsid = self.dbsession.query(ADInfo.distinguishedName).filter(ADInfo.objectSid == sid).first()
+				if tsid is not None:
+					self.sid_name_lookup[sid] = tsid[0]
 		
 			else:
 				print('sid2cn unknown otype "%s" for sid %s' % (otype, sid))
@@ -263,6 +268,45 @@ class JackDawDomainGraph:
 						network.add_edge(group_sid, sid, label='member')
 
 				prev_groups = next_groups
+			
+			return network
+		except Exception as e:
+			import traceback
+			traceback.print_exc()
+			print(e)
+			raise e
+
+	def get_dcsync(self):
+		try:
+			network = GraphData()
+			forest_sids = []
+			groups = []
+			for adid in self.adids:
+				adinfo = self.dbsession.query(ADInfo).get(adid)
+				forest_sids.append(adinfo.objectSid)
+
+			for forest_sid in forest_sids:
+				self.add_node(network, self.resolve_sid_to_id(forest_sid))
+				for sid, otype in self.get_edges_onelevel(forest_sid, 'GetChanges', 'in'):
+					if otype == 'group':
+						groups.append(sid)
+					if network.node_present(sid) is False:
+						rid = self.resolve_sid_to_id(sid)
+						self.add_node(network, rid)
+					
+					network.add_edge(forest_sid, sid, label='GetChanges')
+				
+				for sid, otype in self.get_edges_onelevel(forest_sid, 'GetChangesAll', 'in'):
+					if otype == 'group':
+						groups.append(sid)
+					if network.node_present(sid) is False:
+						rid = self.resolve_sid_to_id(sid)
+						self.add_node(network, rid)
+					
+					network.add_edge(forest_sid, sid, label='GetChangesAll')
+			
+			for group_sid in groups:
+				network += self.get_members(group_sid, 1)
 			
 			return network
 		except Exception as e:

@@ -13,7 +13,7 @@ def list_domains(page, maxcnt):
 	qry = db.session.query(
 		ADInfo
 		).with_entities(
-			ADInfo.id, 
+			ADInfo.id,
 			ADInfo.distinguishedName, 
 			ADInfo.fetched_at
 			)
@@ -46,3 +46,8 @@ def get(domainid):
 	db = current_app.db
 	adinfo = db.session.query(ADInfo).get(domainid)
 	return adinfo.to_dict()
+
+def get_sid(domainsid):
+    db = current_app.db
+    for domain in db.session.query(ADInfo).filter_by(objectSid = domainsid).all():
+        return domain.to_dict()

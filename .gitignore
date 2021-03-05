@@ -112,3 +112,4 @@ build/*
 *.gzip
 *.gz
 workdir/*
+buildnode.sql

@@ -989,6 +989,29 @@ paths:
               graph:
                 type: string
                 description: Placeholder TODO
+  
+  /domain/by_sid/{domainsid}:
+    get:
+      operationId: jackdaw.nest.api.domain.get_sid
+      tags:
+        - Domain
+      summary: Returs the full information of a given domain
+      description: Returs the full information of a given domain
+      parameters:
+        - name: domainsid
+          in: path
+          description: SID of the domain
+          type: string
+          required: True
+      responses:
+        200:
+          description: Domain info
+          schema:
+            type: object
+            properties:
+              graph:
+                type: string
+                description: Placeholder TODO
 
   /user/{domainid}/list:
     get:
