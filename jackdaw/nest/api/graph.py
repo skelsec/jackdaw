@@ -131,10 +131,11 @@ def load(graphid):
 			graph_cache_dir = current_app.config['JACKDAW_WORK_DIR'].joinpath('graphcache')
 			graph_dir = graph_cache_dir.joinpath(str(graphid))
 			if graph_dir.exists() is False:
+				current_app.config['JACKDAW_GRAPH_DICT_LOADING'][graphid].set()
 				raise Exception('Graph cache dir doesnt exists!')
 			else:
 				current_app.config['JACKDAW_GRAPH_DICT'][graphid] = current_app.config.get('JACKDAW_GRAPH_BACKEND_OBJ').load(current_app.db.session, graphid, graph_dir)
-				
+				current_app.config['JACKDAW_GRAPH_DICT_LOADING'][graphid].set()
 				return graphid
 		else:
 			current_app.config['JACKDAW_GRAPH_DICT_LOADING'][graphid].wait()
@@ -168,7 +169,7 @@ def getdomainids(graphid):
 
 
 def query_path(graphid, src = None, dst = None, exclude = None, format = 'd3', maxhops = None):
-	allshrotest = True
+	allshrotest = False
 	pathonly = False
 	if format.lower() == 'path':
 		pathonly = True
