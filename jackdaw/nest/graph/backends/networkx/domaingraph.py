@@ -387,6 +387,7 @@ class JackDawDomainGraphNetworkx:
 
 
 	def __sid2cn(self, sid, otype):
+		tsid = None
 		if sid not in self.sid_name_lookup:
 			if otype == 'user':
 				tsid = self.dbsession.query(ADUser.sAMAccountName).filter(ADUser.objectSid == sid).first()
@@ -411,6 +412,10 @@ class JackDawDomainGraphNetworkx:
 			else:
 				print('__sid2cn unknown otype "%s" for sid %s' % (otype, sid))
 				self.sid_name_lookup[sid] = None
+
+		if tsid is None:
+			print('__sid2cn could not find %s with sid "%s" in the database.' % (otype, sid))
+			self.sid_name_lookup[sid] = None
 		
 		return self.sid_name_lookup[sid]
 
