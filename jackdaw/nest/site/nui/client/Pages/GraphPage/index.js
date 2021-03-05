@@ -434,6 +434,9 @@ class GraphPageComponent extends ApiClient {
 			case "fromownedtohighvalue":
 				url = `/graph/${this.state.graph}/query/path/fromownedtohighvalue${excludeParameter}`;
 				break;
+			case "members":
+				url = `/graph/${this.state.graph}/members/${this.state.srcsidSelected.sid}`;
+				break;
             default:
                 return;
         }
@@ -829,6 +832,15 @@ class GraphPageComponent extends ApiClient {
                             onClick={() => this.fetchGraph('fromownedtohighvalue')}
                         >
                             Draw paths from owned users to high value targets
+                        </Button>
+                    </Box>
+					<Box className="margin-top">
+                        <Button
+                            color="primary"
+                            variant="contained"
+                            onClick={() => this.fetchGraph('members')}
+                        >
+                            List group members. Group should be in SRC
                         </Button>
                     </Box>
                 </VBox>

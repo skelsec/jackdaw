@@ -17,6 +17,8 @@ from jackdaw.dbmodel.adobjprops import ADObjProps
 from jackdaw.wintypes.well_known_sids import get_name_or_sid, get_sid_for_name
 
 
+from jackdaw.nest.graph.backends.domaingraph import JackDawDomainGraph
+
 from sqlalchemy.orm import sessionmaker
 import networkx as nx
 from networkx.algorithms.shortest_paths.generic import shortest_path, has_path
@@ -28,21 +30,23 @@ if platform.system() == 'Emscripten':
 	tqdm.monitor_interval = 0
 
 
-class JackDawDomainGraphNetworkx:
+class JackDawDomainGraphNetworkx(JackDawDomainGraph):
 	graph_file_name = 'networkx.csv'
-	def __init__(self, session, graph_id, graph_dir, use_cache = False):
-		self.dbsession = session
-		self.graph_id = int(graph_id)
-		self.constructs = {}
-		self.graph = None
-		self.adids = []
-		self.name_sid_lookup = {}
-		self.props_lookup = {}
-		self.sid_adid_lookup = {}
-		self.sid_name_lookup = {}
-		self.label_lookup = {}
-		self.use_cache = use_cache
-		self.graph_dir = graph_dir
+	def __init__(self, dbsession, graph_id, graph_dir, use_cache = False):
+		JackDawDomainGraph.__init__(self, dbsession, graph_id, graph_dir, use_cache = False)
+
+		#self.dbsession = session
+		#self.graph_id = int(graph_id)
+		#self.constructs = {}
+		#self.graph = None
+		#self.adids = []
+		#self.name_sid_lookup = {}
+		#self.props_lookup = {}
+		#self.sid_adid_lookup = {}
+		#self.sid_name_lookup = {}
+		#self.label_lookup = {}
+		#self.use_cache = use_cache
+		#self.graph_dir = graph_dir
 
 	def write_cachefile(self, src_sid, dst_sid, paths):
 		src_sid = str(src_sid)
@@ -168,9 +172,20 @@ class JackDawDomainGraphNetworkx:
 		g.setup()
 		logger.info('Loaded Graphcache file to memory OK')
 		return g
+
+	def has_path(self, src_sid, dst_sid):
+		dst = self.resolve_sid_to_id(dst_sid)
+		if dst is None:
+			raise Exception('SID not found!')
+
+		src = self.resolve_sid_to_id(src_sid)
+		if src is None:
+			raise Exception('SID not found!')
+
+		return has_path(self.graph, src, dst)
 		
 
-	def shortest_paths(self, src_sid = None, dst_sid = None, ignore_notfound = False, exclude = [], pathonly = False, maxhops = None):
+	def shortest_paths(self, src_sid = None, dst_sid = None, ignore_notfound = False, exclude = [], pathonly = False, maxhops = None, all_shortest = False):
 		logger.info('shortest_paths called!')
 		nv = GraphData()
 		if pathonly is True:
@@ -184,7 +199,7 @@ class JackDawDomainGraphNetworkx:
 				res = self.read_cachefile(src_sid, dst_sid)
 
 			if src_sid is None and dst_sid is not None:
-				dst = self.__resolve_sid_to_id(dst_sid)
+				dst = self.resolve_sid_to_id(dst_sid)
 				if dst is None:
 					raise Exception('SID not found!')
 				
@@ -194,14 +209,14 @@ class JackDawDomainGraphNetworkx:
 						self.write_cachefile(src_sid, dst_sid, res)
 				
 				for k in res:
-					self.__result_path_add(nv, res[k][:maxhops], exclude = exclude, pathonly = pathonly)
+					self.result_path_add(nv, res[k][:maxhops], exclude = exclude, pathonly = pathonly)
 
 			elif src_sid is not None and dst_sid is not None:
-				dst = self.__resolve_sid_to_id(dst_sid)
+				dst = self.resolve_sid_to_id(dst_sid)
 				if dst is None:
 					raise Exception('SID not found!')
 
-				src = self.__resolve_sid_to_id(src_sid)
+				src = self.resolve_sid_to_id(src_sid)
 				if src is None:
 					raise Exception('SID not found!')
 
@@ -210,12 +225,12 @@ class JackDawDomainGraphNetworkx:
 						res = shortest_path(self.graph, src, dst)
 						if self.use_cache is True:
 							self.write_cachefile(src_sid, dst_sid, res)
-					self.__result_path_add(nv, res, exclude = exclude, pathonly = pathonly)
+					self.result_path_add(nv, res, exclude = exclude, pathonly = pathonly)
 				except nx.exception.NetworkXNoPath:
 					pass
 
 			elif src_sid is not None and dst_sid is None:
-				src = self.__resolve_sid_to_id(src_sid)
+				src = self.resolve_sid_to_id(src_sid)
 				if src is None:
 					raise Exception('SID not found!')
 				
@@ -225,7 +240,7 @@ class JackDawDomainGraphNetworkx:
 						if self.use_cache is True:
 							self.write_cachefile(src_sid, dst_sid, res)
 					for k in res:
-						self.__result_path_add(nv, res[k][:maxhops], exclude = exclude, pathonly = pathonly)
+						self.result_path_add(nv, res[k][:maxhops], exclude = exclude, pathonly = pathonly)
 				except nx.exception.NetworkXNoPath:
 					pass
 				
@@ -240,190 +255,6 @@ class JackDawDomainGraphNetworkx:
 				return nv
 			raise
 
-	def has_path(self, src_sid, dst_sid):
-		dst = self.__resolve_sid_to_id(dst_sid)
-		if dst is None:
-			raise Exception('SID not found!')
-
-		src = self.__resolve_sid_to_id(src_sid)
-		if src is None:
-			raise Exception('SID not found!')
-
-		return has_path(self.graph, src, dst)
-
-	def __result_path_add(self, network, path, exclude = [], pathonly = False):
-		# enable this for raw path logging
-		# print(path)
-		if pathonly is False:
-			for i in range(len(path) - 1):
-				self.__result_edge_add(network, int(path[i]), int(path[i+1]), path, exclude = exclude)
-		else:
-			res = [[]]
-			nolabel = False
-			for i in range(len(path) - 1):
-				for r in res:
-					r.append(self.__nodename_to_sid(int(path[i])))
-				labels = []
-				for label in self.__resolv_edge_types(int(path[i]), int(path[i+1])):
-					if label not in exclude:
-						labels.append(label)
-				if len(labels) == 0:
-					nolabel = True
-					break
-				if len(labels) == 1:
-					for r in res:
-						r.append(labels[0])
-				else:
-					temp = []
-					for label in labels:
-						for r in res:
-							#print(r)
-							x = copy.deepcopy(r)
-							x.append(label)
-							print(x)
-							temp.append(x)
-
-					res = temp
-
-				#res.append(labels)
-			if nolabel is True:
-				return
-			for r in res:
-				r.append(self.__nodename_to_sid(int(path[-1])))
-			
-			
-			network += res
-
-	def __add_nodes_from_path(self, network, path):
-		if path == []:
-			return
-		path = [i for i in path]
-		#delete_this = []
-		for d, node_id in enumerate(path):
-			sid, otype = self.__nodename_to_sid(node_id)
-		
-			if sid not in self.sid_adid_lookup:
-				res = self.dbsession.query(EdgeLookup).filter_by(oid = sid).first()
-				self.sid_adid_lookup[sid] = res.ad_id
-			
-			domain_id = self.sid_adid_lookup[sid]
-			owned, highvalue = self.__get_props(sid)
-			#delete_this.append('%s(%s) -> ' % (sid, otype))
-			network.add_node(
-				sid, 
-				name = self.__sid2cn(sid, otype), 
-				node_type = otype,
-				domainid = domain_id,
-				owned = owned,
-				highvalue = highvalue
-			)
-			network.nodes[sid].set_distance(len(path)-d-1)
-
-		#print(''.join(delete_this))
-
-	def __result_edge_add(self, network, src_id, dst_id, path, exclude = []):
-		for label in self.__resolv_edge_types(src_id, dst_id):
-			if label not in exclude:
-				try:
-					src = self.__nodename_to_sid(src_id)
-					dst = self.__nodename_to_sid(dst_id)
-					try:
-						network.add_edge(src[0],dst[0], label=label)
-					except NodeNotFoundException:
-						self.__add_nodes_from_path(network, path)
-						network.add_edge(src[0],dst[0], label=label)
-					#print('%s -> %s [%s]' % (src, dst, label))
-				except Exception as e:
-					import traceback
-					traceback.print_exc()
-					print(e)
-					raise e
 	
-	def __nodename_to_sid(self, node_name):
-		node_name = int(node_name)
-		if node_name in self.name_sid_lookup:
-			return self.name_sid_lookup[node_name]
-		t = self.dbsession.query(EdgeLookup).get(node_name) #node_name is the ID of the edgelookup
-		self.name_sid_lookup[node_name] = (t.oid, t.otype)
-		return t.oid, t.otype
-
-	def __get_props(self, oid):
-		if oid not in self.props_lookup:
-			qry = self.dbsession.query(ADObjProps).filter_by(oid=oid).filter(ADObjProps.graph_id==self.graph_id)
-			owned_res = qry.filter(ADObjProps.prop == 'OWNED').first()
-			if owned_res is not None:
-				owned_res = True
-			highvalue_res = qry.filter(ADObjProps.prop == 'HVT').first()
-			if highvalue_res is not None:
-				highvalue_res = True
-			self.props_lookup[oid] = (owned_res, highvalue_res)
-		return self.props_lookup[oid]
 
 	
-	def __resolv_edge_types(self, src_id, dst_id):
-		key = '%s_%s' % (str(src_id), str(dst_id))
-		if key not in self.label_lookup:
-			self.label_lookup[key] = []
-			for domain_id in self.adids:
-				for res in self.dbsession.query(Edge.label).distinct(Edge.label).filter_by(graph_id = self.graph_id).filter(Edge.ad_id == domain_id).filter(Edge.src == src_id).filter(Edge.dst == dst_id).all():
-					self.label_lookup[key].append(res[0])
-		
-		for label in self.label_lookup[key]:
-			yield label
-		
-		#testing!!!!
-		#if len(t) == 0:
-		#	print('e src %s' % src_id)
-		#	print('e dst %s' % dst_id)
-		#return t
-
-	def __resolve_sid_to_id(self, sid):
-		#print('__resolve_sid_to_id sid %s' % sid)
-		for domain_id in self.adids:
-			for res in self.dbsession.query(EdgeLookup.id).filter_by(ad_id = domain_id).filter(EdgeLookup.oid == sid).first():
-				#print('__resolve_sid_to_id res %s' % res)
-				return res
-		return None
-
-
-	def __sid2cn(self, sid, otype):
-		tsid = None
-		if sid not in self.sid_name_lookup:
-			if otype == 'user':
-				tsid = self.dbsession.query(ADUser.sAMAccountName).filter(ADUser.objectSid == sid).first()
-				if tsid is not None:
-					self.sid_name_lookup[sid] = tsid[0]
-			
-			elif otype == 'group':
-				tsid = self.dbsession.query(Group.sAMAccountName).filter(Group.objectSid == sid).first()
-				if tsid is not None:
-					self.sid_name_lookup[sid] = tsid[0]
-
-			elif otype == 'machine':
-				tsid = self.dbsession.query(Machine.sAMAccountName).filter(Machine.objectSid == sid).first()
-				if tsid is not None:
-					self.sid_name_lookup[sid] = tsid[0]
-
-			elif otype == 'trust':
-				tsid = self.dbsession.query(ADTrust.dn).filter(ADTrust.securityIdentifier == sid).first()
-				if tsid is not None:
-					self.sid_name_lookup[sid] = tsid[0]
-		
-			else:
-				print('__sid2cn unknown otype "%s" for sid %s' % (otype, sid))
-				self.sid_name_lookup[sid] = None
-
-		if tsid is None:
-			print('__sid2cn could not find %s with sid "%s" in the database.' % (otype, sid))
-			self.sid_name_lookup[sid] = None
-		
-		return self.sid_name_lookup[sid]
-
-	def get_domainsids(self):
-		pass
-
-	def get_nodes(self):
-		pass
-
-	def get_distances_from_node(self):
-		pass

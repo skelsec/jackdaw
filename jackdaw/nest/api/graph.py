@@ -10,6 +10,7 @@ import tempfile
 import os
 import pathlib
 import copy
+import threading
 
 from jackdaw.dbmodel.graphinfo import GraphInfo, GraphInfoAD
 from jackdaw.nest.graph.domain import DomainGraph
@@ -122,16 +123,24 @@ def upload(file_to_upload):
 	#return {'graphid' : old_graph_id_ctr}
 
 def load(graphid):
-	graphid = int(graphid)
-	current_app.config['JACKDAW_WORK_DIR']
-	graph_cache_dir = current_app.config['JACKDAW_WORK_DIR'].joinpath('graphcache')
-	graph_dir = graph_cache_dir.joinpath(str(graphid))
-	if graph_dir.exists() is False:
-		raise Exception('Graph cache dir doesnt exists!')
+	if graphid not in current_app.config['JACKDAW_GRAPH_DICT']:
+		if graphid not in current_app.config['JACKDAW_GRAPH_DICT_LOADING']:
+			current_app.config['JACKDAW_GRAPH_DICT_LOADING'][graphid] = threading.Event()
+			graphid = int(graphid)
+			current_app.config['JACKDAW_WORK_DIR']
+			graph_cache_dir = current_app.config['JACKDAW_WORK_DIR'].joinpath('graphcache')
+			graph_dir = graph_cache_dir.joinpath(str(graphid))
+			if graph_dir.exists() is False:
+				raise Exception('Graph cache dir doesnt exists!')
+			else:
+				current_app.config['JACKDAW_GRAPH_DICT'][graphid] = current_app.config.get('JACKDAW_GRAPH_BACKEND_OBJ').load(current_app.db.session, graphid, graph_dir)
+				
+				return graphid
+		else:
+			current_app.config['JACKDAW_GRAPH_DICT_LOADING'][graphid].wait()
+			return graphid
 	else:
-		current_app.config['JACKDAW_GRAPH_DICT'][graphid] = current_app.config.get('JACKDAW_GRAPH_BACKEND_OBJ').load(current_app.db.session, graphid, graph_dir)
-		
-		return {'graphid' : graphid}
+		return graphid
 
 def get(graphid):
 	if graphid not in current_app.config['JACKDAW_GRAPH_DICT']:
@@ -159,6 +168,7 @@ def getdomainids(graphid):
 
 
 def query_path(graphid, src = None, dst = None, exclude = None, format = 'd3', maxhops = None):
+	allshrotest = False
 	pathonly = False
 	if format.lower() == 'path':
 		pathonly = True
@@ -178,7 +188,7 @@ def query_path(graphid, src = None, dst = None, exclude = None, format = 'd3', m
 			maxhops = 2
 	if src is None and dst is None:
 		return {}
-	res = current_app.config['JACKDAW_GRAPH_DICT'][graphid].shortest_paths(src, dst, exclude = exclude_edgetypes, pathonly = pathonly, maxhops = maxhops)
+	res = current_app.config['JACKDAW_GRAPH_DICT'][graphid].shortest_paths(src, dst, exclude = exclude_edgetypes, pathonly = pathonly, maxhops = maxhops, all_shortest = allshrotest)
 	if pathonly is True:
 		return res
 	return res.to_dict(format = format)
@@ -529,6 +539,17 @@ def search(graphid, text):
 					res['owned'] = True
 
 	return results
+
+
+def get_members(graphid, sid, maxhops = 1, format = 'vis'):
+	if graphid not in current_app.config['JACKDAW_GRAPH_DICT']:
+		load(graphid)
+	
+	res = GraphData()
+	res += current_app.config['JACKDAW_GRAPH_DICT'][graphid].get_members(sid, maxhops)
+
+	return res.to_dict(format = 'vis')
+
 
 def stat_distance(graphid, sid):
 	if graphid not in current_app.config['JACKDAW_GRAPH_DICT']:

@@ -146,7 +146,44 @@ paths:
               graph:
                 type: string
                 description: Placeholder TODO
-            
+
+  /graph/{graphid}/members/{sid}:
+    get:
+      operationId: jackdaw.nest.api.graph.get_members
+      tags:
+        - Graph
+      summary: List members of the group
+      description: List members of the group
+      parameters:
+        - name: graphid
+          in: path
+          description: ID of the graph view
+          type: integer
+          required: True
+        - name: sid
+          in: path
+          description: SID of the group
+          type: string
+          required: True
+        - name: maxhops
+          in: query
+          description: not used currently
+          required: False
+          type: string
+        - name: format
+          in: query
+          description: return format. either vis or d3
+          type: string
+          required: False
+      responses:
+        200:
+          description: Returns full node information
+          schema:
+            type: object
+            properties:
+              graph:
+                type: string
+                description: Placeholder TODO
   
   /graph/{graphid}/query/path:
     get:
