@@ -77,10 +77,6 @@ class JackDawDomainGraphGrapthTools:
 
 		with open(graph_file, 'w', newline = '') as f:
 			for edge in tqdm(windowed_query(q,Edge.id, 10000), desc = 'edge', total = t2):
-				#if edge.src  == fi:
-				#	continue
-				#if edge.dst  == fi:
-				#	continue
 				r = '%s,%s\r\n' % (edge.src, edge.dst)
 				f.write(r)
 		logger.debug('Graph created!')

@@ -32,35 +32,15 @@ class JackDawDomainGraph:
 		self.sid_name_lookup = {}
 		self.label_lookup = {}
 
-	#def __resolv_edge_types(self, src_id, dst_id):
-	#	t = []
-	#	for res in self.dbsession.query(Edge.label).distinct(Edge.label).filter_by(graph_id = self.graph_id).filter(Edge.ad_id == self.domain_id).filter(Edge.src == src_id).filter(Edge.dst == dst_id).all():
-	#		t.append(res)
-	#	return t
-
-	#def __nodename_to_sid(self, node_name):
-	#	t = self.dbsession.query(EdgeLookup).get(node_name) #node_name is the ID of the edgelookup
-	#	return t.oid, t.otype
-
-
-	#def __nodeid_to_sid(self, node_id):
-	#	return self.__nodename_to_sid(self.graph.vs[node_id]['name'])
-
-
-	#def __resolve_sid_to_id(self, sid):
-	#	for domain_id in self.adids:
-	#		for res in self.dbsession.query(EdgeLookup.id).filter_by(ad_id = domain_id).filter(EdgeLookup.oid == sid).first():
-	#			return res
-	#	return None
-
 	def result_path_add(self, network, path, exclude = [], pathonly = False):
 		if pathonly is False:
-			if self.check_path_exclude(path, exclude) is False:
-				# path contains edges which are excluded
-				return
+			if len(exclude) > 0:
+				if self.check_path_exclude(path, exclude) is False:
+					# path contains edges which are excluded
+					return
 
 			for i in range(len(path) - 1):
-				self.__result_edge_add(network, int(path[i]), int(path[i+1]), path, exclude = exclude)
+				self.result_edge_add(network, int(path[i]), int(path[i+1]), path, exclude = exclude)
 		else:
 			res = [[]]
 			nolabel = False
@@ -151,7 +131,7 @@ class JackDawDomainGraph:
 					return False
 		return True
 
-	def __result_edge_add(self, network, src_id, dst_id, path, exclude = []):
+	def result_edge_add(self, network, src_id, dst_id, path, exclude = []):
 		labels = []
 		for label in self.resolv_edge_types(src_id, dst_id):
 			if label not in exclude:

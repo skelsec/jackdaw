@@ -168,7 +168,7 @@ def getdomainids(graphid):
 
 
 def query_path(graphid, src = None, dst = None, exclude = None, format = 'd3', maxhops = None):
-	allshrotest = False
+	allshrotest = True
 	pathonly = False
 	if format.lower() == 'path':
 		pathonly = True
