@@ -1,7 +1,6 @@
 
 from jackdaw.nest.graph.domain import DomainGraph
 from jackdaw.nest.graph.graphdata import GraphData
-from jackdaw.nest.graph.construct import GraphConstruct
 from jackdaw.nest.graph.domaindiff import DomainDiff
 from jackdaw.dbmodel.adgroup import Group
 from jackdaw.dbmodel.edgelookup import EdgeLookup

@@ -13,7 +13,6 @@ from jackdaw.dbmodel.edge import Edge
 from jackdaw.dbmodel.edgelookup import EdgeLookup
 from jackdaw.dbmodel import windowed_query
 from jackdaw.nest.graph.graphdata import GraphData, GraphNode
-from jackdaw.nest.graph.construct import GraphConstruct
 from jackdaw.wintypes.well_known_sids import get_name_or_sid, get_sid_for_name
 import tempfile
 from tqdm import tqdm

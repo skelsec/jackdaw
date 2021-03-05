@@ -11,7 +11,6 @@ from jackdaw.dbmodel.edge import Edge
 from jackdaw.dbmodel.edgelookup import EdgeLookup
 from jackdaw.dbmodel import windowed_query
 from jackdaw.nest.graph.graphdata import GraphData, GraphNode
-from jackdaw.nest.graph.construct import GraphConstruct
 from jackdaw.dbmodel.graphinfo import GraphInfo, GraphInfoAD
 from jackdaw.dbmodel.adobjprops import ADObjProps
 
