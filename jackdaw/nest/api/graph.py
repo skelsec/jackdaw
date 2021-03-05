@@ -202,15 +202,8 @@ def query_path_da(graphid, exclude = None, format = 'vis'):
 		pathonly = True
 	
 	exclude_edgetypes = __exclude_parse(exclude)
-	print(exclude_edgetypes)
 	da_sids = {}
-	#searching for domain admin SID
 	
-	#for node in current_app.config['JACKDAW_GRAPH_DICT'][graphid].get_node():
-	#	print(node)
-	#	if node.id == current_app.config['JACKDAW_GRAPH_DICT'][graphid].domain_sid + '-512':
-	#		da_sids[node.id] = 1
-	#print(current_app.config['JACKDAW_GRAPH_DICT'][graphid].domain_id)
 	for domain_id in current_app.config['JACKDAW_GRAPH_DICT'][graphid].adids:
 		for res in current_app.db.session.query(Group).filter_by(ad_id = domain_id).filter(Group.objectSid.like('%-512')).all():
 			da_sids[res.objectSid] = 0

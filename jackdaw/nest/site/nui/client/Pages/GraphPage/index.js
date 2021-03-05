@@ -735,22 +735,22 @@ class GraphPageComponent extends ApiClient {
                     <RequestModifier onChange={this.setModifiers}/>
                 </Box>
                 <VBox className="margin-top">
+					<Box className="margin-top">
+                        <Button
+                            color="primary"
+                            variant="contained"
+                            onClick={() => this.fetchGraph('path')}
+                        >
+                            Shortest Path from SRC to DST
+                        </Button>
+                    </Box>
                     <Box className="margin-top margin-bottom">
                         <Button
                             color="primary"
                             variant="contained"
                             onClick={() => this.fetchGraph('domainadmins')}
                         >
-                            Draw Domain Admins
-                        </Button>
-                    </Box>
-                    <Box className="margin-top">
-                        <Button
-                            color="primary"
-                            variant="contained"
-                            onClick={() => this.fetchGraph('path')}
-                        >
-                            Draw Path
+                            Shortest Paths to Domain Admins
                         </Button>
                     </Box>
                     <Box className="margin-top">
@@ -759,7 +759,7 @@ class GraphPageComponent extends ApiClient {
                             variant="contained"
                             onClick={() => this.fetchGraph('ownedtoda')}
                         >
-                            Draw Path from Owned users to DA
+                            Shortest Paths from Owned users to DA
                         </Button>
                     </Box>
                     <Box className="margin-top">
@@ -768,7 +768,7 @@ class GraphPageComponent extends ApiClient {
                             variant="contained"
                             onClick={() => this.fetchGraph('fromowned')}
                         >
-                            Draw Path from Owned users to anywhere
+                            Shortest Paths from Owned users to Anywhere
                         </Button>
                     </Box>
                     <Box className="margin-top">
@@ -786,7 +786,7 @@ class GraphPageComponent extends ApiClient {
                             variant="contained"
                             onClick={() => this.fetchGraph('kerberoasttoda')}
                         >
-                            Drwaw Path from Kerberoastable users to DA
+                            Shortest Paths from Kerberoastable users to DA
                         </Button>
                     </Box>
                     <Box className="margin-top">
@@ -795,7 +795,7 @@ class GraphPageComponent extends ApiClient {
                             variant="contained"
                             onClick={() => this.fetchGraph('kerberoastany')}
                         >
-                            Drwaw Path from Kerberoastable users to anywhere
+                            Shortest Paths from Kerberoastable users to anywhere
                         </Button>
                     </Box>
                     <Box className="margin-top">
@@ -804,7 +804,7 @@ class GraphPageComponent extends ApiClient {
                             variant="contained"
                             onClick={() => this.fetchGraph('asreproastda')}
                         >
-                            Drwaw Path from ASREProastable users to DA
+                            Shortest Paths from ASREProastable users to DA
                         </Button>
                     </Box>
                     <Box className="margin-top">
@@ -813,7 +813,7 @@ class GraphPageComponent extends ApiClient {
                             variant="contained"
                             onClick={() => this.fetchGraph('asreproast')}
                         >
-                            Drwaw Path from ASREProastable users to DA
+                            Shortest Paths from ASREProastable users to DA
                         </Button>
                     </Box>
                     <Box className="margin-top">
@@ -822,7 +822,7 @@ class GraphPageComponent extends ApiClient {
                             variant="contained"
                             onClick={() => this.fetchGraph('highvalue')}
                         >
-                            Draw user paths to High Value targets
+                            Shortest Paths to High Value targets
                         </Button>
                     </Box>
 					<Box className="margin-top">
@@ -831,7 +831,7 @@ class GraphPageComponent extends ApiClient {
                             variant="contained"
                             onClick={() => this.fetchGraph('fromownedtohighvalue')}
                         >
-                            Draw paths from owned users to high value targets
+                            Shortest Paths from Owned users to High value targets
                         </Button>
                     </Box>
 					<Box className="margin-top">
