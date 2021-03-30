@@ -46,8 +46,8 @@ setup(
 		"Operating System :: OS Independent",
 	),
 	install_requires=[
-		'aiosmb>=0.2.34',
-		'msldap>=0.3.27',
+		'aiosmb>=0.2.38',
+		'msldap>=0.3.28',
 		'sqlalchemy<1.4',
 		'tqdm',
 		'networkx',
@@ -58,9 +58,9 @@ setup(
         'swagger-ui-bundle>=0.0.2',
 		'werkzeug==0.16.1',
 		'colorama; platform_system=="Windows"',
-		'winacl>=0.1.0',
-		'pypykatz>=0.3.14',
-		'python-igraph>=0.8.3',
+		'winacl>=0.1.1',
+		'pypykatz>=0.4.8',
+		'python-igraph==0.8.3',
 		'aiohttp',
 	],
 	entry_points={

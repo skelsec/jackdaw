@@ -1,4 +1,4 @@
-.open /home/devel/Desktop/AD2.db
+.open /home/devel/Desktop/AD3.db
 .mode csv
 .output workdir/graphcache/1/networkx.csv
 .separator " "

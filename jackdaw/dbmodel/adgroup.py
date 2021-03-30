@@ -43,6 +43,7 @@ class Group(Basemodel, Serializer):
 		return {
 			'id' : self.id ,
 			'ad_id' : self.ad_id ,
+			'dn' : self.dn,
 			'sid' : self.objectSid ,
 			'objectGUID' : self.objectGUID,
 			'description' : self.description ,
