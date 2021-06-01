@@ -49,6 +49,8 @@ from jackdaw.nest.ws.protocol.customtarget.targetres import NestOpTargetRes
 from jackdaw.nest.ws.protocol.customtarget.listtarget import NestOpListTarget
 from jackdaw.nest.ws.protocol.customtarget.addtarget import NestOpAddTarget
 
+from jackdaw.nest.ws.protocol.intercom.intercom import IntercomAgent, IntercomListAgents
+
 
 
 __all__ = [
@@ -95,6 +97,8 @@ __all__ = [
 	'NestOpLoadGraph',
 	'NestOpListGraphRes',
 	'NestOpListGraph',
+	'IntercomAgent',
+	'IntercomListAgents'
 ]
 
 
@@ -145,4 +149,7 @@ type2obj = {
 	NestOpCmd.LOADGRAPH : NestOpLoadGraph,
 	#NestOpCmd.EDGERES : NestOpEdgeRes,
 	#NestOpCmd.EDGERES : NestOpEdgeRes,
+	NestOpCmd.INTERCOMLISTAGENTS : IntercomAgent,
+	NestOpCmd.INTERCOMAGENT : IntercomListAgents,
 }
+

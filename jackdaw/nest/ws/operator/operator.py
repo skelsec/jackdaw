@@ -48,11 +48,10 @@ STANDARD_PROGRESS_MSG_TYPES = [
 ]
 
 class NestOperator:
-	def __init__(self, websocket, db_url, global_msg_queue, work_dir, graph_type):
+	def __init__(self, websocket, db_url, work_dir, graph_type):
 		self.websocket = websocket
 		self.db_url = db_url
 		self.db_session = None
-		self.global_msg_queue = global_msg_queue
 		self.work_dir = work_dir
 		self.ad_id = None
 		self.show_progress = True #prints progress to console?
@@ -60,6 +59,17 @@ class NestOperator:
 		self.graph_type = graph_type
 		self.graph_id = None
 		self.edgeinfo_cache = {}
+
+		# for intercom ops
+		self.intercom_q_in = None #intercom_q_in
+		self.intercom_q_out = None #intercom_q_out
+		self.operatorid = None
+
+	async def __handle_intercom_in(self):
+		while True:
+			packet = await self.intercom_q_in.get()
+			print(packet)
+
 
 	def loadgraph(self, graphid):
 		graphid = int(graphid)
@@ -72,13 +82,6 @@ class NestOperator:
 		
 		return True
 
-	#def listgraphs(self):
-	#	t = []
-	#	graph_cache_dir = self.work_dir.joinpath('graphcache')
-	#	x = [f for f in graph_cache_dir.iterdir() if f.is_dir()]
-	#	for d in x:
-	#		t.append(int(str(d.name)))
-	#	return t
 
 	def lookup_oid(self, oint, ad_id, token):
 		try:
@@ -106,26 +109,6 @@ class NestOperator:
 
 		self.graph_id = int(cmd.graphid)
 		await self.send_ok(cmd)
-
-	async def progess_outgoing(self):
-		try:
-			while True:
-				try:
-					msg = await self.msg_queue.get()
-					print('progress %s' % msg)
-					
-					await self.websocket.send(msg.to_dict())
-
-				except asyncio.CancelledError:
-					return
-				except Exception as e:
-					print(e)
-					return
-
-		except asyncio.CancelledError:
-			return
-		except Exception as e:
-			print(e)
 
 	async def send_error(self, ocmd, reason = None):
 		reply = NestOpErr()
