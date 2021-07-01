@@ -3,10 +3,10 @@ import json
 from jackdaw.utils.encoder import UniversalEncoder 
 from jackdaw.nest.ws.protocol.cmdtypes import NestOpCmd
 class NestOpErr:
-	def __init__(self):
+	def __init__(self, token = None, resaon = None):
 		self.cmd = NestOpCmd.ERR
-		self.token = None
-		self.reason = None
+		self.token = token
+		self.reason = resaon
 	
 	def to_dict(self):
 		return self.__dict__

@@ -2143,6 +2143,41 @@ paths:
               graph:
                 type: string
                 description: Placeholder TODO
+  
+  /sessions/{domainid}/aiosmb:
+    put:
+      operationId: jackdaw.nest.api.session.aiosmb_upload
+      tags:
+        - Sessions
+      summary: Uploads sessionenum result file
+      description: Uploads sessionenum result file
+      consumes:
+         - multipart/form-data
+      parameters:
+        - name: domainid
+          in: path
+          description: ID of the domain
+          type: integer
+          required: True
+        - name: filetype
+          in: formData
+          description: File to upload
+          type: string
+          required: True
+        - name: file_to_upload
+          in: formData
+          description: File to upload
+          type: file
+          required: True
+      responses:
+        200:
+          description: Nah
+          schema:
+            type: object
+            properties:
+              graph:
+                type: string
+                description: Placeholder TODO
 
   /sessions/{domainid}/list:
     get:

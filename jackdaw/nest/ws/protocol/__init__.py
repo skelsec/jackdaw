@@ -9,6 +9,7 @@ from jackdaw.nest.ws.protocol.cmdtypes import *
 from jackdaw.nest.ws.protocol.log import NestOpLog
 from jackdaw.nest.ws.protocol.ok import NestOpOK
 from jackdaw.nest.ws.protocol.error import NestOpErr
+from jackdaw.nest.ws.protocol.cancel import NestOpCancel
 
 from jackdaw.nest.ws.protocol.gather.gather import NestOpGather
 from jackdaw.nest.ws.protocol.gather.getobjinfo import NestOpGetOBJInfo
@@ -36,6 +37,8 @@ from jackdaw.nest.ws.protocol.smb.smbsessions import NestOpSMBSessions
 from jackdaw.nest.ws.protocol.smb.smbsessionres import NestOpSMBSessionRes
 from jackdaw.nest.ws.protocol.smb.smbshareres import NestOpSMBShareRes, NestOpSMBShareBuffRes
 from jackdaw.nest.ws.protocol.smb.smblocalgroupres import NestOpSMBLocalGroupRes
+from jackdaw.nest.ws.protocol.smb.smbfiles import NestOpSMBFiles
+from jackdaw.nest.ws.protocol.smb.smbfileres import NestOpSMBFileRes
 
 from jackdaw.nest.ws.protocol.scan.tcpscan import NestOpTCPScan, NestOpTCPScanRes
 
@@ -49,8 +52,12 @@ from jackdaw.nest.ws.protocol.customtarget.targetres import NestOpTargetRes
 from jackdaw.nest.ws.protocol.customtarget.listtarget import NestOpListTarget
 from jackdaw.nest.ws.protocol.customtarget.addtarget import NestOpAddTarget
 
-from jackdaw.nest.ws.protocol.intercom.intercom import IntercomAgent, IntercomListAgents
+from jackdaw.nest.ws.protocol.agent.agent import NestOpAgent, NestOpListAgents
 
+from jackdaw.nest.ws.protocol.wsnet.proxyconnect import NestOpWSNETRouterconnect
+from jackdaw.nest.ws.protocol.wsnet.proxydisconnect import NestOpWSNETRouterdisconnect
+from jackdaw.nest.ws.protocol.wsnet.proxy import NestOpWSNETRouter
+from jackdaw.nest.ws.protocol.wsnet.proxylist import NestOpWSNETListRouters
 
 
 __all__ = [
@@ -62,6 +69,7 @@ __all__ = [
 	'NestOpPathShortest',
 	'NestOpPathDA',
 	'NestOpOK',
+	'NestOpCancel',
 	'NestOpLog',
 	'NestOpListAD',
 	'NestOpKerberoast',
@@ -97,8 +105,14 @@ __all__ = [
 	'NestOpLoadGraph',
 	'NestOpListGraphRes',
 	'NestOpListGraph',
-	'IntercomAgent',
-	'IntercomListAgents'
+	'NestOpAgent',
+	'NestOpListAgents',
+	'NestOpWSNETRouterconnect',
+	'NestOpWSNETRouterdisconnect',
+	'NestOpWSNETRouter',
+	'NestOpWSNETListRouters',
+	'NestOpSMBFiles',
+	'NestOpSMBFileRes',
 ]
 
 
@@ -128,7 +142,9 @@ type2obj = {
 	NestOpCmd.OK : NestOpOK,
 	NestOpCmd.ERR : NestOpErr,
 	NestOpCmd.LOG : NestOpLog,
+	NestOpCmd.CANCEL: NestOpCancel,
 	NestOpCmd.LISTGRAPHS : NestOpListGraph,
+	NestOpCmd.LISTGRAPHRES: NestOpListGraphRes,
 	NestOpCmd.CHANGEGRAPH : NestOpChangeGraph,
 	NestOpCmd.TCPSCAN: NestOpTCPScan,
 	NestOpCmd.TCPSCANRES: NestOpTCPScanRes,
@@ -139,9 +155,8 @@ type2obj = {
 	NestOpCmd.SMBSESSIONRES: NestOpSMBSessionRes,
 	NestOpCmd.SMBSHARERES: NestOpSMBShareRes,
 	NestOpCmd.SMBLOCALGROUPRES: NestOpSMBLocalGroupRes,
-	NestOpCmd.LOADAD: NestOpLoadAD,
+	#NestOpCmd.LOADAD: NestOpLoadAD,
 	NestOpCmd.EDGERES : NestOpEdgeRes,
-	NestOpCmd.LISTGRAPHS : NestOpListGraph,
 	NestOpCmd.LISTTARGET : NestOpListTarget,
 	NestOpCmd.LISTCRED : NestOpListCred,
 	NestOpCmd.ADDCRED : NestOpAddCred,
@@ -149,7 +164,20 @@ type2obj = {
 	NestOpCmd.LOADGRAPH : NestOpLoadGraph,
 	#NestOpCmd.EDGERES : NestOpEdgeRes,
 	#NestOpCmd.EDGERES : NestOpEdgeRes,
-	NestOpCmd.INTERCOMLISTAGENTS : IntercomAgent,
-	NestOpCmd.INTERCOMAGENT : IntercomListAgents,
+	NestOpCmd.LISTAGENTS : NestOpListAgents,
+	NestOpCmd.AGENT : NestOpAgent,
+	NestOpCmd.COMPUTERRES : NestOpComputerRes,
+	NestOpCmd.GROUPRES : NestOpGroupRes,
+	NestOpCmd.COMPUTERBUFFRES : NestOpComputerBuffRes,
+	NestOpCmd.USERBUFFRES : NestOpUserBuffRes,
+	NestOpCmd.GROUPBUFFRES : NestOpGroupBuffRes,
+	NestOpCmd.EDGEBUFFRES : NestOpEdgeBuffRes,
+	NestOpCmd.WSNETROUTERCONNECT : NestOpWSNETRouterconnect,
+	NestOpCmd.WSNETROUTERDISCONNECT : NestOpWSNETRouterdisconnect,
+	NestOpCmd.WSNETROUTER: NestOpWSNETRouter,
+	NestOpCmd.WSNETLISTROUTERS : NestOpWSNETListRouters,
+	NestOpCmd.SMBFILES : NestOpSMBFiles,
+	NestOpCmd.SMBFILERES : NestOpSMBFileRes,
+	
 }
 
