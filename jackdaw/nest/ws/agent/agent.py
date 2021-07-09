@@ -139,8 +139,8 @@ class JackDawAgent:
 
 	def get_smb_connection(self, cmd):
 		try:
-			hostname, ip = self.get_target_address(cmd)
-			res, domain, username, password = self.get_stored_cred(cmd)
+			hostname, ip = self.get_target_address(cmd.target)
+			res, domain, username, password = self.get_stored_cred(cmd.creds)
 			if res is False:
 				raise Exception('Could not find user creds!')
 			

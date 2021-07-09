@@ -59,6 +59,9 @@ from jackdaw.nest.ws.protocol.wsnet.proxydisconnect import NestOpWSNETRouterdisc
 from jackdaw.nest.ws.protocol.wsnet.proxy import NestOpWSNETRouter
 from jackdaw.nest.ws.protocol.wsnet.proxylist import NestOpWSNETListRouters
 
+from jackdaw.nest.ws.protocol.credsdef import NestOpCredsDef
+from jackdaw.nest.ws.protocol.targetdef import NestOpTargetDef
+
 
 __all__ = [
 	'NestOpCmd',
@@ -113,6 +116,8 @@ __all__ = [
 	'NestOpWSNETListRouters',
 	'NestOpSMBFiles',
 	'NestOpSMBFileRes',
+	'NestOpCredsDef',
+	'NestOpTargetDef',
 ]
 
 

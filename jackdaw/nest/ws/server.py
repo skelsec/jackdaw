@@ -168,6 +168,22 @@ class NestWebSocketServer:
 		except Exception as e:
 			traceback.print_exc()
 
+	async def handle_wsnet_ext(self, ws, path):
+		proxy_id = str(uuid.uuid4())
+		phandler = WSNETRouterHandler(None, proxy_id, self.sspi_proxy_out_q, self.db_session, ext_ws = ws)
+		asyncio.create_task(phandler.run())
+					
+		self.sspi_proxies[proxy_id] = phandler
+					
+		notify = NestOpWSNETRouter()
+		notify.token = 0
+		notify.url = 'EXT'
+		notify.router_id = proxy_id
+		for operator_id in self.operators:
+			await self.operators[operator_id].server_in_q.put(notify)
+		
+		await phandler.disconnected_evt.wait() # this function needs to NOT return before the router disconnects otherwise the connection will be closed
+
 	def get_target_address(self, ad_id, taget_sid):
 		hostname = None
 		if str(ad_id) == '0':
@@ -279,6 +295,8 @@ class NestWebSocketServer:
 			await self.handle_guac(websocket, path, 'ssh')
 		elif path.startswith('/guac/vnc'):
 			await self.handle_guac(websocket, path, 'vnc')
+		elif path.startswith('/wsnet/external'):
+			await self.handle_wsnet_ext(websocket, path)
 		else:
 			logger.info('Cant handle path %s' % path)
 

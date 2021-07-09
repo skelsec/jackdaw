@@ -7,7 +7,7 @@ from wsnet.protocol import *
 from jackdaw.nest.ws.agent.agent import JackDawAgent
 
 class WSNETRouterHandler:
-	def __init__(self, server_url, proxy_id, server_out_q, db_session):
+	def __init__(self, server_url, proxy_id, server_out_q, db_session, ext_ws = None):
 		self.connected_evt = asyncio.Event()
 		self.disconnected_evt = asyncio.Event()
 		self.proxyid = proxy_id
@@ -18,6 +18,7 @@ class WSNETRouterHandler:
 		self.agents = {}
 		self.__token = 1
 		self.reply_dispatch_table = {}
+		self.ws = ext_ws
 	
 	def __get_token(self):
 		t = self.__token
@@ -85,14 +86,15 @@ class WSNETRouterHandler:
 			self.server_in_q = asyncio.Queue()
 			asyncio.create_task(self.__handle_server_in())
 
-			try:
-				self.ws = await websockets.connect(self.server_url)
-			except Exception as e:
-				print('Failed to connect to server!')
-				return
+			if self.ws is None:
+				try:
+					self.ws = await websockets.connect(self.server_url)
+				except Exception as e:
+					print('Failed to connect to server!')
+					return
 
 			self.connected_evt.set()
-			await self.list_agents()
+			asyncio.create_task(self.list_agents())
 			await self.__handle_router_in()
 
 		except Exception as e:

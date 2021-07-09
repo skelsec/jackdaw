@@ -344,17 +344,23 @@ class NestWebScoketClientConsole(aiocmd.PromptToolkitCmd):
 	async def do_smbfiles(self):
 		"""Starts SMB file enumeration on given host"""
 		try:
+			creds = NestOpCredsDef()
+			creds.user_ad_id = None
+			creds.user_sid = None
+			creds.domain = 'TEST'
+			creds.username = 'victim'
+			creds.password = 'Passw0rd!1'
+
+			target = NestOpTargetDef()
+			target.machine_ad_id = None
+			target.machine_sid = None
+			target.hostname = None
+			target.ip = '10.10.10.2'
+
 			cmd = NestOpSMBFiles()
 			cmd.agent_id = '0'
-			cmd.machine_ad_id = None
-			cmd.machine_sid = None
-			cmd.user_ad_id = None
-			cmd.user_sid = None
-			cmd.hostname = None
-			cmd.ip = '10.10.10.2'
-			cmd.domain = 'TEST'
-			cmd.username = 'victim'
-			cmd.password = 'Passw0rd!1'
+			cmd.creds = creds
+			cmd.target = target
 			cmd.depth = 3
 			
 			msg_queue, err = await self.__sr(cmd)
