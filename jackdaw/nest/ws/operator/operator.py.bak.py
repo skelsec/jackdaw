@@ -34,8 +34,21 @@ from jackdaw.gatherer.progress import GathererProgressType
 #testing
 import random
 
+STANDARD_PROGRESS_MSG_TYPES = [
+	GathererProgressType.BASIC,  
+	GathererProgressType.SD,
+	GathererProgressType.SDUPLOAD,
+	GathererProgressType.MEMBERS,
+	GathererProgressType.MEMBERSUPLOAD,
+	GathererProgressType.SMB,
+	GathererProgressType.KERBEROAST,
+	GathererProgressType.SDCALC,
+	GathererProgressType.SDCALCUPLOAD,
+	GathererProgressType.INFO,
+]
+
 class NestOperator:
-	def __init__(self, operatorid, websocket, db_url, server_out_q, work_dir, graph_type):
+	def __init__(self, websocket, db_url, work_dir, graph_type):
 		self.websocket = websocket
 		self.db_url = db_url
 		self.db_session = None
@@ -48,22 +61,14 @@ class NestOperator:
 		self.edgeinfo_cache = {}
 
 		# for intercom ops
-		self.server_in_task = None
-		self.server_in_q = None
-		self.server_out_q = server_out_q
-		self.operatorid = operatorid
+		self.intercom_q_in = None #intercom_q_in
+		self.intercom_q_out = None #intercom_q_out
+		self.operatorid = None
 
-	async def __handle_server_in(self):
-		# results will be dispatched to server_in_q from agents also this queue is used for notifications from server using token "0"
+	async def __handle_intercom_in(self):
 		while True:
-			try:
-				packet = await self.server_in_q.get()
-				print('__handle_server_in %s' % packet)
-				print('__handle_server_in %s' % packet.token)
-				await self.websocket.send(packet.to_json())
-			except Exception as e:
-				traceback.print_exc()
-			
+			packet = await self.intercom_q_in.get()
+			print(packet)
 
 
 	def loadgraph(self, graphid):
@@ -131,35 +136,229 @@ class NestOperator:
 			reply.machinesid = random.choice(machine_sids_testing)
 			reply.username = random.choice(usernames_testing)
 			await self.websocket.send(reply.to_json())
-	
-	async def do_list_agents(self, cmd):
-		# just forwards the request to the server which will send the list of agents back to the server_in_q where it will be dispatched
-		await self.server_out_q.put((self.operatorid, cmd))
+				
+	async def __gathermonitor(self, cmd, results_queue):
+		try:
+			usernames_testing = []
+			machine_sids_testing = []
+			
+			temp_tok_testing = None
+			temp_adid_testing = None
+			temp_started = False
+			
+			while True:
+				try:
+					msg = await results_queue.get()
+					if msg is None:
+						break
+					
+					#print(msg)
+					if msg.type in STANDARD_PROGRESS_MSG_TYPES:
+						##### TESTING
+						temp_tok_testing = cmd.token
+						temp_adid_testing = msg.adid
+						
+						######
+						reply = NestOpGatherStatus()
+						reply.token = cmd.token
+						reply.current_progress_type = msg.type.value
+						reply.msg_type = msg.msg_type.value
+						reply.adid = msg.adid
+						reply.domain_name = msg.domain_name
+						reply.total = msg.total
+						reply.step_size = msg.step_size
+						reply.basic_running = []
+						if msg.running is not None:
+							reply.basic_running = [x for x in msg.running]
+						reply.basic_finished = msg.finished
+						reply.smb_errors = msg.errors
+						reply.smb_sessions = msg.sessions
+						reply.smb_shares = msg.shares
+						reply.smb_groups = msg.groups
+						await self.websocket.send(reply.to_json())
+						
+						####TESTINGTESTING!!!!
+						if msg.type.value != 'LDAP_BASIC':
+							if temp_started is False:
+								asyncio.create_task(self.spam_sessions(temp_tok_testing, temp_adid_testing, machine_sids_testing, usernames_testing))
+								temp_started = True
+								
+					elif msg.type == GathererProgressType.USER:
+						usernames_testing.append(msg.data.sAMAccountName)
+						reply = NestOpUserRes()
+						reply.token = cmd.token
+						reply.name = msg.data.sAMAccountName
+						reply.adid = msg.data.ad_id
+						reply.sid = msg.data.objectSid
+						reply.kerberoast = 1 if msg.data.servicePrincipalName is not None else 0
+						reply.asreproast = int(msg.data.UAC_DONT_REQUIRE_PREAUTH)
+						reply.nopassw = int(msg.data.UAC_PASSWD_NOTREQD)
+						reply.cleartext = int(msg.data.UAC_ENCRYPTED_TEXT_PASSWORD_ALLOWED)
+						reply.smartcard = int(msg.data.UAC_SMARTCARD_REQUIRED)
+						reply.active = int(msg.data.canLogon)
+						reply.description = msg.data.description
+						reply.is_admin = int(msg.data.adminCout)
 
-	async def do_smbfiles(self, cmd: NestOpSMBFiles):
-		"""
-		Starts a gathering process on the selected agent
-		"""
-		await self.server_out_q.put((self.operatorid, cmd))
+						await self.websocket.send(reply.to_json())
+					
+					elif msg.type == GathererProgressType.MACHINE:
+						machine_sids_testing.append(msg.data.objectSid)
+						reply = NestOpComputerRes()
+						reply.token = cmd.token
+						reply.name = msg.data.sAMAccountName
+						reply.adid = msg.data.ad_id
+						reply.sid = msg.data.objectSid
+						reply.domainname = msg.data.dNSHostName
+						reply.osver = msg.data.operatingSystem
+						reply.ostype = msg.data.operatingSystemVersion
+						reply.description = msg.data.description
+						if msg.data.UAC_SERVER_TRUST_ACCOUNT is True:
+							reply.computertype = 'DOMAIN_CONTROLLER'
+						elif msg.data.operatingSystem is not None:
+							if msg.data.operatingSystem.lower().find('windows') != -1:
+								if msg.data.operatingSystem.lower().find('server') != -1:
+									reply.computertype = 'SERVER'
+								else:
+									reply.computertype = 'WORKSTATION'
+							else:
+								reply.computertype = 'NIX'
+						else:
+							reply.computertype = 'DUNNO'
+						
+
+						await self.websocket.send(reply.to_json())
+					
+					elif msg.type == GathererProgressType.SMBLOCALGROUP:
+						reply = NestOpSMBLocalGroupRes()
+						reply.token = cmd.token
+						reply.adid = msg.data.ad_id
+						reply.machinesid = msg.data.machine_sid
+						reply.usersid = msg.data.sid
+						reply.groupname = msg.data.groupname
+						await self.websocket.send(reply.to_json())
+					
+					elif msg.type == GathererProgressType.SMBSHARE:
+						reply = NestOpSMBShareRes()
+						reply.token = cmd.token
+						reply.adid = msg.data.ad_id
+						reply.machinesid = msg.data.machine_sid
+						reply.netname = msg.data.netname
+						await self.websocket.send(reply.to_json())
+					
+					elif msg.type == GathererProgressType.SMBSESSION:					
+						reply = NestOpSMBSessionRes()
+						reply.token = cmd.token
+						reply.adid = msg.data.ad_id
+						reply.machinesid = msg.data.machine_sid
+						reply.username = msg.data.username
+						await self.websocket.send(reply.to_json())
+					
+					elif msg.type == GathererProgressType.GROUP:					
+						reply = NestOpGroupRes()
+						reply.token = cmd.token
+						reply.adid = msg.data.ad_id
+						reply.name = msg.data.sAMAccountName
+						reply.dn = msg.data.dn
+						reply.guid = msg.data.objectGUID
+						reply.sid = msg.data.objectSid
+						reply.description = msg.data.description
+						await self.websocket.send(reply.to_json())
+						
+				except asyncio.CancelledError:
+					return
+				except Exception as e:
+					logger.exception('resmon processing error!')
+					#await self.send_error(cmd, str(e))
+		
+			
+		except asyncio.CancelledError:
+			return
+		except Exception as e:
+			print('resmon died! %s' % e)
+			await self.send_error(cmd, str(e))
+	
 
 	async def do_gather(self, cmd):
-		"""
-		Starts a gathering process on the selected agent
-		"""
-		await self.server_out_q.put((self.operatorid, cmd))
-
-	async def do_wsnetrouter_connect(self, cmd):
-		"""
-		Connects to a new router
-		"""
-		await self.server_out_q.put((self.operatorid, cmd))
-
-	async def do_wsnetrouter_list(self, cmd):
-		"""
-		Lists all available routers
-		"""
-		await self.server_out_q.put((self.operatorid, cmd))
-
+		try:
+			progress_queue = asyncio.Queue()
+			gatheringmonitor_task = asyncio.create_task(self.__gathermonitor(cmd, progress_queue))
+			
+			ldap_url = cmd.ldap_url
+			if ldap_url == 'auto':
+				if platform.system().lower() == 'windows':
+					from winacl.functions.highlevel import get_logon_info
+					logon = get_logon_info()
+					
+					ldap_url = 'ldap+sspi-ntlm://%s\\%s:jackdaw@%s' % (logon['domain'], logon['username'], logon['logonserver'])
+			
+				else:
+					raise Exception('ldap auto mode selected, but it is not supported on this platform')
+			
+			smb_url = cmd.smb_url
+			if smb_url == 'auto':
+				if platform.system().lower() == 'windows':
+					from winacl.functions.highlevel import get_logon_info
+					logon = get_logon_info()
+					smb_url = 'smb2+sspi-ntlm://%s\\%s:jackdaw@%s' % (logon['domain'], logon['username'], logon['logonserver'])
+			
+				else:
+					raise Exception('smb auto mode selected, but it is not supported on this platform')
+			
+			kerberos_url = cmd.kerberos_url					
+			dns = cmd.dns
+			if dns == 'auto':
+				if platform.system().lower() == 'windows':
+					from jackdaw.gatherer.rdns.dnstest import get_correct_dns_win
+					srv_domain = '%s.%s' % (logon['logonserver'], logon['dnsdomainname'])
+					dns = await get_correct_dns_win(srv_domain)
+					if dns is None:
+						dns = None #failed to get dns
+					else:
+						dns = str(dns)
+			
+				else:
+					raise Exception('dns auto mode selected, but it is not supported on this platform')
+			print(ldap_url)
+			print(smb_url)
+			print(dns)
+			with multiprocessing.Pool() as mp_pool:
+				gatherer = Gatherer(
+					self.db_url,
+					self.work_dir,
+					ldap_url, 
+					smb_url,
+					kerb_url=kerberos_url,
+					ldap_worker_cnt=int(cmd.ldap_workers), 
+					smb_worker_cnt=int(cmd.smb_worker_cnt), 
+					mp_pool=mp_pool, 
+					smb_gather_types=['all'], 
+					progress_queue=progress_queue, 
+					show_progress=self.show_progress,
+					calc_edges=True,
+					ad_id=None,
+					dns=dns,
+					stream_data=cmd.stream_data
+				)
+				res, err = await gatherer.run()
+				if err is not None:
+					print('gatherer returned error')
+					await self.send_error(cmd, str(err))
+					return
+				
+				#####testing
+				await asyncio.sleep(20)
+				#######
+				
+				await self.send_ok(cmd)
+		except Exception as e:
+			logger.exception('do_gather')
+			await self.send_error(cmd, str(e))
+		
+		finally:
+			if gatheringmonitor_task is not None:
+				gatheringmonitor_task.cancel()
+			progress_queue = None
+	
 	async def do_listads(self, cmd):
 		"""
 		Lists all available adid in the DB
@@ -590,8 +789,7 @@ class NestOperator:
 
 	async def run(self):
 		try:
-			self.server_in_q = asyncio.Queue()
-			self.server_in_task = asyncio.create_task(self.__handle_server_in())
+			self.msg_queue = asyncio.Queue()
 			self.db_session = get_session(self.db_url)
 
 			while True:
@@ -636,14 +834,6 @@ class NestOperator:
 						asyncio.create_task(self.do_get_target(cmd))
 					elif cmd.cmd == NestOpCmd.LISTTARGET:
 						asyncio.create_task(self.do_list_target(cmd))
-					elif cmd.cmd == NestOpCmd.LISTAGENTS:
-						asyncio.create_task(self.do_list_agents(cmd))
-					elif cmd.cmd == NestOpCmd.WSNETROUTERCONNECT:
-						asyncio.create_task(self.do_wsnetrouter_connect(cmd))
-					elif cmd.cmd == NestOpCmd.WSNETLISTROUTERS:
-						asyncio.create_task(self.do_wsnetrouter_list(cmd))
-					elif cmd.cmd == NestOpCmd.SMBFILES:
-						asyncio.create_task(self.do_smbfiles(cmd))
 					else:
 						print('Unknown Command')
 

@@ -10,7 +10,11 @@ from jackdaw.dbmodel.aduser import ADUser
 from jackdaw.credentials.credentials import JackDawCredentials
 from flask import current_app
 
-from pypykatz.utils.crypto.winhash import LM, NT
+try:
+	from pypykatz.utils.crypto.winhash import LM, NT
+except ImportError:
+	print('[JACKDAW] pypykatz not installed! storing creds will not work')
+
 
 
 def impacket_upload(domainid):

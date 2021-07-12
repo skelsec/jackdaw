@@ -15,7 +15,7 @@ class NestWebScoketClientConsole(aiocmd.PromptToolkitCmd):
 		aiocmd.PromptToolkitCmd.__init__(self, ignore_sigint=False) #Setting this to false, since True doesnt work on windows...
 		self.url = url
 		self.reply_dispatch_table = {} # token -> queue
-		self.token_ctr = 0
+		self.token_ctr = 1 #start at 1, because 0 is reserved for server notifications
 		self.ad_id = None
 		self.handle_in_task = None
 		self.websocket = None
@@ -55,8 +55,10 @@ class NestWebScoketClientConsole(aiocmd.PromptToolkitCmd):
 		"""send and recieve, use this when the command has an expected return value"""
 		"""It also ssigns toke n to the cmd!"""
 		try:
+			
 			msg_queue = asyncio.Queue()
 			cmd.token = self.__get_token()
+			print('Sending : %s' % cmd.to_json())
 			self.reply_dispatch_table[cmd.token] = msg_queue
 			await self.websocket.send(cmd.to_json())
 			return msg_queue, None
@@ -159,12 +161,43 @@ class NestWebScoketClientConsole(aiocmd.PromptToolkitCmd):
 	async def do_listgraphs(self):
 		"""List graphs"""
 		try:			
-			cmd = NestOpListGraphs()
-			data, err = await self.__sr(cmd)
+			cmd = NestOpListGraph()
+			msg_queue, err = await self.__sr(cmd)
 			if err is not None:
 				print('Failed to get data. Reason: %s' % err)
 				return False, err
-			print(data)
+			while True:
+				msg = await msg_queue.get()
+				if msg.cmd == NestOpCmd.OK:
+					return True, None
+				elif msg.cmd == NestOpCmd.ERR:
+					print('Error!')
+					return False, Exception('Server returned with error')
+				elif msg.cmd == NestOpCmd.LISTGRAPHRES:
+					print('AGENT: %s' % msg.gids)
+			return True, None
+		except Exception as e:
+			traceback.print_exc()
+			return False, e
+
+	async def do_listagents(self):
+		"""List graphs"""
+		try:			
+			cmd = NestOpListAgents()
+			msg_queue, err = await self.__sr(cmd)
+			if err is not None:
+				print('Failed to get data. Reason: %s' % err)
+				return False, err
+			while True:
+				msg = await msg_queue.get()
+				if msg.cmd == NestOpCmd.OK:
+					return True, None
+				elif msg.cmd == NestOpCmd.ERR:
+					print('Error!')
+					return False, Exception('Server returned with error')
+				elif msg.cmd == NestOpCmd.AGENT:
+					print('AGENT: %s' % msg.agentid)
+
 			return True, None
 		except Exception as e:
 			traceback.print_exc()
@@ -215,10 +248,11 @@ class NestWebScoketClientConsole(aiocmd.PromptToolkitCmd):
 			traceback.print_exc()
 			return False, e
 	
-	async def do_gather(self):
+	async def do_gather(self, agentid):
 		"""Change current graph"""
 		try:
 			cmd = NestOpGather()
+			cmd.agent_id = agentid
 			cmd.ldap_url = 'ldap+ntlm-password://TEST\\victim:Passw0rd!1@10.10.10.2'
 			cmd.smb_url = 'smb2+ntlm-password://TEST\\victim:Passw0rd!1@10.10.10.2'
 			cmd.kerberos_url = 'kerberos+password://TEST\\victim:Passw0rd!1@10.10.10.2'
@@ -246,7 +280,105 @@ class NestWebScoketClientConsole(aiocmd.PromptToolkitCmd):
 				elif msg.cmd == NestOpCmd.USERRES:
 					if msg.kerberoast is True or msg.asreproast is True:
 						print(msg)
+				else:
+					print(msg.cmd)
 
+		except Exception as e:
+			traceback.print_exc()
+			return False, e
+
+	async def do_loadgraph(self, graphid):
+		"""Load graph data"""
+		try:
+			cmd = NestOpLoadGraph()
+			cmd.graphid = graphid			
+			msg_queue, err = await self.__sr(cmd)
+			if err is not None:
+				print('Failed to get data. Reason: %s' % err)
+				return False, err
+
+			while True:
+				msg = await msg_queue.get()
+				if msg.cmd == NestOpCmd.OK:
+					print('OK!')
+					return True, None
+				elif msg.cmd == NestOpCmd.ERR:
+					print('Error!')
+					return False, Exception('Server returned with error')
+				elif msg.cmd == NestOpCmd.GATHERSTATUS:
+					#print(msg)
+					continue
+				elif msg.cmd == NestOpCmd.USERRES:
+					if msg.kerberoast is True or msg.asreproast is True:
+						print(msg)
+				else:
+					print(msg.cmd)
+
+		except Exception as e:
+			traceback.print_exc()
+			return False, e
+
+	async def do_wsnetrouterconnect(self, url):
+		"""Create connection to wsnetrouter"""
+		try:
+			cmd = NestOpWSNETRouterconnect()
+			cmd.url = url
+			msg_queue, err = await self.__sr(cmd)
+			if err is not None:
+				print('Failed to get data. Reason: %s' % err)
+				return False, err
+
+			while True:
+				msg = await msg_queue.get()
+				if msg.cmd == NestOpCmd.OK:
+					print('OK!')
+					return True, None
+				elif msg.cmd == NestOpCmd.ERR:
+					print('Error!')
+					return False, Exception('Server returned with error')
+
+		except Exception as e:
+			traceback.print_exc()
+			return False, e
+
+	async def do_smbfiles(self):
+		"""Starts SMB file enumeration on given host"""
+		try:
+			creds = NestOpCredsDef()
+			creds.user_ad_id = None
+			creds.user_sid = None
+			creds.domain = 'TEST'
+			creds.username = 'victim'
+			creds.password = 'Passw0rd!1'
+
+			target = NestOpTargetDef()
+			target.machine_ad_id = None
+			target.machine_sid = None
+			target.hostname = None
+			target.ip = '10.10.10.2'
+
+			cmd = NestOpSMBFiles()
+			cmd.agent_id = '0'
+			cmd.creds = creds
+			cmd.target = target
+			cmd.depth = 3
+			
+			msg_queue, err = await self.__sr(cmd)
+			if err is not None:
+				print('Failed to get data. Reason: %s' % err)
+				return False, err
+
+			while True:
+				msg = await msg_queue.get()
+				if msg.cmd == NestOpCmd.OK:
+					print('OK!')
+					return True, None
+				elif msg.cmd == NestOpCmd.ERR:
+					print('Error! %s' % msg.reason)
+					return False, Exception('Server returned with error')
+				elif msg.cmd == NestOpCmd.SMBFILERES:
+					print('SMBFile! %s' % msg.unc_path)
+					
 
 		except Exception as e:
 			traceback.print_exc()
@@ -271,7 +403,7 @@ async def amain(args):
 
 def main():
 	import argparse
-	parser = argparse.ArgumentParser(description='MS LDAP library')
+	parser = argparse.ArgumentParser(description='Jackdaw WS operator tester')
 	parser.add_argument('-v', '--verbose', action='count', default=0, help='Verbosity, can be stacked')
 	parser.add_argument('-n', '--no-interactive', action='store_true')
 	parser.add_argument('url', help='Connection string in URL format.')

@@ -1,14 +1,23 @@
 
 import asyncio
+import traceback
 import websockets
 import pathlib
-import functools
+import uuid
 import os
+import platform
 from http import HTTPStatus
 from urllib.parse import urlparse, parse_qs
 
+from jackdaw.nest.ws.protocol.error import NestOpErr
+from jackdaw.nest.ws.protocol.ok import NestOpOK
+from jackdaw.nest.ws.protocol.cmdtypes import NestOpCmd
+from jackdaw.nest.ws.protocol.wsnet.proxy import NestOpWSNETRouter
+
+
 from jackdaw import logger
 from jackdaw.nest.ws.operator.operator import NestOperator
+from jackdaw.nest.ws.agent.agent import JackDawAgent
 from jackdaw.nest.ws.guac.guacproxy import GuacProxy
 from jackdaw.dbmodel import get_session
 from jackdaw.dbmodel.adcomp import Machine
@@ -16,19 +25,22 @@ from jackdaw.dbmodel.dnslookup import DNSLookup
 from jackdaw.dbmodel.credential import Credential
 from jackdaw.dbmodel.storedcreds import StoredCred
 from jackdaw.dbmodel.customtarget import CustomTarget
+from jackdaw.nest.ws.remoteagent.wsnet.router import WSNETRouterHandler
+
 
 # https://gist.github.com/artizirk/04eb23d957d7916c01ca632bb27d5436
 # https://www.howtoforge.com/how-to-install-and-configure-guacamole-on-ubuntu-2004/
 
 class NestWebSocketServer:
-	def __init__(self, listen_ip, listen_port, db_url, work_dir, backend, ssl_ctx = None):
+	def __init__(self, listen_ip, listen_port, db_url, work_dir, backend, ssl_ctx = None, enable_local_agent = True):
 		self.listen_ip = listen_ip
 		self.listen_port = listen_port
 		self.ssl_ctx = ssl_ctx
 		self.db_url = db_url
 		self.db_session = None
 		self.server = None
-		self.msg_queue = None
+		self.server_in_q = None
+		self.server_out_q = None
 		self.operators = {}
 		self.work_dir = pathlib.Path(work_dir)
 		self.graph_backend = backend
@@ -42,6 +54,135 @@ class NestWebSocketServer:
 		self.guac_html_vnc_path = os.path.join(self.guac_html_folder, 'vnc.html')
 		self.guac_html_ssh_path = os.path.join(self.guac_html_folder, 'ssh.html')
 		self.guac_html_js_folder = os.path.join(self.guac_html_folder, 'js')
+
+		#### AGENT related
+		self.enable_local_agent = enable_local_agent
+		self.agents = {}
+		self.agent_in_q = None
+		self.agent_out_q = None
+		self.agent_cancellable_tasks = {} # agentid -> token -> task
+		self.operator_cancellable_tasks = {} #operator_id -> token # this is used to cleanup running tasks when operator disconnects
+
+		### sspiproxy related
+		self.sspi_proxies = {}
+		self.sspi_proxy_out_q = None
+
+	async def __agent_task_terminate(self, cmd, cancel_token):
+		await cancel_token.wait()
+		del self.agent_cancellable_tasks[cmd.agent_id][cmd.token]
+		print('DELETED TASK!')
+
+	async def __add_agent_cancellable_task(self, cmd, task, cancel_token):
+		if cmd.agent_id not in self.agent_cancellable_tasks:
+			self.agent_cancellable_tasks[cmd.agent_id] = {}
+		if cmd.token not in self.agent_cancellable_tasks[cmd.agent_id]:
+			self.agent_cancellable_tasks[cmd.agent_id][cmd.token] = task
+			asyncio.create_task(self.__agent_task_terminate(cmd, cancel_token))
+		else:
+			print('WAAAAAAAAAA! TOKEN RESUSE!!!!!! %s' % cmd.token)
+
+	async def __handle_server_in(self):
+		try:
+			while True:
+				operator_id, cmd = await self.server_out_q.get()
+				if cmd.cmd == NestOpCmd.CANCEL:
+					if cmd.agent_id not in self.agent_cancellable_tasks:
+						await self.operators[operator_id].server_in_q.put(NestOpErr(cmd.token, 'Agent id not found!'))
+						continue
+					if cmd.token not in self.agent_cancellable_tasks[cmd.agent_id]:
+						await self.operators[operator_id].server_in_q.put(NestOpErr(cmd.token, 'Token incorrect!'))
+					self.agent_cancellable_tasks[cmd.agent_id][cmd.token].cancel()
+
+				elif cmd.cmd == NestOpCmd.LISTAGENTS:
+					# 
+					for agentid in self.agents:
+						agentreply = self.agents[agentid].get_list_reply(cmd)
+						await self.operators[operator_id].server_in_q.put(agentreply)
+					await self.operators[operator_id].server_in_q.put(NestOpOK(cmd.token))
+				
+				elif cmd.cmd == NestOpCmd.GATHER:
+					# operator asks for a full gather to be executed on an agent
+					if cmd.agent_id not in self.agents:
+						await self.operators[operator_id].server_in_q.put(NestOpErr(cmd.token, 'Agent id not found!'))
+						continue
+					agent = self.agents[cmd.agent_id]
+					await agent.do_gather(cmd, self.operators[operator_id].server_in_q, self.db_url, self.work_dir, True)
+				
+				elif cmd.cmd == NestOpCmd.WSNETLISTROUTERS:
+					for router_id in self.sspi_proxies:
+						notify = NestOpWSNETRouter()
+						notify.token = cmd.token
+						notify.url = self.sspi_proxies[router_id].url
+						notify.router_id = router_id
+						await self.operators[operator_id].server_in_q.put(notify)
+					
+					await self.operators[operator_id].server_in_q.put(NestOpOK(cmd.token))
+				
+				elif cmd.cmd == NestOpCmd.WSNETROUTERCONNECT:
+					# operator is requesting the server to create a connection to a wsnet router
+					proxy_id = str(uuid.uuid4())
+					phandler = WSNETRouterHandler(cmd.url, proxy_id, self.sspi_proxy_out_q, self.db_session)
+					asyncio.create_task(phandler.run())
+					try:
+						await asyncio.wait_for(phandler.connect_wait(), 5)
+					except asyncio.exceptions.TimeoutError:
+						await self.operators[operator_id].server_in_q.put(NestOpErr(cmd.token, 'Connection timed out!'))
+						continue
+					
+					await self.operators[operator_id].server_in_q.put(NestOpOK(cmd.token))
+					self.sspi_proxies[proxy_id] = phandler
+					
+					notify = NestOpWSNETRouter()
+					notify.token = 0
+					notify.url = cmd.url
+					notify.router_id = proxy_id
+					for operator_id in self.operators:
+						await self.operators[operator_id].server_in_q.put(notify)
+
+				elif cmd.cmd == NestOpCmd.SMBFILES:
+					if cmd.agent_id not in self.agents:
+						await self.operators[operator_id].server_in_q.put(NestOpErr(cmd.token, 'Agent id not found!'))
+						continue
+					agent = self.agents[cmd.agent_id]
+					cancel_token = asyncio.Event()
+					task = asyncio.create_task(agent.do_smbfiles(cmd, self.operators[operator_id].server_in_q, cancel_token))
+					await self.__add_agent_cancellable_task(cmd, task, cancel_token)
+					
+
+		except Exception as e:
+			traceback.print_exc()
+	
+	async def __handle_wsnet_router_in(self):
+		try:
+			while True:
+				proxyid, datatype, data = await self.sspi_proxy_out_q.get()
+				if datatype == 'AGENT_IN':
+					#new agent connected via router
+					self.agents[data.agent_id] = data
+					asyncio.create_task(data.run())
+					#notifying all operators
+					for operator_id in self.operators:
+						await self.operators[operator_id].server_in_q.put(data.get_list_reply(NestOpOK(0)))
+					
+		
+		except Exception as e:
+			traceback.print_exc()
+
+	async def handle_wsnet_ext(self, ws, path):
+		proxy_id = str(uuid.uuid4())
+		phandler = WSNETRouterHandler(None, proxy_id, self.sspi_proxy_out_q, self.db_session, ext_ws = ws)
+		asyncio.create_task(phandler.run())
+					
+		self.sspi_proxies[proxy_id] = phandler
+					
+		notify = NestOpWSNETRouter()
+		notify.token = 0
+		notify.url = 'EXT'
+		notify.router_id = proxy_id
+		for operator_id in self.operators:
+			await self.operators[operator_id].server_in_q.put(notify)
+		
+		await phandler.disconnected_evt.wait() # this function needs to NOT return before the router disconnects otherwise the connection will be closed
 
 	def get_target_address(self, ad_id, taget_sid):
 		hostname = None
@@ -83,8 +224,9 @@ class NestWebSocketServer:
 	async def handle_operator(self, websocket, path):
 		remote_ip, remote_port = websocket.remote_address
 		logger.info('Operator connected from %s:%s' % (remote_ip, remote_port))
-		operator = NestOperator(websocket, self.db_url, self.msg_queue, self.work_dir, self.graph_type)
-		self.operators[operator] = 1
+		operator_id = str(uuid.uuid4())
+		operator = NestOperator(operator_id, websocket, self.db_url, self.server_out_q, self.work_dir, self.graph_type)		
+		self.operators[operator_id] = operator
 		await operator.run()
 		logger.info('Operator disconnected! %s:%s' % (remote_ip, remote_port))
 	
@@ -153,6 +295,8 @@ class NestWebSocketServer:
 			await self.handle_guac(websocket, path, 'ssh')
 		elif path.startswith('/guac/vnc'):
 			await self.handle_guac(websocket, path, 'vnc')
+		elif path.startswith('/wsnet/external'):
+			await self.handle_wsnet_ext(websocket, path)
 		else:
 			logger.info('Cant handle path %s' % path)
 
@@ -224,7 +368,20 @@ class NestWebSocketServer:
 		pathlib.Path(self.work_dir).mkdir(parents=True, exist_ok=True)
 		pathlib.Path(self.work_dir).joinpath('graphcache').mkdir(parents=True, exist_ok=True)
 
-		self.msg_queue = asyncio.Queue()
+		self.server_in_q = asyncio.Queue()
+		self.server_out_q = asyncio.Queue()
+		self.sspi_proxy_out_q = asyncio.Queue()
+
+		asyncio.create_task(self.__handle_server_in())
+		asyncio.create_task(self.__handle_wsnet_router_in())
+
+		if self.enable_local_agent is True:
+			agentid = '0' #str(uuid.uuid4())
+			internal_agent = JackDawAgent(agentid, 'internal', platform.system().upper(), self.db_session)
+			self.agents[agentid] = internal_agent
+			asyncio.create_task(internal_agent.run())
+
+
 		#handler = functools.partial(process_request, os.getcwd())
 		self.server = await websockets.serve(
 			self.handle_incoming, 

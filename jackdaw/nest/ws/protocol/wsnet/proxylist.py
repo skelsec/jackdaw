@@ -1,13 +1,14 @@
+
 import json
 
 from jackdaw.utils.encoder import UniversalEncoder 
 from jackdaw.nest.ws.protocol.cmdtypes import NestOpCmd
 
 
-class NestOpOK:
-	def __init__(self, token = None):
-		self.cmd = NestOpCmd.OK
-		self.token = token
+class NestOpWSNETListRouters:
+	def __init__(self):
+		self.cmd = NestOpCmd.WSNETLISTROUTERS
+		self.token = None
 	
 	def to_dict(self):
 		return self.__dict__
@@ -17,11 +18,10 @@ class NestOpOK:
 	
 	@staticmethod
 	def from_dict(d):
-		cmd = NestOpOK()
+		cmd = NestOpWSNETListRouters()
 		cmd.token = d['token']
 		return cmd
 
 	@staticmethod
 	def from_json(jd):
-		return NestOpOK.from_dict(json.loads(jd))
-
+		return NestOpWSNETListRouters.from_dict(json.loads(jd))
