@@ -46,7 +46,7 @@ setup(
 		"Operating System :: OS Independent",
 	),
 	install_requires=[
-		'aiosmb>=0.2.49',
+		'aiosmb>=0.2.44',
 		'msldap>=0.3.30',
 		'sqlalchemy<1.4',
 		'tqdm',
@@ -59,10 +59,10 @@ setup(
 		'werkzeug>=2.0.1',
 		'colorama; platform_system=="Windows"',
 		'winacl>=0.1.1',
-		'pypykatz>=0.4.8',
 		'python-igraph==0.8.3',
 		'aiohttp',
 	],
+	#'p y p y k a t z>=0.4.8',
 	entry_points={
 		'console_scripts': [
 			'jackdaw = jackdaw.__main__:main',
