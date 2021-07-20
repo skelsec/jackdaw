@@ -9,6 +9,8 @@ from jackdaw.dbmodel.edgelookup import EdgeLookup
 from jackdaw.dbmodel.aduser import ADUser
 from jackdaw.dbmodel.adgroup import Group
 from jackdaw.dbmodel.adcomp import Machine
+from jackdaw.dbmodel.adobjprops import ADObjProps
+
 
 from jackdaw.dbmodel.netshare import NetShare
 from jackdaw.dbmodel.netsession import NetSession
@@ -138,9 +140,12 @@ class NestOperator:
 		await self.websocket.send(reply.to_json())
 	
 	async def send_ok(self, ocmd):
-		reply = NestOpOK()
-		reply.token = ocmd.token
-		await self.websocket.send(reply.to_json())
+		try:
+			reply = NestOpOK()
+			reply.token = ocmd.token
+			await self.websocket.send(reply.to_json())
+		except:
+			traceback.print_exc()
 
 	async def send_reply(self, ocmd, reply):
 		reply.token = ocmd.token
@@ -460,7 +465,29 @@ class NestOperator:
 		pass
 
 	async def do_pathshortest(self, cmd):
-		pass
+		try:
+			if cmd.graphid not in self.graphs:
+				_, err = await self.loadgraph(cmd.graphid)
+				if err is not None:
+					await self.send_error(cmd, 'Failed to load graph cache!')
+					return
+		
+			res = GraphData()
+			res += self.graphs[cmd.graphid].shortest_paths(cmd.src, cmd.dst)
+
+			edgeres = NestOpEdgeBuffRes()
+			edgeres.token = cmd.token
+			for edgeidx in res.edges:
+				edgeres.edges.append(NestOpEdgeRes.from_graphedge(cmd, None, cmd.graphid, res.edges[edgeidx]))
+
+
+			await self.websocket.send(edgeres.to_json())
+			await self.send_ok(cmd)
+		
+		except Exception as e:
+			traceback.print_exc()
+			await self.send_error(cmd, 'Error happened!')
+			return False, e
 
 	async def do_pathda(self, cmd):
 		try:
@@ -490,10 +517,183 @@ class NestOperator:
 
 				await self.websocket.send(edgeres.to_json())
 			
-			print("Sending OK!")
+			
 			await self.send_ok(cmd)
 		except Exception as e:
 			traceback.print_exc()
+			await self.send_error(cmd, 'Error happened!')
+			return False, e
+	
+	async def do_pathkerbroast(self, cmd):
+		try:
+			if cmd.graphid not in self.graphs:
+				_, err = await self.loadgraph(cmd.graphid)
+				if err is not None:
+					await self.send_error(cmd, 'Failed to load graph cache!')
+					return
+			
+			kerbsrc = {}
+			for domainid in self.graphs[cmd.graphid].adids:
+				for res in self.db_session.db.session.query(ADUser.objectSid)\
+					.filter_by(ad_id = domainid)\
+					.filter(ADUser.servicePrincipalName != None).all():
+					
+					kerbsrc[res[0]] = 0
+
+			if cmd.dst.upper() == 'DA':
+				da_sids = {}
+				for domainid in self.graphs[cmd.graphid].adids:
+					for qres in self.db_session.query(Group).filter_by(ad_id = domainid).filter(Group.objectSid.like('%-512')).all():
+						da_sids[qres.objectSid] = 0
+					
+					if len(da_sids) == 0:
+						continue
+					
+				res = GraphData()
+				for dst_sid in da_sids:
+					for src_sid in kerbsrc:
+						res += self.graphs[cmd.graphid].shortest_paths(src_sid, dst_sid)
+			
+			elif cmd.dst.upper() == 'ANY':
+				res = GraphData()
+				for sid in kerbsrc:
+					res += self.graphs[cmd.graphid].shortest_paths(sid, None)
+
+			edgeres = NestOpEdgeBuffRes()
+			edgeres.token = cmd.token
+			for edgeidx in res.edges:
+				edgeres.edges.append(NestOpEdgeRes.from_graphedge(cmd, domainid, cmd.graphid, res.edges[edgeidx]))
+
+
+			await self.websocket.send(edgeres.to_json())
+			
+			
+			await self.send_ok(cmd)
+		except Exception as e:
+			traceback.print_exc()
+			await self.send_error(cmd, 'Error happened!')
+			return False, e
+
+	async def do_pathasreproast(self, cmd):
+		try:
+			if cmd.graphid not in self.graphs:
+				_, err = await self.loadgraph(cmd.graphid)
+				if err is not None:
+					await self.send_error(cmd, 'Failed to load graph cache!')
+					return
+			
+			kerbsrc = {}
+			for domainid in self.graphs[cmd.graphid].adids:
+				for res in self.db_session.query(ADUser.objectSid)\
+					.filter_by(ad_id = domainid)\
+					.filter(ADUser.UAC_DONT_REQUIRE_PREAUTH == True).all():
+					
+					kerbsrc[res[0]] = 0
+
+			if cmd.dst.upper() == 'DA':
+				da_sids = {}
+				for domainid in self.graphs[cmd.graphid].adids:
+					for qres in self.db_session.query(Group).filter_by(ad_id = domainid).filter(Group.objectSid.like('%-512')).all():
+						da_sids[qres.objectSid] = 0
+					
+					if len(da_sids) == 0:
+						continue
+					
+				res = GraphData()
+				for dst_sid in da_sids:
+					for src_sid in kerbsrc:
+						res += self.graphs[cmd.graphid].shortest_paths(src_sid, dst_sid)
+			
+			elif cmd.dst.upper() == 'ANY':
+				res = GraphData()
+				for sid in kerbsrc:
+					res += self.graphs[cmd.graphid].shortest_paths(sid, None)
+
+			edgeres = NestOpEdgeBuffRes()
+			edgeres.token = cmd.token
+			for edgeidx in res.edges:
+				edgeres.edges.append(NestOpEdgeRes.from_graphedge(cmd, domainid, cmd.graphid, res.edges[edgeidx]))
+
+
+			await self.websocket.send(edgeres.to_json())
+			
+			
+			await self.send_ok(cmd)
+		except Exception as e:
+			traceback.print_exc()
+			await self.send_error(cmd, 'Error happened!')
+			return False, e
+	
+	async def do_pathowned(self, cmd):
+		try:
+			if cmd.graphid not in self.graphs:
+				_, err = await self.loadgraph(cmd.graphid)
+				if err is not None:
+					await self.send_error(cmd, 'Failed to load graph cache!')
+					return
+			
+			target_sids = {}
+			for domainid in self.graphs[cmd.graphid].adids:
+				for res in self.db_session.query(EdgeLookup.oid)\
+					.filter_by(ad_id = domainid)\
+					.filter(EdgeLookup.oid == ADObjProps.oid)\
+					.filter(ADObjProps.graph_id == cmd.graphid)\
+					.filter(ADObjProps.prop == 'OWNED')\
+					.all():
+					
+					target_sids[res[0]] = 0
+
+			if cmd.dst.upper() == 'DA':
+				da_sids = {}
+				for domainid in self.graphs[cmd.graphid].adids:
+					for qres in self.db_session.query(Group).filter_by(ad_id = domainid).filter(Group.objectSid.like('%-512')).all():
+						da_sids[qres.objectSid] = 0
+					
+					if len(da_sids) == 0:
+						continue
+					
+				res = GraphData()
+				for dst_sid in da_sids:
+					for src_sid in target_sids:
+						res += self.graphs[cmd.graphid].shortest_paths(src_sid, dst_sid)
+			
+			elif cmd.dst.upper() == 'ANY':
+				res = GraphData()
+				for sid in target_sids:
+					res += self.graphs[cmd.graphid].shortest_paths(sid, None)
+
+			elif cmd.dst.upper() == 'HVT':
+				hvt_targets = {}
+				for domainid in self.graphs[cmd.graphid].adids:
+					for res in self.db_session.query(EdgeLookup.oid)\
+						.filter_by(ad_id = domainid)\
+						.filter(EdgeLookup.oid == ADObjProps.oid)\
+						.filter(ADObjProps.graph_id == self.graphid)\
+						.filter(ADObjProps.prop == 'HVT')\
+						.all():
+						
+						hvt_targets[res[0]] = 0
+
+
+
+				res = GraphData()
+				for sid in target_sids:
+					for dst in hvt_targets:
+						res += self.graphs[cmd.graphid].shortest_paths(sid, dst)
+
+			edgeres = NestOpEdgeBuffRes()
+			edgeres.token = cmd.token
+			for edgeidx in res.edges:
+				edgeres.edges.append(NestOpEdgeRes.from_graphedge(cmd, domainid, cmd.graphid, res.edges[edgeidx]))
+
+
+			await self.websocket.send(edgeres.to_json())
+			
+			
+			await self.send_ok(cmd)
+		except Exception as e:
+			traceback.print_exc()
+			await self.send_error(cmd, 'Error happened!')
 			return False, e
 
 	async def do_add_cred(self, cmd):
@@ -687,6 +887,12 @@ class NestOperator:
 						asyncio.create_task(self.do_wsnetrouter_list(cmd))
 					elif cmd.cmd == NestOpCmd.SMBFILES:
 						asyncio.create_task(self.do_smbfiles(cmd))
+					elif cmd.cmd == NestOpCmd.PATHKERB:
+						asyncio.create_task(self.do_pathkerbroast(cmd))
+					elif cmd.cmd == NestOpCmd.PATHASREP:
+						asyncio.create_task(self.do_pathasreproast(cmd))
+					elif cmd.cmd == NestOpCmd.PATHOWNED:
+						asyncio.create_task(self.do_pathowned(cmd))
 					else:
 						print('Unknown Command')
 

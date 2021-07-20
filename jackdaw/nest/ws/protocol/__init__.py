@@ -25,6 +25,9 @@ from jackdaw.nest.ws.protocol.graph.pathda import NestOpPathDA
 from jackdaw.nest.ws.protocol.graph.pathshortest import NestOpPathShortest
 from jackdaw.nest.ws.protocol.graph.edge import NestOpEdgeRes, NestOpEdgeBuffRes
 from jackdaw.nest.ws.protocol.graph.pathres import NestOpPathRes
+from jackdaw.nest.ws.protocol.graph.pathkerbroast import NestOpPathKerbroast
+from jackdaw.nest.ws.protocol.graph.pathasrep import NestOpPathASREPRoast
+from jackdaw.nest.ws.protocol.graph.pathowned import NestOpPathOwned
 
 from jackdaw.nest.ws.protocol.domain.changead import NestOpChangeAD
 from jackdaw.nest.ws.protocol.domain.listad import NestOpListAD, NestOpListADRes
@@ -118,6 +121,10 @@ __all__ = [
 	'NestOpSMBFileRes',
 	'NestOpCredsDef',
 	'NestOpTargetDef',
+	'NestOpPathKerbroast',
+	'NestOpPathASREPRoast',
+	'NestOpPathOwned',
+	
 ]
 
 
@@ -183,6 +190,9 @@ type2obj = {
 	NestOpCmd.WSNETLISTROUTERS : NestOpWSNETListRouters,
 	NestOpCmd.SMBFILES : NestOpSMBFiles,
 	NestOpCmd.SMBFILERES : NestOpSMBFileRes,
-	
+	NestOpCmd.PATHKERB : NestOpPathKerbroast,
+	NestOpCmd.PATHASREP : NestOpPathASREPRoast,
+	NestOpCmd.PATHOWNED : NestOpPathOwned,
+
 }
 
