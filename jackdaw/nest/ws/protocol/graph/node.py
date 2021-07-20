@@ -70,7 +70,6 @@ class NestOpEdgeBuffRes:
 	def from_dict(d):
 		cmd = NestOpEdgeBuffRes()
 		cmd.token = d['token']
-		cmd.edges = d['edges']
 		return cmd
 
 	@staticmethod

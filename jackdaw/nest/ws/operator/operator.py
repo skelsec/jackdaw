@@ -53,6 +53,9 @@ class NestOperator:
 		self.server_out_q = server_out_q
 		self.operatorid = operatorid
 
+		# for internal signaling
+		self.graph_loading_evt = {}
+
 	async def __handle_server_in(self):
 		# results will be dispatched to server_in_q from agents also this queue is used for notifications from server using token "0"
 		while True:
@@ -66,16 +69,32 @@ class NestOperator:
 			
 
 
-	def loadgraph(self, graphid):
-		graphid = int(graphid)
-		graph_cache_dir = self.work_dir.joinpath('graphcache')
-		graph_dir = graph_cache_dir.joinpath(str(graphid))
-		if graph_dir.exists() is False:
-			raise Exception('Graph cache dir doesnt exists!')
-		else:
-			self.graphs[graphid] = self.graph_type.load(self.db_session, graphid, graph_dir)
-		
-		return True
+	async def loadgraph(self, graphid):
+		try:
+			graphid = int(graphid)
+			if graphid in self.graphs:
+				return True, None
+			if graphid in self.graph_loading_evt:
+				await self.graph_loading_evt[graphid].wait()
+				if graphid in self.graphs:
+					return True, None
+				raise Exception('Graph failed to load previously!')
+
+			self.graph_loading_evt[graphid] = asyncio.Event()
+			
+			graph_cache_dir = self.work_dir.joinpath('graphcache')
+			graph_dir = graph_cache_dir.joinpath(str(graphid))
+			if graph_dir.exists() is False:
+				self.graph_loading_evt[graphid].set()
+				raise Exception('Graph cache dir doesnt exists! Path: %s ' % str(graph_dir))
+			else:
+				self.graphs[graphid] = self.graph_type.load(self.db_session, graphid, graph_dir)
+			
+			self.graph_loading_evt[graphid].set()
+			return True, None
+		except Exception as e:
+			traceback.print_exc()
+			return False, e
 
 
 	def lookup_oid(self, oint, ad_id, token):
@@ -94,6 +113,13 @@ class NestOperator:
 		
 		for res in self.db_session.query(GraphInfo).all():	
 			gr.gids.append(res.id)
+		
+		for gid in gr.gids:
+			adnameres = ''
+			for res in self.db_session.query(GraphInfoAD).filter_by(graph_id = gid):
+				adinfo = self.db_session.query(ADInfo).get(res.ad_id)
+				adnameres += ',' + adinfo.name
+			gr.adnames.append(adnameres)
 		
 		await self.websocket.send(gr.to_json())
 		await self.send_ok(cmd)
@@ -437,21 +463,38 @@ class NestOperator:
 		pass
 
 	async def do_pathda(self, cmd):
-		if self.graph_id not in self.graphs:
-			self.loadgraph(self.graph_id)
-	
-		da_sids = {}
-		for res in self.db_session.query(Group).filter_by(ad_id = self.graphs[self.graph_id].domain_id).filter(Group.objectSid.like('%-512')).all():
-			da_sids[res.objectSid] = 0
-		
-		if len(da_sids) == 0:
-			return 'No domain administrator group found', 404
-		
-		res = GraphData()
-		for sid in da_sids:
-			res += self.graphs[self.graph_id].shortest_paths(None, sid)
+		try:
+			if cmd.graphid not in self.graphs:
+				_, err = await self.loadgraph(cmd.graphid)
+				if err is not None:
+					await self.send_error(cmd, 'Failed to load graph cache!')
+					return
 
-		await self.send_result(cmd, res)
+			da_sids = {}
+			for domainid in self.graphs[cmd.graphid].adids:
+				for res in self.db_session.query(Group).filter_by(ad_id = domainid).filter(Group.objectSid.like('%-512')).all():
+					da_sids[res.objectSid] = 0
+				
+				if len(da_sids) == 0:
+					continue
+				
+				res = GraphData()
+				for sid in da_sids:
+					res += self.graphs[cmd.graphid].shortest_paths(None, sid)
+
+				edgeres = NestOpEdgeBuffRes()
+				edgeres.token = cmd.token
+				for edgeidx in res.edges:
+					edgeres.edges.append(NestOpEdgeRes.from_graphedge(cmd, domainid, cmd.graphid, res.edges[edgeidx]))
+
+
+				await self.websocket.send(edgeres.to_json())
+			
+			print("Sending OK!")
+			await self.send_ok(cmd)
+		except Exception as e:
+			traceback.print_exc()
+			return False, e
 
 	async def do_add_cred(self, cmd):
 		logger.info('do_add_cred')

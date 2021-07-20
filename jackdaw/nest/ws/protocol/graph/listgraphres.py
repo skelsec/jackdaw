@@ -10,7 +10,8 @@ class NestOpListGraphRes:
 		self.cmd = NestOpCmd.LISTGRAPHRES
 		self.token = None
 		self.gids = []
-	
+		self.adnames = []
+
 	def to_dict(self):
 		return self.__dict__
 	
@@ -21,6 +22,8 @@ class NestOpListGraphRes:
 	def from_dict(d):
 		cmd = NestOpListGraphRes()
 		cmd.token = d['token']
+		cmd.gids  = d['gids']
+		cmd.gids  = d['adnames']
 		return cmd
 
 	@staticmethod

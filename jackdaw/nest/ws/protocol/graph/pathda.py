@@ -8,6 +8,7 @@ class NestOpPathDA:
 	def __init__(self):
 		self.cmd = NestOpCmd.PATHDA
 		self.token = None
+		self.graphid = None
 		self.exclude = []
 	
 	def to_dict(self):
@@ -20,6 +21,7 @@ class NestOpPathDA:
 	def from_dict(d):
 		cmd = NestOpPathDA()
 		cmd.token = d['token']
+		cmd.graphid = int(d['graphid'])
 		if 'exclude' in d:
 			cmd.exclude = d['exclude']
 		return cmd
