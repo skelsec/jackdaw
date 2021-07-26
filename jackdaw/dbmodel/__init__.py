@@ -132,6 +132,7 @@ from .adschemaentry import ADSchemaEntry
 from .storedcreds import StoredCred
 from .portaluser import PortalUser
 from .customtarget import CustomTarget
+from .regsession import RegSession
 
 
 def create_db(connection, verbosity = 0):

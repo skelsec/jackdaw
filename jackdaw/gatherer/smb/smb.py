@@ -4,6 +4,7 @@
 #  Tamas Jos (@skelsec)
 #
 
+
 import os
 import asyncio
 import logging
@@ -22,6 +23,7 @@ from jackdaw.dbmodel.smbfinger import SMBFinger
 from jackdaw.dbmodel.adinfo import ADInfo
 from jackdaw.dbmodel.adcomp import Machine
 from jackdaw.dbmodel.neterror import NetError
+from jackdaw.dbmodel.regsession import RegSession
 
 from jackdaw.common.cpucount import get_cpu_count
 from jackdaw.gatherer.smb.agent.agent import AIOSMBGathererAgent
@@ -164,7 +166,7 @@ class SMBGatherer:
 
 				if result is not None:
 					if self.show_progress is True:
-						if isinstance(result, NetSession):
+						if isinstance(result, (NetSession, RegSession)):
 							self.prg_sessions.update()
 						elif isinstance(result, NetShare):
 							self.prg_shares.update()
@@ -172,7 +174,7 @@ class SMBGatherer:
 							self.prg_groups.update()
 					
 					if self.progress_queue is not None:
-						if isinstance(result, NetSession):
+						if isinstance(result, (NetSession, RegSession)):
 							self.prg_sessions_cnt += 1
 							if self.stream_data is True:
 								msg = GathererProgress()

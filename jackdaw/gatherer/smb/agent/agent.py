@@ -6,6 +6,7 @@ from jackdaw.dbmodel.netsession import NetSession
 from jackdaw.dbmodel.localgroup import LocalGroup
 from jackdaw.dbmodel.smbfinger import SMBFinger
 from jackdaw.dbmodel.smbprotocols import SMBProtocols
+from jackdaw.dbmodel.regsession import RegSession
 from aiosmb.protocol.common import SMB_NEGOTIATE_PROTOCOL_TEST, NegotiateDialects
 from aiosmb.commons.utils.extb import format_exc
 from aiosmb.commons.interfaces.machine import SMBMachine
@@ -25,6 +26,12 @@ class AIOSMBGathererAgent:
 		self.worker_tasks = []
 		self.targets = []
 		self.worker_q = None
+
+		self.regusers_filter = {
+			'S-1-5-19' : 1,
+			'S-1-5-20' : 1,
+			'S-1-5-18' : 1,
+		}
 
 	async def scan_host(self, atarget):
 		try:
@@ -129,6 +136,28 @@ class AIOSMBGathererAgent:
 								lg.domain = domain_name
 								lg.username = user_name
 								await self.out_q.put((tid, connection.target, lg, None))
+				
+				if 'all' in self.gather or 'regsessions' in self.gather:
+					users, err = await machine.reg_list_users()
+					if err is not None:
+						await self.out_q.put((tid, connection.target, None, 'Failed to get sessions. Reason: %s' % format_exc(err)))
+						
+					else:
+						try:
+							for usersid in users:
+								if usersid in self.regusers_filter:
+									continue
+								if usersid.find('_') != -1:
+									continue
+								sess = RegSession()
+								sess.machine_sid = tid
+								sess.source = connection.target.get_ip()
+								sess.user_sid = usersid
+
+								await self.out_q.put((tid, connection.target, sess, None))
+						except Exception as e:
+							await self.out_q.put((tid, connection.target, None, 'Failed to format session. Reason: %s' % format_exc(e)))
+
 		
 		except asyncio.CancelledError:
 			return

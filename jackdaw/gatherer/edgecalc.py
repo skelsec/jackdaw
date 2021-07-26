@@ -31,6 +31,7 @@ from jackdaw.dbmodel.adspn import JackDawSPN
 from jackdaw.dbmodel.edge import Edge
 from jackdaw.dbmodel.edgelookup import EdgeLookup
 from jackdaw.dbmodel.netsession import NetSession
+from jackdaw.dbmodel.regsession import RegSession
 from jackdaw.dbmodel.localgroup import LocalGroup
 from jackdaw.dbmodel.credential import Credential
 from jackdaw.dbmodel.graphinfo import GraphInfo, GraphInfoAD
@@ -174,7 +175,20 @@ class EdgeCalc:
 			self.add_edge(res[0], res[1],'hasSession')
 			self.add_edge(res[1], res[0],'hasSession')
 			cnt += 2
+		
+		logger.debug('Adding hassession edges from registry')
+		
+		q = self.session.query(RegSession)\
+			.filter(RegSession.user_sid == ADUser.objectSid)\
+			.filter(RegSession.machine_sid == Machine.objectSid)
+		
+		for res in windowed_query(q, ADUser.id, self.buffer_size, False):
+			self.add_edge(res[0], res[1],'hasSession')
+			self.add_edge(res[1], res[0],'hasSession')
+			cnt += 2
+
 		logger.debug('Added %s hassession edges' % cnt)
+		
 
 	def localgroup_edges(self):
 		logger.debug('Adding localgroup edges')
