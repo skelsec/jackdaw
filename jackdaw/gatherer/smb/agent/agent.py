@@ -7,7 +7,7 @@ from jackdaw.dbmodel.localgroup import LocalGroup
 from jackdaw.dbmodel.smbfinger import SMBFinger
 from jackdaw.dbmodel.smbprotocols import SMBProtocols
 from jackdaw.dbmodel.regsession import RegSession
-from jackdaw.dbmodel.regsession import SMBInterface
+from jackdaw.dbmodel.smbinterface import SMBInterface
 from aiosmb.protocol.common import SMB_NEGOTIATE_PROTOCOL_TEST, NegotiateDialects
 from aiosmb.commons.utils.extb import format_exc
 from aiosmb.commons.interfaces.machine import SMBMachine
