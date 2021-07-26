@@ -46,7 +46,7 @@ setup(
 		"Operating System :: OS Independent",
 	),
 	install_requires=[
-		'aiosmb>=0.2.44',
+		'aiosmb>=0.2.50',
 		'msldap>=0.3.30',
 		'sqlalchemy<1.4',
 		'tqdm',
@@ -55,13 +55,13 @@ setup(
 		'flask-sqlalchemy',
 		'connexion[swagger-ui]',
 		'websockets',
-        'swagger-ui-bundle>=0.0.2',
-		'werkzeug>=2.0.1',
+		'swagger-ui-bundle>=0.0.2',
+		#'werkzeug>=2.0.1',
 		'colorama; platform_system=="Windows"',
 		'winacl>=0.1.1',
 		'python-igraph==0.8.3',
-		'aiohttp',
 	],
+	# 'aiohttp',
 	#'p y p y k a t z>=0.4.8',
 	entry_points={
 		'console_scripts': [
