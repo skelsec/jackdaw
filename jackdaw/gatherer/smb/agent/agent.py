@@ -7,6 +7,7 @@ from jackdaw.dbmodel.localgroup import LocalGroup
 from jackdaw.dbmodel.smbfinger import SMBFinger
 from jackdaw.dbmodel.smbprotocols import SMBProtocols
 from jackdaw.dbmodel.regsession import RegSession
+from jackdaw.dbmodel.regsession import SMBInterface
 from aiosmb.protocol.common import SMB_NEGOTIATE_PROTOCOL_TEST, NegotiateDialects
 from aiosmb.commons.utils.extb import format_exc
 from aiosmb.commons.interfaces.machine import SMBMachine
@@ -37,35 +38,11 @@ class AIOSMBGathererAgent:
 		try:
 			tid, target = atarget
 
-			try:
-				if 'all' in self.gather or 'protocols' in self.gather:
-					for protocol in self.protocols:
-						connection = self.smb_mgr.create_connection_newtarget(target)
-						res, _, _, _, err = await connection.protocol_test([protocol])
-						if err is not None:
-							raise err
-						if res is True:
-							pr = SMBProtocols()
-							pr.machine_sid = tid
-							pr.protocol = protocol.name if protocol != NegotiateDialects.WILDCARD else 'SMB1'
-							await self.out_q.put((tid, connection.target, pr, None))
-			except Exception as e:
-				await self.out_q.put((tid, connection.target, None, 'Failed to enumerate supported protocols. Reason: %s' % format_exc(e)))
-
-
 			connection = self.smb_mgr.create_connection_newtarget(target)
 			async with connection:
 				_, err = await connection.login()
 				if err is not None:
 					raise err
-				
-				try:
-					extra_info = connection.get_extra_info()
-					if extra_info is not None:
-						f = SMBFinger.from_extra_info(tid, extra_info)
-						await self.out_q.put((tid, connection.target, f, None))
-				except Exception as e:
-					await self.out_q.put((tid, connection.target, None, 'Failed to get finger data. Reason: %s' % format_exc(e)))
 
 				machine = SMBMachine(connection)
 
@@ -124,7 +101,7 @@ class AIOSMBGathererAgent:
 					for group_name in self.localgroups:
 						async for domain_name, user_name, sid, err in machine.list_group_members('Builtin', group_name):
 							if err is not None:
-								await self.out_q.put((tid, connection.target, None, 'Failed to connect to poll group memeberships. Reason: %s' % format_exc(err)))
+								await self.out_q.put((tid, connection.target, None, 'Failed to poll group memeberships. Reason: %s' % format_exc(err)))
 								break
 							else:
 								lg = LocalGroup()
@@ -151,14 +128,54 @@ class AIOSMBGathererAgent:
 									continue
 								sess = RegSession()
 								sess.machine_sid = tid
-								sess.source = connection.target.get_ip()
 								sess.user_sid = usersid
 
 								await self.out_q.put((tid, connection.target, sess, None))
 						except Exception as e:
 							await self.out_q.put((tid, connection.target, None, 'Failed to format session. Reason: %s' % format_exc(e)))
+			
+				if 'all' in self.gather or 'interfaces' in self.gather:
+					interfaces, err = await machine.list_interfaces()
+					if err is not None:
+						await self.out_q.put((tid, connection.target, None, 'Failed to get interfaces. Reason: %s' % format_exc(err)))
+						
+					else:
+						try:
+							for interface in interfaces:
+								iface = SMBInterface()
+								iface.machine_sid = tid
+								iface.address = interface['address']
 
-		
+								await self.out_q.put((tid, connection.target, sess, None))
+						except Exception as e:
+							await self.out_q.put((tid, connection.target, None, 'Failed to format interface. Reason: %s' % format_exc(e)))
+			
+			
+			try:
+				connection = self.smb_mgr.create_connection_newtarget(target)
+				extra_info, err = await connection.fake_login()
+				if extra_info is not None:
+					f = SMBFinger.from_fake_login(tid, extra_info.to_dict())
+					await self.out_q.put((tid, connection.target, f, None))
+			except Exception as e:
+				await self.out_q.put((tid, connection.target, None, 'Failed to get finger data. Reason: %s' % format_exc(e)))
+			
+			
+			try:
+				if 'all' in self.gather or 'protocols' in self.gather:
+					for protocol in self.protocols:
+						connection = self.smb_mgr.create_connection_newtarget(target)
+						res, _, _, _, err = await connection.protocol_test([protocol])
+						if err is not None:
+							raise err
+						if res is True:
+							pr = SMBProtocols()
+							pr.machine_sid = tid
+							pr.protocol = protocol.name if protocol != NegotiateDialects.WILDCARD else 'SMB1'
+							await self.out_q.put((tid, connection.target, pr, None))
+			except Exception as e:
+				await self.out_q.put((tid, connection.target, None, 'Failed to enumerate supported protocols. Reason: %s' % format_exc(e)))
+				
 		except asyncio.CancelledError:
 			return
 

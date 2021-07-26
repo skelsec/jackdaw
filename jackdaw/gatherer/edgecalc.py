@@ -180,7 +180,11 @@ class EdgeCalc:
 		
 		q = self.session.query(RegSession)\
 			.filter(RegSession.user_sid == ADUser.objectSid)\
-			.filter(RegSession.machine_sid == Machine.objectSid)
+			.filter(RegSession.machine_sid == Machine.objectSid)\
+			.filter(RegSession.ad_id == self.ad_id)\
+			.filter(Machine.ad_id == self.ad_id)\
+			.filter(ADUser.ad_id == self.ad_id)
+				
 		
 		for res in windowed_query(q, ADUser.id, self.buffer_size, False):
 			self.add_edge(res[0], res[1],'hasSession')

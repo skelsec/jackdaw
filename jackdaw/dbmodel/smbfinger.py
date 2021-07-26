@@ -43,3 +43,20 @@ class SMBFinger(Basemodel, Serializer):
 			f.os_guess = extra_info['ntlm_data']['os_guess']
 
 		return f
+	
+	@staticmethod
+	def from_fake_login(machine_sid, extra_info):
+		f = SMBFinger()
+		f.machine_sid = machine_sid
+		f.domainname = extra_info['domainname']
+		f.computername = extra_info['computername']
+		f.dnscomputername = extra_info['dnscomputername']
+		f.dnsdomainname = extra_info['dnsdomainname']
+		f.local_time = extra_info['local_time']
+		f.dnsforestname = extra_info['dnsforestname']
+		f.os_major_version = extra_info['os_major_version']
+		f.os_minor_version = extra_info['os_minor_version']
+		f.os_build = extra_info['os_build']
+		f.os_guess = extra_info['os_guess']
+
+		return f
