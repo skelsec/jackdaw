@@ -134,6 +134,7 @@ from .portaluser import PortalUser
 from .customtarget import CustomTarget
 from .regsession import RegSession
 from .smbinterface import SMBInterface
+from .smbfile import SMBFile
 
 
 def create_db(connection, verbosity = 0):

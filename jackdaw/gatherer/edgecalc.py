@@ -178,7 +178,7 @@ class EdgeCalc:
 		
 		logger.debug('Adding hassession edges from registry')
 		
-		q = self.session.query(RegSession)\
+		q = self.session.query(ADUser.objectSid, Machine.objectSid)\
 			.filter(RegSession.user_sid == ADUser.objectSid)\
 			.filter(RegSession.machine_sid == Machine.objectSid)\
 			.filter(RegSession.ad_id == self.ad_id)\

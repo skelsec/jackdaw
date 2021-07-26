@@ -8,14 +8,26 @@ from jackdaw.dbmodel.smbfinger import SMBFinger
 from jackdaw.dbmodel.smbprotocols import SMBProtocols
 from jackdaw.dbmodel.regsession import RegSession
 from jackdaw.dbmodel.smbinterface import SMBInterface
+from jackdaw.dbmodel.smbfile import SMBFile
 from aiosmb.protocol.common import SMB_NEGOTIATE_PROTOCOL_TEST, NegotiateDialects
 from aiosmb.commons.utils.extb import format_exc
 from aiosmb.commons.interfaces.machine import SMBMachine
 
+
 from jackdaw import logger
 
+# https://stackoverflow.com/questions/1094841/get-human-readable-version-of-file-size
+def sizeof_fmt(num, suffix='B'):
+	if num is None:
+		return ''
+	for unit in ['','Ki','Mi','Gi','Ti','Pi','Ei','Zi']:
+		if abs(num) < 1024.0:
+			return "%3.1f%s%s" % (num, unit, suffix)
+		num /= 1024.0
+	return "%.1f%s%s" % (num, 'Yi', suffix)
+
 class AIOSMBGathererAgent:
-	def __init__(self, in_q, out_q, smb_mgr, gather = ['all'], localgroups = [], concurrent_connections = 10, protocols = [NegotiateDialects.WILDCARD]):
+	def __init__(self, in_q, out_q, smb_mgr, gather = ['all'], localgroups = [], concurrent_connections = 10, protocols = [NegotiateDialects.WILDCARD], share_max_files = 100):
 		self.in_q = in_q
 		self.out_q = out_q
 		self.smb_mgr = smb_mgr
@@ -23,6 +35,7 @@ class AIOSMBGathererAgent:
 		self.localgroups = localgroups
 		self.protocols = protocols
 		self.concurrent_connections = concurrent_connections
+		self.share_max_files = share_max_files
 
 		self.worker_tasks = []
 		self.targets = []
@@ -146,10 +159,43 @@ class AIOSMBGathererAgent:
 								iface.machine_sid = tid
 								iface.address = interface['address']
 
-								await self.out_q.put((tid, connection.target, sess, None))
+								await self.out_q.put((tid, connection.target, iface, None))
 						except Exception as e:
 							await self.out_q.put((tid, connection.target, None, 'Failed to format interface. Reason: %s' % format_exc(e)))
-			
+				print(self.gather)
+				if 'all' in self.gather or 'share_1' in self.gather:
+					print(2)
+					ctr = self.share_max_files
+					async for obj, otype, err in machine.enum_all_recursively(depth = 1, fetch_share_sd = False, fetch_dir_sd = True):
+						print(otype)
+						ctr -= 1
+						if ctr == 0:
+							break
+
+						if err is not None:
+							await self.out_q.put((tid, connection.target, None, 'Failed to get interfaces. Reason: %s' % format_exc(err)))
+							
+						else:
+							try:
+								if otype.lower() == 'share':
+									continue
+								if otype.lower() in ['file', 'dir']:
+								
+									sf = SMBFile()
+									sf.machine_sid = tid
+									sf.unc = obj.unc_path
+									sf.size = obj.size
+									sf.size_ext = sizeof_fmt(sf.size)
+									sf.creation_time = obj.creation_time
+									sf.last_access_time = obj.last_access_time
+									sf.last_write_time = obj.last_write_time
+									sf.change_time = obj.change_time
+									sf.sddl = obj.security_descriptor
+
+									await self.out_q.put((tid, connection.target, sf, None))
+							except Exception as e:
+								await self.out_q.put((tid, connection.target, None, 'Failed to format interface. Reason: %s' % format_exc(e)))
+				
 			
 			try:
 				connection = self.smb_mgr.create_connection_newtarget(target)
