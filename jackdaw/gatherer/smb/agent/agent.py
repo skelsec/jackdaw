@@ -40,6 +40,7 @@ class AIOSMBGathererAgent:
 		self.worker_tasks = []
 		self.targets = []
 		self.worker_q = None
+		self.host_max_wait = 60
 
 		self.regusers_filter = {
 			'S-1-5-19' : 1,
@@ -71,25 +72,6 @@ class AIOSMBGathererAgent:
 							share.ip = connection.target.get_ip()
 							share.netname = smbshare.name
 							share.type = smbshare.type
-							#share.remark = smbshare.remark
-							#if smbshare.remark is not None:
-							#	r = None
-							#	try:
-							#		r = smbshare.remark.decode('utf-16-le')
-							#	except:
-							#		try:
-							#			r = smbshare.remark.decode('latin-1')
-							#		except:
-							#			try:
-							#				r = smbshare.remark.decode('utf-8')
-							#			except:
-							#				r = smbshare.remark
-							#	
-							#	if isinstance(r, str):
-							#		r = r.replace('\x00','')
-							#		share.remark = r
-
-
 							await self.out_q.put((tid, connection.target, share, None))
 					
 				
@@ -162,40 +144,46 @@ class AIOSMBGathererAgent:
 								await self.out_q.put((tid, connection.target, iface, None))
 						except Exception as e:
 							await self.out_q.put((tid, connection.target, None, 'Failed to format interface. Reason: %s' % format_exc(e)))
-				print(self.gather)
+				
 				if 'all' in self.gather or 'share_1' in self.gather:
-					print(2)
 					ctr = self.share_max_files
+					maxerr = 10
 					async for obj, otype, err in machine.enum_all_recursively(depth = 1, fetch_share_sd = False, fetch_dir_sd = True):
-						print(otype)
+						otype = otype.lower()
 						ctr -= 1
 						if ctr == 0:
 							break
 
 						if err is not None:
-							await self.out_q.put((tid, connection.target, None, 'Failed to get interfaces. Reason: %s' % format_exc(err)))
+							await self.out_q.put((tid, connection.target, None, 'Failed to perform first-level file enum. Reason: %s' % format_exc(err)))
+							break
 							
 						else:
 							try:
-								if otype.lower() == 'share':
+								if otype == 'share':
 									continue
-								if otype.lower() in ['file', 'dir']:
-								
+								if otype in ['file', 'dir']:
 									sf = SMBFile()
 									sf.machine_sid = tid
 									sf.unc = obj.unc_path
-									sf.size = obj.size
-									sf.size_ext = sizeof_fmt(sf.size)
+									sf.otype = otype
 									sf.creation_time = obj.creation_time
 									sf.last_access_time = obj.last_access_time
 									sf.last_write_time = obj.last_write_time
 									sf.change_time = obj.change_time
-									sf.sddl = obj.security_descriptor
+									if obj.security_descriptor is not None and obj.security_descriptor != '':
+										sf.sddl = obj.security_descriptor.to_sddl()
+									if otype == 'file':
+										sf.size = obj.size
+										sf.size_ext = sizeof_fmt(sf.size)
 
 									await self.out_q.put((tid, connection.target, sf, None))
 							except Exception as e:
-								await self.out_q.put((tid, connection.target, None, 'Failed to format interface. Reason: %s' % format_exc(e)))
-				
+								maxerr -= 1
+								await self.out_q.put((tid, connection.target, None, 'Failed to format file result. Reason: %s' % format_exc(e)))
+								if maxerr == 0:
+									await self.out_q.put((tid, connection.target, None, 'File Results too many errors. Reason: %s' % format_exc(e)))
+									break
 			
 			try:
 				connection = self.smb_mgr.create_connection_newtarget(target)
@@ -239,7 +227,7 @@ class AIOSMBGathererAgent:
 				if target is None:
 					return
 				try:
-					await asyncio.wait_for(self.scan_host(target), 20)
+					await asyncio.wait_for(self.scan_host(target), self.host_max_wait)
 				except:
 					#exception should be handled in scan_host
 					continue
