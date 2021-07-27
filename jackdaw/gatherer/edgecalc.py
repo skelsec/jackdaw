@@ -499,7 +499,14 @@ class EdgeCalc:
 			logger.exception('sdcalc!')
 			return False, e
 		finally:
-			os.remove(sdfilename)
+			try:
+				testfile.close()
+			except:
+				pass
+			try:
+				os.remove(sdfilename)
+			except:
+				pass
 			
 		
 

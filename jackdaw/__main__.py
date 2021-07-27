@@ -66,7 +66,8 @@ async def run_auto(ldap_worker_cnt = None, smb_worker_cnt = 500, dns = None, wor
 			db_conn = 'sqlite:///%s' % db_loc
 			create_db(db_conn)
 		ldap_url = 'ldap+sspi-ntlm://%s\\%s:jackdaw@%s' % (logon['domain'], logon['username'], logon['logonserver'])
-		smb_url = 'smb2+sspi-kerberos://%s\\%s:jackdaw@%s' % (logon['domain'], logon['username'], logon['logonserver'])
+		#smb_url = 'smb2+sspi-kerberos://%s\\%s:jackdaw@%s' % (logon['domain'], logon['username'], logon['logonserver'])
+		smb_url = 'smb2+sspi-ntlm://%s\\%s:jackdaw@%s' % (logon['domain'], logon['username'], logon['logonserver'])
 
 		jdlogger.debug('LDAP connection: %s' % ldap_url)
 		jdlogger.debug('SMB  connection: %s' % smb_url)
