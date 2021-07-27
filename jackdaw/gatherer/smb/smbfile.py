@@ -6,6 +6,7 @@
 
 
 import asyncio
+import datetime
 from aiosmb.commons.connection.url import SMBConnectionURL
 
 from tqdm import tqdm
@@ -20,12 +21,12 @@ from jackdaw.common.cpucount import get_cpu_count
 from jackdaw.gatherer.smb.agent.agentfile import AIOSMBFileGathererAgent
 from jackdaw.gatherer.progress import *
 
-import aiosmb
+from aiosmb.commons.connection.url import SMBConnectionURL
 from aiosmb.commons.utils.extb import format_exc
 from sqlalchemy import func
 
 class SMBFileGatherer:
-	def __init__(self, db_conn, ad_id, smb_mgr, depth = 10, worker_cnt = None, progress_queue = None, show_progress = True, stream_data = False, to_file = None):
+	def __init__(self, db_conn, ad_id, smb_mgr, depth = 10, worker_cnt = None, progress_queue = None, show_progress = True, stream_data = False, to_file = None, target_filters = []):
 		self.in_q = None
 		self.out_q = None
 		self.smb_mgr = smb_mgr
@@ -36,6 +37,7 @@ class SMBFileGatherer:
 		self.queue_size = self.concurrent_connections
 		self.to_file = to_file
 		self.depth = depth
+		self.target_filters = target_filters
 
 		self.session = None
 		self.total_targets = 0
@@ -76,6 +78,11 @@ class SMBFileGatherer:
 	async def generate_targets(self):
 		try:
 			q = self.session.query(Machine).filter_by(ad_id = self.ad_id)
+			for filter in self.target_filters:
+				if filter == 'live':
+					filter_after = datetime.datetime.today() - datetime.timedelta(days = 90)
+					q = q.filter(Machine.pwdLastSet >= filter_after)
+
 			for machine in windowed_query(q, Machine.id, 100):
 				try:
 					dns_name = machine.dNSHostName
@@ -98,10 +105,23 @@ class SMBFileGatherer:
 						f.write(result.to_tsv() + '\r\n')
 					except Exception as e:
 						continue
+			self.result_buffer = []
 		else:
-			for result in self.result_buffer:
-				self.session.add(result)
-			self.session.commit()
+			try:
+				self.session.bulk_save_objects(self.result_buffer)
+				self.session.commit()
+			except Exception as e:
+				print('Save failed! %s' % e)
+				self.session.rollback()
+
+				for result in self.result_buffer:
+					try:
+						self.session.add(result)
+					except:
+						pass
+				self.session.commit()
+			
+			self.result_buffer = []
 		
 	async def run(self):
 		try:
@@ -109,6 +129,8 @@ class SMBFileGatherer:
 			self.session = get_session(self.db_conn)
 			self.in_q = asyncio.Queue(self.queue_size)
 			self.out_q = asyncio.Queue(self.queue_size)
+			if isinstance(self.smb_mgr, str):
+				self.smb_mgr = SMBConnectionURL(self.smb_mgr)
 			
 			
 			info = self.session.query(ADInfo).get(self.ad_id)
@@ -274,15 +296,3 @@ class SMBFileGatherer:
 			import traceback
 			traceback.print_exc()
 			return False, e
-
-async def amain(gatherer):
-	await gatherer.run()
-
-if __name__ == '__main__':
-	db_conn = 'sqlite:////home/devel/Desktop/xxx2.db'
-	ad_id = 1
-	smb_mgr = SMBConnectionURL('smb2+ntlm-password://TEST\\victim:Passw0rd!1@10.10.10.2')
-	worker_cnt = 10
-
-	gatherer = SMBFileGatherer(db_conn, ad_id, smb_mgr, worker_cnt = worker_cnt, progress_queue = None, show_progress = False, stream_data = False)
-	asyncio.run(amain(gatherer))

@@ -72,6 +72,9 @@ class SMBGatherer:
 		self.results_thread = None
 		self.stream_data = stream_data
 
+		self.result_buffer = []
+		self.result_buffer_size = 1000
+
 	async def terminate(self):
 		if self.job_generator_task is not None:
 			self.job_generator_task.cancel()
@@ -96,6 +99,23 @@ class SMBGatherer:
 			await self.in_q.put(None)
 		except Exception as e:
 			logger.exception('smb generate_targets')
+	
+	def flush_buffer(self):
+		try:
+			self.session.bulk_save_objects(self.result_buffer)
+			self.session.commit()
+		except Exception as e:
+			print('Save failed! %s' % e)
+			self.session.rollback()
+
+			for result in self.result_buffer:
+				try:
+					self.session.add(result)
+				except:
+					pass
+			self.session.commit()
+			
+		self.result_buffer = []
 		
 	async def run(self):
 		try:
@@ -208,8 +228,9 @@ class SMBGatherer:
 								await self.progress_queue.put(msg)
 
 					result.ad_id = self.ad_id
-					self.session.add(result)
-					self.session.commit()
+					self.result_buffer.append(result)
+					if len(self.result_buffer) >= self.result_buffer_size:
+						self.flush_buffer()
 
 				if result is None and error is None:
 					logger.debug('Finished: %s' % target.ip)
@@ -233,6 +254,9 @@ class SMBGatherer:
 							msg.step_size = self.progress_step_size
 
 							await self.progress_queue.put(msg)
+
+			if len(self.result_buffer) > 0:
+				self.flush_buffer()
 
 			info = self.session.query(ADInfo).get(self.ad_id)
 			info.smb_enumeration_state = 'FINISHED'

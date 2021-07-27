@@ -4,6 +4,7 @@
 #  Tamas Jos (@skelsec)
 #
 
+from json import detect_encoding
 import os
 import sys
 import logging
@@ -28,6 +29,7 @@ from jackdaw._version import  __version__ as jdversion
 from jackdaw import logger as jdlogger
 from jackdaw.utils.argshelper import construct_ldapdef, construct_smbdef
 from jackdaw.credentials.credentials import JackDawCredentials
+from jackdaw.gatherer.smb.smbfile import SMBFileGatherer
 from msldap.commons.url import MSLDAPURLDecoder
 
 import multiprocessing
@@ -279,20 +281,19 @@ async def run(args):
 			print('MSLDAP version : %s' % ldapversion)
 			print('AIOSMB version : %s' % smbversion)
 
-		elif args.command == 'files':
-			raise Exception('not yet implemented!')
-			#if args.src == 'domain':
-			#	if not args.ad_id:
-			#		raise Exception('ad-id parameter is mandatory in ldap mode')
-			#	
-			#	mgr = SMBConnectionURL(args.smb_url)
-			#	settings_base = SMBShareGathererSettings(args.ad_id, mgr, None, None, None)
-			#	settings_base.dir_depth = args.smb_folder_depth
-			#	settings_base.dir_with_sd = args.with_sid
-			#	settings_base.file_with_sd = args.with_sid
-			#
-			#	mgr = ShareGathererManager(settings_base, db_conn = db_conn, worker_cnt = args.smb_workers)
-			#	mgr.run()
+		elif args.command == 'smbfiles':
+			gatherer = SMBFileGatherer(
+				db_conn, 
+				args.ad_id, 
+				args.smb_url, 
+				worker_cnt = args.smb_workers, 
+				progress_queue = None, 
+				show_progress = True, 
+				stream_data = False,
+				depth=args.depth,
+				to_file=args.out_file,
+			)
+			_, err = await gatherer.run()
 			
 		elif args.command == 'creds':
 			creds = JackDawCredentials(db_conn, args.domain_id)
@@ -440,19 +441,12 @@ def main():
 	dns_group.add_argument('ad_id', help='ID of the domainfo to poll targets rom the DB')
 	dns_group.add_argument('dns', help='DNS server for resolving IPs')
 
-	files_group = subparsers.add_parser('files', help='Enumerate files on targets')
-	#files_group.add_argument('src', choices=['file', 'ldap', 'domain', 'cmd'])
-	files_group.add_argument('src', choices=['domain'])
+	files_group = subparsers.add_parser('smbfiles', help='Enumerate files on targets')
+	files_group.add_argument('ad_id', help='ID of the domainfo to poll targets rom the DB')
 	files_group.add_argument('smb_url',  help='Credential specitication in URL format')
-	#files_group.add_argument('-l', '--ldap-url', help='ldap_connection_string. Use this to get targets from the domain controller')
-	files_group.add_argument('-d', '--ad-id', help='ID of the domainfo to poll targets from the DB')
-	files_group.add_argument('-s', '--with-sid', action='store_true', help='Also fetches the SId for each file and folder')	
-	#files_group.add_argument('-i', '--lookup-ad', help='ID of the domainfo to look up comupter names. Advisable to set for LDAP and file pbased targets')
-	#files_group.add_argument('-t', '--target-file', help='taget file with hostnames. One per line.')
-	files_group.add_argument('--smb-folder-depth', type=int, default = 1, help='Recursion depth for folder enumeration')
+	files_group.add_argument('--depth', type=int, default = 3, help='Recursion depth for folder enumeration')
 	files_group.add_argument('--smb-workers', type=int, default = 50, help='SMB worker count for parallelization. Read: connection/share')
-	files_group.add_argument('--smb-queue-size', type=int, default = 100000, help='SMB worker queue max size.')
-	
+	files_group.add_argument('-o', '--out-file', help='Write results to file instead of DB')	
 	
 
 	localgroup_group = subparsers.add_parser('localgroups', help='Enumerate local group memberships on target')
