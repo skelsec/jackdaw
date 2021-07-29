@@ -4,7 +4,7 @@ import hashlib
 from sqlalchemy.orm import relationship
 from sqlalchemy import Column, Integer, String, ForeignKey, Index, DateTime
 from jackdaw.dbmodel.utils.serializer import Serializer
-from jackdaw.utils.md4 import NT
+from jackdaw.utils.md4 import MD4 as NT
 try:
 	from pypykatz.pypykatz import pypykatz
 except ImportError:
