@@ -8,7 +8,7 @@ from jackdaw.dbmodel.netsession import NetSession
 from jackdaw.dbmodel.adcomp import Machine
 from jackdaw.dbmodel.aduser import ADUser
 from jackdaw.credentials.credentials import JackDawCredentials
-from jackdaw.utils.md4 import NT
+from jackdaw.utils.md4 import MD4 as NT
 from flask import current_app
 
 
