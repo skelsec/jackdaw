@@ -8,12 +8,8 @@ from jackdaw.dbmodel.netsession import NetSession
 from jackdaw.dbmodel.adcomp import Machine
 from jackdaw.dbmodel.aduser import ADUser
 from jackdaw.credentials.credentials import JackDawCredentials
+from jackdaw.utils.md4 import NT
 from flask import current_app
-
-try:
-	from pypykatz.utils.crypto.winhash import LM, NT
-except ImportError:
-	print('[JACKDAW] pypykatz not installed! storing creds will not work')
 
 
 
@@ -138,7 +134,7 @@ def potfile_upload():
 def passwords_upload(passwords):
 	def pwit(passwords):
 		for pw in passwords:
-			nt_hash = NT(pw).hex()
+			nt_hash = NT(pw).hexdigest()
 			print(pw)
 			print(nt_hash)
 			yield HashEntry(pw, nt_hash=nt_hash)
@@ -159,7 +155,7 @@ def passwords_upload_file():
 			line = line.decode()
 			line = line.strip()
 
-			nt_hash = NT(line).hex()
+			nt_hash = NT(line).hexdigest()
 			yield HashEntry(line, nt_hash=nt_hash)
 	
 	file_to_upload = connexion.request.files['file_to_upload']

@@ -4,12 +4,11 @@ import hashlib
 from sqlalchemy.orm import relationship
 from sqlalchemy import Column, Integer, String, ForeignKey, Index, DateTime
 from jackdaw.dbmodel.utils.serializer import Serializer
-
+from jackdaw.utils.md4 import NT
 try:
 	from pypykatz.pypykatz import pypykatz
-	from pypykatz.utils.crypto.winhash import LM, NT
 except ImportError:
-	print('[JACKDAW] pypykatz not installed! storing creds will not work')
+	print('[JACKDAW] pypykatz not installed! lsass parsing will not work')
 # It may be tempting to use SIDs to link credentials with users in the domain
 # However some credentials format don't give SIDs (impacket) others have SIDs 
 # that only identify the primary user, but not the owner of the actual credential
@@ -109,7 +108,7 @@ class Credential(Basemodel, Serializer):
 				cred.domain = secret.domain
 				cred.username = secret.username
 				
-				cred.nt_hash = NT(str(pw)).hex()
+				cred.nt_hash = NT(str(pw)).hexdigest()
 				cred.lm_hash = None
 				cred.history_no = 0
 				cred.cred_type = 'aiosmb-dcsync-cleartext'
@@ -205,7 +204,7 @@ class Credential(Basemodel, Serializer):
 			for cred in mimi.logon_sessions[luid].msv_creds:
 				cr = Credential()
 				cr.ad_id = ad_id
-				cr.nt_hash = cred.NThash.hex() if cred.NThash is not None else '31d6cfe0d16ae931b73c59d7e0c089c0'
+				cr.nt_hash = cred.NThash.hexdigest() if cred.NThash is not None else '31d6cfe0d16ae931b73c59d7e0c089c0'
 				cr.lm_hash = cred.LMHash if cred.LMHash is not None else 'aad3b435b51404eeaad3b435b51404ee'
 				cr.history_no = 0
 				cr.username = cred.username if cred.username is not None else 'NA'
@@ -217,7 +216,7 @@ class Credential(Basemodel, Serializer):
 				if cred.password is not None:
 					cr = Credential()
 					cr.ad_id = ad_id
-					cr.nt_hash = NT(cred.password).hex()
+					cr.nt_hash = NT(cred.password).hexdigest()
 					cr.lm_hash = None
 					cr.history_no = 0
 					cr.username = cred.username if cred.username is not None else 'NA'
@@ -229,7 +228,7 @@ class Credential(Basemodel, Serializer):
 				if cred.password is not None:
 					cr = Credential()
 					cr.ad_id = ad_id
-					cr.nt_hash = NT(cred.password).hex()
+					cr.nt_hash = NT(cred.password).hexdigest()
 					cr.lm_hash = None
 					cr.history_no = 0
 					cr.username = cred.username if cred.username is not None else 'NA'
@@ -241,7 +240,7 @@ class Credential(Basemodel, Serializer):
 				if cred.password is not None:
 					cr = Credential()
 					cr.ad_id = ad_id
-					cr.nt_hash = NT(cred.password).hex()
+					cr.nt_hash = NT(cred.password).hexdigest()
 					cr.lm_hash = None
 					cr.history_no = 0
 					cr.username = cred.username if cred.username is not None else 'NA'
@@ -256,7 +255,7 @@ class Credential(Basemodel, Serializer):
 				if cred.password is not None:
 					cr = Credential()
 					cr.ad_id = ad_id
-					cr.nt_hash = NT(cred.password).hex()
+					cr.nt_hash = NT(cred.password).hexdigest()
 					cr.lm_hash = None
 					cr.history_no = 0
 					cr.username = cred.username if cred.username is not None else 'NA'
@@ -268,7 +267,7 @@ class Credential(Basemodel, Serializer):
 				if cred.password is not None:
 					cr = Credential()
 					cr.ad_id = ad_id
-					cr.nt_hash = NT(cred.password).hex()
+					cr.nt_hash = NT(cred.password).hexdigest()
 					cr.lm_hash = None
 					cr.history_no = 0
 					cr.username = cred.username if cred.username is not None else 'NA'
@@ -280,7 +279,7 @@ class Credential(Basemodel, Serializer):
 				if cred.password is not None:
 					cr = Credential()
 					cr.ad_id = ad_id
-					cr.nt_hash = NT(cred.password).hex()
+					cr.nt_hash = NT(cred.password).hexdigest()
 					cr.lm_hash = None
 					cr.history_no = 0
 					cr.username = cred.username if cred.username is not None else 'NA'
@@ -345,7 +344,7 @@ class Credential(Basemodel, Serializer):
 			_, cred.domain, cred.username, cred.object_sid, pw = line.split(':', 4) #reparsing needed, pw might contain colon
 			
 			cred.object_rid = Credential.get_rid_from_sid(cred.object_sid)
-			cred.nt_hash = NT(pw).hex()
+			cred.nt_hash = NT(pw).hexdigest()
 			cred.lm_hash = None
 			cred.history_no = 0
 			cred.cred_type = 'aiosmb-dcsync-cleartext'
