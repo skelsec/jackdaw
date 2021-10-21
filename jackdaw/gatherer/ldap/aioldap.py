@@ -101,7 +101,8 @@ class LDAPGatherer:
 				show_progress = self.show_progress,
 				graph_id = self.graph_id,
 				members_target_file_handle = self.members_file_handle,
-				store_to_db = self.store_to_db
+				store_to_db = self.store_to_db,
+				work_dir=self.work_dir,
 			)
 			_, err = await mc.run()
 			if err is not None:
@@ -140,7 +141,8 @@ class LDAPGatherer:
 				resumption = False, #self.resumption, 
 				progress_queue = self.progress_queue, 
 				show_progress = self.show_progress,
-				store_to_db = self.store_to_db
+				store_to_db = self.store_to_db,
+				work_dir=self.work_dir
 			)
 			
 			_, err = await sdc.run()

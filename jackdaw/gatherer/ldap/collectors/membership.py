@@ -28,12 +28,13 @@ from sqlalchemy import func
 
 
 class MembershipCollector:
-	def __init__(self, session, ldap_mgr, ad_id = None, agent_cnt = None, progress_queue = None, show_progress = True, graph_id = None, resumption = False, members_target_file_handle = None, store_to_db = True):
+	def __init__(self, session, ldap_mgr, ad_id = None, agent_cnt = None, progress_queue = None, show_progress = True, graph_id = None, resumption = False, members_target_file_handle = None, store_to_db = True, work_dir = './work_dir'):
 		self.session = session
 		self.ldap_mgr = ldap_mgr
 		self.agent_cnt = agent_cnt
 		self.ad_id = ad_id
 		self.graph_id = graph_id
+		self.work_dir = work_dir
 		self.domain_name = None
 		self.resumption = resumption
 		self.members_target_file_handle = members_target_file_handle
@@ -286,7 +287,7 @@ class MembershipCollector:
 			self.agent_in_q = asyncio.Queue(qs)
 			self.agent_out_q = asyncio.Queue(qs*40)
 
-			self.token_file_path = 'token_' + datetime.datetime.utcnow().strftime("%Y%m%d_%H%M%S") + '.gzip'
+			self.token_file_path = os.path.join(str(self.work_dir), 'token_' + datetime.datetime.utcnow().strftime("%Y%m%d_%H%M%S") + '.gzip')
 			self.token_file = gzip.GzipFile(self.token_file_path, 'w')	
 
 			logger.debug('Polling members')
