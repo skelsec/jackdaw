@@ -1,5 +1,6 @@
 import asyncio
 import traceback
+import random
 
 from jackdaw.dbmodel.netshare import NetShare
 from jackdaw.dbmodel.netsession import NetSession
@@ -15,6 +16,7 @@ from aiosmb.commons.interfaces.machine import SMBMachine
 
 
 from jackdaw import logger
+from asysocks import logger as asylogger
 
 # https://stackoverflow.com/questions/1094841/get-human-readable-version-of-file-size
 def sizeof_fmt(num, suffix='B'):
@@ -51,7 +53,6 @@ class AIOSMBGathererAgent:
 	async def scan_host(self, atarget):
 		try:
 			tid, target = atarget
-
 			connection = self.smb_mgr.create_connection_newtarget(target)
 			async with connection:
 				_, err = await connection.login()
@@ -91,7 +92,6 @@ class AIOSMBGathererAgent:
 								await self.out_q.put((tid, connection.target, sess, None))
 							except Exception as e:
 								await self.out_q.put((tid, connection.target, None, 'Failed to format session. Reason: %s' % format_exc(e)))
-
 				if 'all' in self.gather or 'localgroups' in self.gather:
 					for group_name in self.localgroups:
 						async for domain_name, user_name, sid, err in machine.list_group_members('Builtin', group_name):
@@ -186,11 +186,12 @@ class AIOSMBGathererAgent:
 									break
 			
 			try:
-				connection = self.smb_mgr.create_connection_newtarget(target)
-				extra_info, err = await connection.fake_login()
-				if extra_info is not None:
-					f = SMBFinger.from_fake_login(tid, extra_info.to_dict())
-					await self.out_q.put((tid, connection.target, f, None))
+				if 'all' in self.gather or 'finger' in self.gather:
+					connection = self.smb_mgr.create_connection_newtarget(target)
+					extra_info, err = await connection.fake_login()
+					if extra_info is not None:
+						f = SMBFinger.from_fake_login(tid, extra_info.to_dict())
+						await self.out_q.put((tid, connection.target, f, None))
 			except Exception as e:
 				await self.out_q.put((tid, connection.target, None, 'Failed to get finger data. Reason: %s' % format_exc(e)))
 			
@@ -209,7 +210,7 @@ class AIOSMBGathererAgent:
 							await self.out_q.put((tid, connection.target, pr, None))
 			except Exception as e:
 				await self.out_q.put((tid, connection.target, None, 'Failed to enumerate supported protocols. Reason: %s' % format_exc(e)))
-				
+			
 		except asyncio.CancelledError:
 			return
 
@@ -226,11 +227,15 @@ class AIOSMBGathererAgent:
 				target = await self.worker_q.get()
 				if target is None:
 					return
+				await asyncio.sleep(random.random()*2.0) # adding delay because remote proxy might get stuck
 				try:
 					await asyncio.wait_for(self.scan_host(target), self.host_max_wait)
-				except:
+				except asyncio.TimeoutError:
+					continue
+				except Exception as e:
 					#exception should be handled in scan_host
 					continue
+					
 		except asyncio.CancelledError:
 			return
 		except Exception as e:
@@ -246,10 +251,12 @@ class AIOSMBGathererAgent:
 		Reads targets from queue and scans them
 		"""
 		try:
+			#asylogger.setLevel(1)
 			self.worker_q = asyncio.Queue()
 			
 			for _ in range(self.concurrent_connections):
 				self.worker_tasks.append(asyncio.create_task(self.worker()))
+				await asyncio.sleep(0)
 
 			while True:
 				target = await self.in_q.get()

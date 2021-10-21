@@ -58,7 +58,7 @@ setup(
 		('jackdaw/nest/site/nui/dist', ['jackdaw/nest/site/nui/dist/user.png', 'jackdaw/nest/site/nui/dist/user.png']),		
 	],
 	install_requires=[
-		'aiosmb>=0.2.50',
+		'aiosmb>=0.3.4',
 		'msldap>=0.3.30',
 		'sqlalchemy<1.4',
 		'tqdm',

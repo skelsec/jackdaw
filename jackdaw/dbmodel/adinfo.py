@@ -186,3 +186,8 @@ class ADInfo(Basemodel, Serializer):
 		adinfo.jdversion = __version__
 		adinfo.gen_checksum()
 		return adinfo
+	
+	def get_domainname(self):
+		name = self.distinguishedName.replace('DC=','')
+		name = name.replace(',','.')
+		return name

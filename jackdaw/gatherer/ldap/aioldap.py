@@ -52,7 +52,7 @@ from jackdaw.gatherer.ldap.collectors.membership import MembershipCollector
 import pathlib
 
 class LDAPGatherer:
-	def __init__(self, db_conn, ldap_mgr, agent_cnt = None, progress_queue = None, ad_id = None, graph_id = None, work_dir = None, show_progress = True, store_to_db = True, base_collection_finish_evt = None, stream_data = False, no_work_dir = False):
+	def __init__(self, db_conn, ldap_mgr, agent_cnt = None, progress_queue = None, ad_id = None, graph_id = None, work_dir = None, show_progress = True, store_to_db = True, base_collection_finish_evt = None, stream_data = False, no_work_dir = False, proxy = None):
 		self.db_conn = db_conn
 		self.ldap_mgr = ldap_mgr
 		self.work_dir = work_dir
@@ -61,6 +61,7 @@ class LDAPGatherer:
 		self.store_to_db = store_to_db
 		self.progress_queue = progress_queue
 		self.base_collection_finish_evt = base_collection_finish_evt
+		self.proxy = proxy
 		self.session = None
 
 		self.agent_in_q = None

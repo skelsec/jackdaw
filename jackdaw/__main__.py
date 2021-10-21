@@ -132,7 +132,7 @@ async def run(args):
 			print('SQL connection identification is missing! You need to provide the --sql parameter')
 			sys.exit()
 		
-		work_dir = './workdir'
+		work_dir = args.work_dir
 		ldap_url = None
 		smb_url = None
 
@@ -166,7 +166,8 @@ async def run(args):
 					calc_edges=True,
 					ad_id=None,
 					dns=args.dns,
-					no_work_dir=args.no_work_dir
+					no_work_dir=args.no_work_dir,
+					proxy=args.proxy
 				)
 				res, err = await gatherer.run()
 				if err is not None:
@@ -215,7 +216,8 @@ async def run(args):
 					show_progress=args.silent,
 					calc_edges=args.calculate_edges,
 					ad_id=args.ad_id,
-					no_work_dir=args.no_work_dir
+					no_work_dir=args.no_work_dir,
+					proxy=args.proxy
 				)
 				await gatherer.run()
 
@@ -233,7 +235,8 @@ async def run(args):
 				progress_queue=None,
 				show_progress=False,
 				calc_edges=False,
-				ad_id=args.ad_id
+				ad_id=args.ad_id,
+				proxy=args.proxy
 			)
 			await gatherer.run()
 			print('Kerberoast Finished!')
@@ -256,6 +259,7 @@ async def run(args):
 				progress_queue=None, 
 				show_progress=args.silent,
 				calc_edges=False,
+				proxy=args.proxy
 			)
 			await gatherer.run()
 
@@ -274,6 +278,7 @@ async def run(args):
 				show_progress=args.silent,
 				calc_edges=False,
 				dns=args.dns,
+				proxy=args.proxy
 			)
 			await gatherer.run()
 
@@ -380,6 +385,7 @@ def main():
 	parser.add_argument('-v', '--verbose', action='count', default=0, help='Increase verbosity, can be stacked')
 	parser.add_argument('-s','--silent', action='store_false', help='Silent mode')
 	parser.add_argument('--sql', help='SQL connection string. When using SQLITE it works best with FULL FILE PATH!!!')
+	parser.add_argument('--work-dir', default = './workdir', help='Working directory for caching and tempfiles')
 
 	subparsers = parser.add_subparsers(help = 'commands')
 	subparsers.required = True
@@ -388,7 +394,6 @@ def main():
 	nest_group = subparsers.add_parser('nest', formatter_class=argparse.RawDescriptionHelpFormatter, help='Start the Nest server')
 	nest_group.add_argument('--ip',  default = '127.0.0.1', help='IP address to listen on')
 	nest_group.add_argument('--port',  type=int, default = 5000, help='IP address to listen on')
-	nest_group.add_argument('--work-dir', default = './workdir', help='Working directory for caching and tempfiles')
 	nest_group.add_argument('--backend', default = 'igraph', choices=['igraph', 'networkx'], help='graph backend')
 
 	adinfo_group = subparsers.add_parser('adinfo', help='Get a list of AD info entries')
@@ -403,6 +408,7 @@ def main():
 	ldap_group.add_argument('-d', '--ad-id', help='AD id from DB. signals resumption task')
 	ldap_group.add_argument('-c', '--calculate-edges', action='store_true', help='Calculate edges after enumeration')
 	ldap_group.add_argument('--no-work-dir', action='store_true', help='Skip creating subdirs for temp files')
+	ldap_group.add_argument('-x','--proxy', action='append', help='Proxy URL (multiple for chaining)')
 	
 	auto_group = subparsers.add_parser('auto', help='auto mode, windows only!')
 	auto_group.add_argument('--ldap-workers', type=int, default = 4, help='LDAP worker count for parallelization')
@@ -426,45 +432,50 @@ def main():
 	enum_group.add_argument('-n','--do-not-store', action='store_false', help='Skip storing membership and SD info to DB. Will skip edge calculation, and will leave the raw file on disk')
 	enum_group.add_argument('-k','--kerberoast', help='Kerberos URL for kerberoasting')
 	enum_group.add_argument('--no-work-dir', action='store_true', help='Skip creating subdirs for temp files')
+	enum_group.add_argument('-x','--proxy', action='append', help='Proxy URL (multiple for chaining)')
 
 	share_group = subparsers.add_parser('shares', help='Enumerate shares on target')
 	share_group.add_argument('ad_id', help='ID of the domainfo to poll targets rom the DB')
 	share_group.add_argument('smb_url',  help='Credential specitication in URL format')
 	share_group.add_argument('--smb-workers', type=int, default = 50, help='SMB worker count for parallelization')
-	share_group.add_argument('-d','--dns', help='DNS server for resolving IPs')
+	share_group.add_argument('-x','--proxy', action='append', help='Proxy URL (multiple for chaining)')
 	
 	smball_group = subparsers.add_parser('smball', help='Enumerate shares on target')
 	smball_group.add_argument('ad_id', help='ID of the domainfo to poll targets rom the DB')
 	smball_group.add_argument('smb_url',  help='Credential specitication in URL format')
 	smball_group.add_argument('--smb-workers', type=int, default = 50, help='SMB worker count for parallelization')
+	smball_group.add_argument('-x','--proxy', action='append', help='Proxy URL (multiple for chaining)')
 
 	dns_group = subparsers.add_parser('dns', help='DNS lookup for all hosts')
 	dns_group.add_argument('ad_id', help='ID of the domainfo to poll targets rom the DB')
 	dns_group.add_argument('dns', help='DNS server for resolving IPs')
+	dns_group.add_argument('-x','--proxy', action='append', help='Proxy URL (multiple for chaining)')
 
 	files_group = subparsers.add_parser('smbfiles', help='Enumerate files on targets')
 	files_group.add_argument('ad_id', help='ID of the domainfo to poll targets rom the DB')
 	files_group.add_argument('smb_url',  help='Credential specitication in URL format')
 	files_group.add_argument('--depth', type=int, default = 3, help='Recursion depth for folder enumeration')
 	files_group.add_argument('--smb-workers', type=int, default = 50, help='SMB worker count for parallelization. Read: connection/share')
-	files_group.add_argument('-o', '--out-file', help='Write results to file instead of DB')	
+	files_group.add_argument('-o', '--out-file', help='Write results to file instead of DB')
+	files_group.add_argument('-x','--proxy', action='append', help='Proxy URL (multiple for chaining)')
 	
 
 	localgroup_group = subparsers.add_parser('localgroups', help='Enumerate local group memberships on target')
 	localgroup_group.add_argument('ad_id', help='ID of the domainfo to poll targets rom the DB')
 	localgroup_group.add_argument('smb_url',  help='Credential specitication in URL format')
 	localgroup_group.add_argument('--smb-workers', type=int, default = 50, help='SMB worker count for parallelization')
-	localgroup_group.add_argument('-d','--dns', help='DNS server for resolving IPs')
+	localgroup_group.add_argument('-x','--proxy', action='append', help='Proxy URL (multiple for chaining)')
 	
 	session_group = subparsers.add_parser('sessions', help='Enumerate connected sessions on target')
 	session_group.add_argument('ad_id', help='ID of the domainfo to poll targets rom the DB')
 	session_group.add_argument('smb_url',  help='Credential specitication in URL format')
 	session_group.add_argument('--smb-workers', type=int, default = 50, help='SMB worker count for parallelization')
-	session_group.add_argument('-d','--dns', help='DNS server for resolving IPs')
+	session_group.add_argument('-x','--proxy', action='append', help='Proxy URL (multiple for chaining)')
 
 	kerberoast_group = subparsers.add_parser('kerberoast', help='Kerberoast')
 	kerberoast_group.add_argument('ad_id', help='ID of the domainfo to poll targets rom the DB')
 	kerberoast_group.add_argument('kerberos_url',  help='Kerberos URL')
+	kerberoast_group.add_argument('-x','--proxy', action='append', help='Proxy URL (multiple for chaining)')
 	
 	credential_group = subparsers.add_parser('creds', help='Add credential information from impacket')
 	credential_group.add_argument('impacket_file', help='file with LM and NT hashes, generated by impacket secretsdump.py')
@@ -486,7 +497,6 @@ def main():
 	ws = subparsers.add_parser('ws', help='Suprise tool thats going to help us later')
 	ws.add_argument('--listen-ip',  default = '127.0.0.1', help='IP address to listen on')
 	ws.add_argument('--listen-port',  type=int, default = 5001, help='IP address to listen on')
-	ws.add_argument('--work-dir', default = './workdir', help='Working directory for caching and tempfiles')
 	ws.add_argument('--backend', default = 'igraph', choices=['igraph', 'networkx'], help='graph backend. Massive performance differentces!')
 
 	bhimport = subparsers.add_parser('bhimport', help='Import bloodhound ingestor data (zip)')

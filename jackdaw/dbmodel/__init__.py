@@ -129,12 +129,13 @@ from .smbvuln import SMBVuln
 from .adallowedtoact import MachineAllowedToAct
 from .dnslookup import DNSLookup
 from .adschemaentry import ADSchemaEntry
-from .storedcreds import StoredCred
+from .customcred import CustomCred
 from .portaluser import PortalUser
 from .customtarget import CustomTarget
 from .regsession import RegSession
 from .smbinterface import SMBInterface
 from .smbfile import SMBFile
+from .kerberostickets import KerberosTicket
 
 
 def create_db(connection, verbosity = 0):
@@ -145,7 +146,7 @@ def create_db(connection, verbosity = 0):
 	try:
 		session = Session()
 		#inserting test data...
-		session.add(StoredCred('jackdaw', 'Passw0rd!1', 'test', domain=None))
+		session.add(CustomCred('jackdaw', 'password', 'Passw0rd!1', 'test', domain=None))
 		session.add(CustomTarget('10.0.0.1', 'testserver'))
 		session.commit()
 	finally:

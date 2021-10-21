@@ -6,10 +6,9 @@ from jackdaw.nest.ws.protocol.cmdtypes import NestOpCmd
 
 class NestOpTargetDef:
 	def __init__(self):
-		self.hostname = None
-		self.ip = None
-		self.machine_ad_id = None
-		self.machine_sid = None
+		self.adid = None
+		self.sid = None
+		self.timeout = 5
 
 	def to_dict(self):
 		return self.__dict__
@@ -20,10 +19,9 @@ class NestOpTargetDef:
 	@staticmethod
 	def from_dict(d):
 		cmd = NestOpTargetDef()
-		cmd.hostname = d['hostname']
-		cmd.ip = d['ip']
-		cmd.machine_ad_id = d['machine_ad_id']
-		cmd.machine_sid = d['machine_sid']
+		cmd.adid = d['adid']
+		cmd.sid = d['sid']
+		cmd.timeout = int(d['timeout'])
 		return cmd
 
 	

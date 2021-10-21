@@ -2,6 +2,10 @@
 import pathlib
 import asyncio
 import platform
+from aiosmb.commons.connection.proxy import SMBProxy, SMBProxyType
+
+from asysocks.common.clienturl import SocksClientURL
+from msldap.commons.proxy import MSLDAPProxy, MSLDAPProxyType
 
 from jackdaw import logger
 from jackdaw.gatherer.smb.smb import SMBGatherer
@@ -17,7 +21,7 @@ from tqdm import tqdm
 from jackdaw.gatherer.progress import *
 
 class Gatherer:
-	def __init__(self, db_url, work_dir, ldap_url, smb_url, kerb_url = None, ad_id = None, calc_edges = True, ldap_worker_cnt = 4, smb_worker_cnt = 100, mp_pool = None, smb_enum_shares = False, smb_gather_types = ['all'], progress_queue = None, show_progress = True, dns = None, store_to_db = True, graph_id = None, stream_data = False, no_work_dir = False):
+	def __init__(self, db_url, work_dir, ldap_url, smb_url, kerb_url = None, ad_id = None, calc_edges = True, ldap_worker_cnt = 4, smb_worker_cnt = 100, mp_pool = None, smb_enum_shares = False, smb_gather_types = ['all'], progress_queue = None, show_progress = True, dns = None, store_to_db = True, graph_id = None, stream_data = False, no_work_dir = False, proxy = None):
 		self.db_url = db_url
 		self.work_dir = work_dir
 		self.no_work_dir = no_work_dir
@@ -30,6 +34,7 @@ class Gatherer:
 		self.calculate_edges = calc_edges
 		self.dns_server = dns
 		self.store_to_db = store_to_db
+		self.proxy = proxy
 		self.resumption = False
 		if ad_id is not None:
 			self.resumption = True
@@ -259,7 +264,7 @@ class Gatherer:
 				store_to_db = self.store_to_db,
 				base_collection_finish_evt = self.base_collection_finish_evt,
 				stream_data = self.stream_data,
-				no_work_dir=self.no_work_dir
+				no_work_dir=self.no_work_dir,
 			)
 			ad_id, graph_id, err = await self.ldap_gatherer.run()
 			if err is not None:
@@ -277,7 +282,8 @@ class Gatherer:
 				progress_queue = self.progress_queue,
 				show_progress = False,
 				kerb_url = self.kerb_url,
-				domain_name = None
+				domain_name = None,
+				proxy = self.proxy
 			)
 			_, err = await gatherer.run()
 			if err is not None:
@@ -314,7 +320,7 @@ class Gatherer:
 				worker_cnt = 100,
 				progress_queue = self.progress_queue,
 				stream_data = self.stream_data,
-			)			
+			)		
 			res, err = await mgr.run()
 			return res, err
 
@@ -366,18 +372,30 @@ class Gatherer:
 			logger.debug('Setting up connection objects')
 			
 			if self.dns_server is not None:
-				self.rdns_resolver = RDNS(server = self.dns_server, protocol = 'TCP', cache = True)
+				self.rdns_resolver = RDNS(server = self.dns_server, protocol = 'TCP', cache = True, proxy = self.proxy)
 			
 			if self.ldap_url is not None:
-				self.ldap_mgr = MSLDAPURLDecoder(self.ldap_url)
-				if self.rdns_resolver is None:
-					self.rdns_resolver = RDNS(server = self.ldap_mgr.ldap_host, protocol = 'TCP', cache = True)
+				self.ldap_mgr = self.ldap_url
+				if isinstance(self.ldap_url, str):
+					self.ldap_mgr = MSLDAPURLDecoder(self.ldap_url)
+				
+				if self.proxy is not None:
+					#overriding proxy!
+					pu = SocksClientURL.from_urls(self.proxy)
+					p = MSLDAPProxy(MSLDAPProxyType.SOCKS5, pu)
+					self.ldap_mgr.proxy = p
 
 			if self.smb_url is not None:
-				self.smb_mgr = SMBConnectionURL(self.smb_url)
-				if self.rdns_resolver is None:
-					self.rdns_resolver = RDNS(server = self.smb_mgr.ip, protocol = 'TCP', cache = True)
-			
+				self.smb_mgr = self.smb_url
+				if isinstance(self.smb_url, str):
+					self.smb_mgr = SMBConnectionURL(self.smb_url)
+				if self.proxy is not None:
+					#overriding proxy!
+					pu = SocksClientURL.from_urls(self.proxy)
+					p = SMBProxy()
+					p.type = SMBProxyType.SOCKS5
+					p.target = pu
+					self.smb_mgr.proxy = p
 
 			logger.debug('Setting up database connection')
 

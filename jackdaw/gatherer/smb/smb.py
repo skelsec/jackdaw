@@ -165,7 +165,7 @@ class SMBGatherer:
 				x = await self.out_q.get()
 				if x is None:
 					break
-
+				
 				tid, target, result, error = x
 				if result is None and error is not None:
 					#something went error

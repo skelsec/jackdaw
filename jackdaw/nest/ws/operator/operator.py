@@ -3,6 +3,7 @@ import multiprocessing
 import platform
 import datetime
 import traceback
+import logging
 
 from jackdaw.dbmodel.adinfo import ADInfo
 from jackdaw.dbmodel.edgelookup import EdgeLookup
@@ -18,7 +19,7 @@ from jackdaw.dbmodel.localgroup import LocalGroup
 from jackdaw.dbmodel.edge import Edge
 from jackdaw.dbmodel.edgelookup import EdgeLookup
 from jackdaw.dbmodel.customtarget import CustomTarget
-from jackdaw.dbmodel.storedcreds import StoredCred
+from jackdaw.dbmodel.customcred import CustomCred
 from jackdaw.dbmodel.graphinfo import GraphInfoAD, GraphInfo
 
 
@@ -35,6 +36,8 @@ from jackdaw.gatherer.progress import GathererProgressType
 
 #testing
 import random
+
+logger = logging.getLogger(__name__)
 
 class NestOperator:
 	def __init__(self, operatorid, websocket, db_url, server_out_q, work_dir, graph_type):
@@ -57,6 +60,18 @@ class NestOperator:
 
 		# for internal signaling
 		self.graph_loading_evt = {}
+	
+	async def log(self, level, msg):
+		logger.log(level, msg)
+	
+	async def debug(self, msg):
+		await self.log(logging.DEBUG, msg)
+	
+	async def info(self, msg):
+		await self.log(logging.INFO, msg)
+	
+	async def error(self, msg):
+		await self.log(logging.ERROR, msg)
 
 	async def __handle_server_in(self):
 		# results will be dispatched to server_in_q from agents also this queue is used for notifications from server using token "0"
@@ -167,9 +182,33 @@ class NestOperator:
 		# just forwards the request to the server which will send the list of agents back to the server_in_q where it will be dispatched
 		await self.server_out_q.put((self.operatorid, cmd))
 
+	async def do_kerberos_tgt(self, cmd: NestOpKerberosTGT):
+		"""
+		Fetches a kerberos TGT in kirbi format
+		"""
+		await self.server_out_q.put((self.operatorid, cmd))
+	
+	async def do_kerberos_tgs(self, cmd: NestOpKerberosTGS):
+		"""
+		Fetches a kerberos TGT in kirbi format
+		"""
+		await self.server_out_q.put((self.operatorid, cmd))
+
+	async def do_smbdcsync(self, cmd: NestOpSMBDCSync):
+		"""
+		Starts am SMB share enumeration process on the selected agent
+		"""
+		await self.server_out_q.put((self.operatorid, cmd))
+	
 	async def do_smbfiles(self, cmd: NestOpSMBFiles):
 		"""
-		Starts a gathering process on the selected agent
+		Starts am SMB share enumeration process on the selected agent
+		"""
+		await self.server_out_q.put((self.operatorid, cmd))
+	
+	async def do_smbsessions(self, cmd: NestOpSMBSessions):
+		"""
+		Starts an SMB session enumeration process on the selected agent
 		"""
 		await self.server_out_q.put((self.operatorid, cmd))
 
@@ -233,6 +272,22 @@ class NestOperator:
 
 		if res.otype == 'user':
 			obj = self.db_session.query(ADUser).filter_by(objectSid = res.oid).filter(ADUser.ad_id == self.ad_id).first()
+			if obj is None:
+				await self.send_error(cmd, 'Not find in destination DB')
+				return
+
+			await self.send_result(cmd, obj)
+
+		elif res.otype == 'machine':
+			obj = self.db_session.query(Machine).filter_by(objectSid = res.oid).filter(Machine.ad_id == self.ad_id).first()
+			if obj is None:
+				await self.send_error(cmd, 'Not find in destination DB')
+				return
+
+			await self.send_result(cmd, obj)
+		
+		elif res.otype == 'group':
+			obj = self.db_session.query(Group).filter_by(objectSid = res.oid).filter(Group.ad_id == self.ad_id).first()
 			if obj is None:
 				await self.send_error(cmd, 'Not find in destination DB')
 				return
@@ -459,10 +514,17 @@ class NestOperator:
 
 	
 	async def do_kerberoast(self, cmd):
-		pass
+		"""
+		Starts a kerberoast attack against a specific user on the selected agent
+		"""
+		await self.server_out_q.put((self.operatorid, cmd))
+	
+	async def do_asreproast(self, cmd):
+		"""
+		Starts a asreproast attack against a specific user on the selected agent
+		"""
+		await self.server_out_q.put((self.operatorid, cmd))
 
-	async def do_smbsessions(self, cmd):
-		pass
 
 	async def do_pathshortest(self, cmd):
 		try:
@@ -697,87 +759,126 @@ class NestOperator:
 			return False, e
 
 	async def do_add_cred(self, cmd):
-		logger.info('do_add_cred')
-		sc = StoredCred(cmd.username, cmd.password, cmd.description, cmd.domain, ownerid=None) #TODO: fill out owner id
-		self.db_session.add(sc)
-		self.db_session.commit()
-		self.db_session.refresh(sc)
-		cr = NestOpCredRes()
-		cr.token = cmd.token
-		cr.cid = sc.id
-		cr.description = sc.description
-		await self.websocket.send(cr.to_json())
-		await self.send_ok(cmd)
-		logger.info('OK!')
+		try:
+			logger.info('do_add_cred')
+			print(cmd.domain)
+			sc = CustomCred(cmd.username, cmd.stype, cmd.secret, cmd.description, cmd.domain, ownerid=None) #TODO: fill out owner id
+			self.db_session.add(sc)
+			self.db_session.commit()
+			self.db_session.refresh(sc)
+			cr = NestOpCredRes()
+			cr.token = cmd.token
+			cr.cid = sc.id
+			cr.adid = 0
+			cr.description = sc.description
+			await self.websocket.send(cr.to_json())
+			await self.send_ok(cmd)
+			logger.info('OK!')
+		except Exception as e:
+			traceback.print_exc()
+			await self.send_error(cmd, str(e))
 
 
 	async def do_get_cred(self, cmd):
-		logger.info('do_get_cred')
-		sc = self.db_session.query(StoredCred).get(cmd.cid)
-		cr = NestOpCredRes()
-		cr.token = cmd.token
-		cr.cid = sc.id
-		cr.description = sc.description
-		await self.websocket.send(cr.to_json())
-		await self.send_ok(cmd)
-		logger.info('OK!')
+		try:
+			logger.info('do_get_cred')
+			sc = self.db_session.query(CustomCred).get(cmd.cid)
+			cr = NestOpCredRes()
+			cr.adid = 0
+			cr.token = cmd.token
+			cr.username = sc.username
+			cr.stype = sc.stype
+			cr.secret = sc.secret
+			cr.domain = sc.domain
+			cr.description = sc.description
+			await self.websocket.send(cr.to_json())
+			await self.send_ok(cmd)
+			logger.info('OK!')
+		except Exception as e:
+			traceback.print_exc()
+			await self.send_error(cmd, str(e))
 
 	async def do_list_cred(self, cmd):
-		logger.info('do_list_cred')
-		ownerid = None
-		for res in db.session.query(StoredCred.id, StoredCred.description).filter_by(ownerid = ownerid).all():
-			await asyncio.sleep(0)
-			cr = NestOpCredRes()
-			cr.token = cmd.token
-			cr.cid = res.id
-			cr.description = res.description
-			await self.websocket.send(cr.to_json())
-		await self.send_ok(cmd)
-		logger.info('OK!')
+		try:
+			logger.info('do_list_cred')
+			ownerid = None
+			for res in self.db_session.query(CustomCred).filter_by(ownerid = ownerid).all():
+				await asyncio.sleep(0)
+				cr = NestOpCredRes()
+				cr.adid = 0 # always 0 for custom creds
+				cr.token = cmd.token
+				cr.cid = res.id
+				cr.domain = res.domain
+				cr.username = res.username
+				cr.stype = res.stype
+				cr.secret = res.secret
+				cr.description = res.description
+				await self.websocket.send(cr.to_json())
+			await self.send_ok(cmd)
+			logger.info('OK!')
+		except Exception as e:
+			traceback.print_exc()
+			await self.send_error(cmd, str(e))
 
 	async def do_add_target(self, cmd):
-		logger.info('do_add_target')
-		ownerid = None
-		sc = CustomTarget(cmd.hostname, cmd.description, ownerid=ownerid) #TODO: fill out owner id
-		self.db_session.add(sc)
-		self.db_session.commit()
-		self.db_session.refresh(sc)
+		try:
+			logger.info('do_add_target')
+			ownerid = None
+			sc = CustomTarget(cmd.hostname, cmd.description, ownerid=ownerid) #TODO: fill out owner id
+			self.db_session.add(sc)
+			self.db_session.commit()
+			self.db_session.refresh(sc)
 
-		cr = NestOpTargetRes()
-		cr.token = cmd.token
-		cr.tid = sc.id
-		cr.hostname = sc.hostname
-		cr.description = sc.description
-		await self.websocket.send(cr.to_json())
-		await self.send_ok(cmd)
-		logger.info('OK!')
-
-	async def do_get_target(self, cmd):
-		logger.info('do_get_target')
-		sc = self.db_session.query(CustomTarget).get(cmd.tid)
-		cr = NestOpTargetRes()
-		cr.token = cmd.token
-		cr.tid = sc.id
-		cr.hostname = sc.hostname
-		cr.description = sc.description
-		await self.websocket.send(cr.to_json())
-		await self.send_ok(cmd)
-		logger.info('OK!')
-
-	async def do_list_target(self, cmd):
-		logger.info('do_list_target')
-		ownerid = None
-		for res in db.session.query(CustomTarget).filter_by(ownerid = ownerid).all():
-			await asyncio.sleep(0)
 			cr = NestOpTargetRes()
 			cr.token = cmd.token
-			cr.tid = res.id
-			cr.hostname = res.hostname
-			cr.description = res.description
+			cr.tid = sc.id
+			cr.adid = 0
+			cr.hostname = sc.hostname
+			cr.description = sc.description
 			await self.websocket.send(cr.to_json())
+			await self.send_ok(cmd)
+			logger.info('OK!')
+		except Exception as e:
+			traceback.print_exc()
+			await self.send_error(cmd, str(e))
 
-		await self.send_ok(cmd)
-		logger.info('OK!')
+	async def do_get_target(self, cmd):
+		try:
+			logger.info('do_get_target')
+			sc = self.db_session.query(CustomTarget).get(cmd.tid)
+			cr = NestOpTargetRes()
+			cr.token = cmd.token
+			cr.tid = sc.id
+			cr.adid = 0
+			cr.hostname = sc.hostname
+			cr.description = sc.description
+			await self.websocket.send(cr.to_json())
+			await self.send_ok(cmd)
+			logger.info('OK!')
+		except Exception as e:
+			traceback.print_exc()
+			await self.send_error(cmd, str(e))
+
+	async def do_list_target(self, cmd):
+		try:
+			logger.info('do_list_target')
+			ownerid = None
+			for res in self.db_session.query(CustomTarget).filter_by(ownerid = ownerid).all():
+				await asyncio.sleep(0)
+				cr = NestOpTargetRes()
+				cr.token = cmd.token
+				cr.tid = res.id
+				cr.adid = 0
+				cr.hostname = res.hostname
+				cr.description = res.description
+				await self.websocket.send(cr.to_json())
+
+			await self.send_ok(cmd)
+			logger.info('OK!')
+		except Exception as e:
+			traceback.print_exc()
+			await self.send_error(cmd, str(e))
+
 
 	async def __scanmonitor(self, cmd, results_queue):
 		try:
@@ -840,11 +941,21 @@ class NestOperator:
 			while True:
 				try:
 					cmd_raw = await self.websocket.recv()
-					cmd = NestOpCmdDeserializer.from_json(cmd_raw)
+					try:
+						cmd = NestOpCmdDeserializer.from_json(cmd_raw)
+					except Exception as e:
+						traceback.print_exc()
+						await self.error('MSG Parsing failed. Reason: %s' % e)
+						continue
+					
+					await self.info('Got command: %s' % cmd.cmd.name)
+				
 					if cmd.cmd == NestOpCmd.GATHER:
 						asyncio.create_task(self.do_gather(cmd))
 					elif cmd.cmd == NestOpCmd.KERBEROAST:
 						asyncio.create_task(self.do_kerberoast(cmd))
+					elif cmd.cmd == NestOpCmd.ASREPROAST:
+						asyncio.create_task(self.do_asreproast(cmd))
 					elif cmd.cmd == NestOpCmd.SMBSESSIONS:
 						asyncio.create_task(self.do_smbsessions(cmd))
 					elif cmd.cmd == NestOpCmd.PATHSHORTEST:
@@ -887,12 +998,21 @@ class NestOperator:
 						asyncio.create_task(self.do_wsnetrouter_list(cmd))
 					elif cmd.cmd == NestOpCmd.SMBFILES:
 						asyncio.create_task(self.do_smbfiles(cmd))
+					elif cmd.cmd == NestOpCmd.SMBSESSIONS:
+						asyncio.create_task(self.do_smbsessions(cmd))
 					elif cmd.cmd == NestOpCmd.PATHKERB:
 						asyncio.create_task(self.do_pathkerbroast(cmd))
 					elif cmd.cmd == NestOpCmd.PATHASREP:
 						asyncio.create_task(self.do_pathasreproast(cmd))
 					elif cmd.cmd == NestOpCmd.PATHOWNED:
 						asyncio.create_task(self.do_pathowned(cmd))
+					elif cmd.cmd == NestOpCmd.KERBEROSTGT:
+						asyncio.create_task(self.do_kerberos_tgt(cmd))
+					elif cmd.cmd == NestOpCmd.KERBEROSTGS:
+						asyncio.create_task(self.do_kerberos_tgs(cmd))
+					elif cmd.cmd == NestOpCmd.SMBDCSYNC:
+						asyncio.create_task(self.do_smbdcsync(cmd))
+					
 					else:
 						print('Unknown Command')
 

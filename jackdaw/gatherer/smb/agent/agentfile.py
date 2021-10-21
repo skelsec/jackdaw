@@ -1,30 +1,14 @@
 import asyncio
 import traceback
 
-from jackdaw.dbmodel.netshare import NetShare
-from jackdaw.dbmodel.netsession import NetSession
-from jackdaw.dbmodel.localgroup import LocalGroup
-from jackdaw.dbmodel.smbfinger import SMBFinger
-from jackdaw.dbmodel.smbprotocols import SMBProtocols
-from jackdaw.dbmodel.regsession import RegSession
-from jackdaw.dbmodel.smbinterface import SMBInterface
 from jackdaw.dbmodel.smbfile import SMBFile
+from jackdaw.gatherer.smb.utils import sizeof_fmt
 from aiosmb.protocol.common import SMB_NEGOTIATE_PROTOCOL_TEST, NegotiateDialects
 from aiosmb.commons.utils.extb import format_exc
 from aiosmb.commons.interfaces.machine import SMBMachine
 
 
 from jackdaw import logger
-
-# https://stackoverflow.com/questions/1094841/get-human-readable-version-of-file-size
-def sizeof_fmt(num, suffix='B'):
-	if num is None:
-		return ''
-	for unit in ['','Ki','Mi','Gi','Ti','Pi','Ei','Zi']:
-		if abs(num) < 1024.0:
-			return "%3.1f%s%s" % (num, unit, suffix)
-		num /= 1024.0
-	return "%.1f%s%s" % (num, 'Yi', suffix)
 
 class AIOSMBFileGathererAgent:
 	def __init__(self, in_q, out_q, smb_mgr, depth = 3, fetch_share_sd = False, fetch_dir_sd = False, fetch_file_sd = False, max_entries = None, concurrent_connections = 100):

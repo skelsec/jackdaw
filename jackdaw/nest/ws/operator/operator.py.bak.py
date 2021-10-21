@@ -16,7 +16,7 @@ from jackdaw.dbmodel.localgroup import LocalGroup
 from jackdaw.dbmodel.edge import Edge
 from jackdaw.dbmodel.edgelookup import EdgeLookup
 from jackdaw.dbmodel.customtarget import CustomTarget
-from jackdaw.dbmodel.storedcreds import StoredCred
+from jackdaw.dbmodel.customcred import CustomCred
 from jackdaw.dbmodel.graphinfo import GraphInfoAD, GraphInfo
 
 
@@ -654,7 +654,7 @@ class NestOperator:
 
 	async def do_add_cred(self, cmd):
 		logger.info('do_add_cred')
-		sc = StoredCred(cmd.username, cmd.password, cmd.description, cmd.domain, ownerid=None) #TODO: fill out owner id
+		sc = CustomCred(cmd.username, cmd.stype, cmd.secret, cmd.description, cmd.domain, ownerid=None) #TODO: fill out owner id
 		self.db_session.add(sc)
 		self.db_session.commit()
 		self.db_session.refresh(sc)
@@ -669,7 +669,7 @@ class NestOperator:
 
 	async def do_get_cred(self, cmd):
 		logger.info('do_get_cred')
-		sc = self.db_session.query(StoredCred).get(cmd.cid)
+		sc = self.db_session.query(CustomCred).get(cmd.cid)
 		cr = NestOpCredRes()
 		cr.token = cmd.token
 		cr.cid = sc.id
@@ -681,7 +681,7 @@ class NestOperator:
 	async def do_list_cred(self, cmd):
 		logger.info('do_list_cred')
 		ownerid = None
-		for res in db.session.query(StoredCred.id, StoredCred.description).filter_by(ownerid = ownerid).all():
+		for res in db.session.query(CustomCred.id, CustomCred.description).filter_by(ownerid = ownerid).all():
 			await asyncio.sleep(0)
 			cr = NestOpCredRes()
 			cr.token = cmd.token

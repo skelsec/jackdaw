@@ -10,7 +10,8 @@ class NestOpAddCred:
 		self.token = None
 		self.username = None
 		self.domain = None
-		self.password = None
+		self.stype = None
+		self.secret = None
 		self.description = None
 	
 	def to_dict(self):
@@ -25,7 +26,8 @@ class NestOpAddCred:
 		cmd.token = d['token']
 		cmd.username = d['username']
 		cmd.domain = d['domain']
-		cmd.password = d['password']
+		cmd.stype = d['stype']
+		cmd.secret = d['secret']
 		cmd.description = d['description']
 		return cmd
 

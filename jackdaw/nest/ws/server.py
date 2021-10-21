@@ -23,7 +23,7 @@ from jackdaw.dbmodel import get_session
 from jackdaw.dbmodel.adcomp import Machine
 from jackdaw.dbmodel.dnslookup import DNSLookup
 from jackdaw.dbmodel.credential import Credential
-from jackdaw.dbmodel.storedcreds import StoredCred
+from jackdaw.dbmodel.customcred import CustomCred
 from jackdaw.dbmodel.customtarget import CustomTarget
 from jackdaw.nest.ws.remoteagent.wsnet.router import WSNETRouterHandler
 
@@ -100,14 +100,6 @@ class NestWebSocketServer:
 						await self.operators[operator_id].server_in_q.put(agentreply)
 					await self.operators[operator_id].server_in_q.put(NestOpOK(cmd.token))
 				
-				elif cmd.cmd == NestOpCmd.GATHER:
-					# operator asks for a full gather to be executed on an agent
-					if cmd.agent_id not in self.agents:
-						await self.operators[operator_id].server_in_q.put(NestOpErr(cmd.token, 'Agent id not found!'))
-						continue
-					agent = self.agents[cmd.agent_id]
-					await agent.do_gather(cmd, self.operators[operator_id].server_in_q, self.db_url, self.work_dir, True)
-				
 				elif cmd.cmd == NestOpCmd.WSNETLISTROUTERS:
 					for router_id in self.sspi_proxies:
 						notify = NestOpWSNETRouter()
@@ -138,19 +130,57 @@ class NestWebSocketServer:
 					notify.router_id = proxy_id
 					for operator_id in self.operators:
 						await self.operators[operator_id].server_in_q.put(notify)
-
-				elif cmd.cmd == NestOpCmd.SMBFILES:
+				
+				#elif cmd.cmd == NestOpCmd.GATHER:
+				else:
+					logger.info('Dispatching message from operator "%s" to Agent "%s" Command: %s' % (operator_id, cmd.agent_id, cmd.cmd ))
+					# operator asks for a full gather to be executed on an agent
 					if cmd.agent_id not in self.agents:
 						await self.operators[operator_id].server_in_q.put(NestOpErr(cmd.token, 'Agent id not found!'))
 						continue
 					agent = self.agents[cmd.agent_id]
-					cancel_token = asyncio.Event()
-					task = asyncio.create_task(agent.do_smbfiles(cmd, self.operators[operator_id].server_in_q, cancel_token))
-					await self.__add_agent_cancellable_task(cmd, task, cancel_token)
+					await agent.cmd_in_q.put((cmd, self.operators[operator_id].server_in_q))
 					
+					#await agent.do_gather(cmd, self.operators[operator_id].server_in_q, self.db_url, self.work_dir, True)
 
+				#elif cmd.cmd == NestOpCmd.SMBFILES:
+				#	if cmd.agent_id not in self.agents:
+				#		await self.operators[operator_id].server_in_q.put(NestOpErr(cmd.token, 'Agent id not found!'))
+				#		continue
+				#	agent = self.agents[cmd.agent_id]
+				#	cancel_token = asyncio.Event()
+				#	task = asyncio.create_task(agent.do_smbfiles(cmd, self.operators[operator_id].server_in_q, cancel_token))
+				#	await self.__add_agent_cancellable_task(cmd, task, cancel_token)
+				#
+				#elif cmd.cmd == NestOpCmd.SMBSESSIONS:
+				#	if cmd.agent_id not in self.agents:
+				#		await self.operators[operator_id].server_in_q.put(NestOpErr(cmd.token, 'Agent id not found!'))
+				#		continue
+				#	agent = self.agents[cmd.agent_id]
+				#	cancel_token = asyncio.Event()
+				#	task = asyncio.create_task(agent.do_smbsessions(cmd, self.operators[operator_id].server_in_q, cancel_token))
+				#	await self.__add_agent_cancellable_task(cmd, task, cancel_token)
+				#
+				#elif cmd.cmd == NestOpCmd.KERBEROAST:
+				#	if cmd.agent_id not in self.agents:
+				#		await self.operators[operator_id].server_in_q.put(NestOpErr(cmd.token, 'Agent id not found!'))
+				#		continue
+				#	agent = self.agents[cmd.agent_id]
+				#	cancel_token = asyncio.Event()
+				#	task = asyncio.create_task(agent.do_kerberoast(cmd, self.operators[operator_id].server_in_q, cancel_token))
+				#	await self.__add_agent_cancellable_task(cmd, task, cancel_token)
+				#
+				#elif cmd.cmd == NestOpCmd.ASREPROAST:
+				#	if cmd.agent_id not in self.agents:
+				#		await self.operators[operator_id].server_in_q.put(NestOpErr(cmd.token, 'Agent id not found!'))
+				#		continue
+				#	agent = self.agents[cmd.agent_id]
+				#	cancel_token = asyncio.Event()
+				#	task = asyncio.create_task(agent.do_asreproast(cmd, self.operators[operator_id].server_in_q, cancel_token))
+				#	await self.__add_agent_cancellable_task(cmd, task, cancel_token)
+					
 		except Exception as e:
-			traceback.print_exc()
+			traceback.print_exc()	
 	
 	async def __handle_wsnet_router_in(self):
 		try:
@@ -208,7 +238,7 @@ class NestWebSocketServer:
 		password = None
 
 		if str(ad_id) == '0':
-			res = self.db_session.query(StoredCred).get(user_sid)
+			res = self.db_session.query(CustomCred).get(user_sid)
 			
 		else:
 			res = self.db_session.query(Credential).filter_by(object_sid = user_sid).filter(Credential.ad_id == ad_id).first()
@@ -377,7 +407,7 @@ class NestWebSocketServer:
 
 		if self.enable_local_agent is True:
 			agentid = '0' #str(uuid.uuid4())
-			internal_agent = JackDawAgent(agentid, 'internal', platform.system().upper(), self.db_session)
+			internal_agent = JackDawAgent(agentid, 'internal', platform.system().upper(), self.db_session, self.db_url, self.work_dir)
 			self.agents[agentid] = internal_agent
 			asyncio.create_task(internal_agent.run())
 
@@ -391,7 +421,7 @@ class NestWebSocketServer:
 			process_request=self.preprocess_request,
 			subprotocols=self.subprotocols
 		)
-		print('[+] Server is running!')
+		print('[+] Server is running on ws://%s:%s' % (self.listen_ip, self.listen_port))
 		await self.server.wait_closed()
 
 

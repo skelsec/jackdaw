@@ -4,6 +4,7 @@ import json
 
 from jackdaw.utils.encoder import UniversalEncoder 
 from jackdaw.nest.ws.protocol.cmdtypes import NestOpCmd
+
 class NestOpGetOBJInfo:
 	def __init__(self):
 		self.cmd = NestOpCmd.GETOBJINFO

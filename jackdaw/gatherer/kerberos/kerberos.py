@@ -3,6 +3,8 @@ import platform
 import logging
 from urllib.parse import urlparse, parse_qs
 
+from minikerberos.common.proxy import KerberosProxy
+
 from jackdaw import logger
 from jackdaw.dbmodel.kerberoast import Kerberoast as KerberoastTable
 from jackdaw.dbmodel.adinfo import ADInfo
@@ -19,15 +21,17 @@ from minikerberos.common.url import KerberosClientURL
 
 from msldap.authentication.kerberos.gssapi import get_gssapi, GSSWrapToken, KRB5_MECH_INDEP_TOKEN
 from minikerberos.protocol.asn1_structs import AP_REQ, TGS_REQ
+from asysocks.common.clienturl import SocksClientURL
 
 from jackdaw.gatherer.progress import *
 
 class KerberoastGatherer:
-	def __init__(self, db_conn, ad_id, progress_queue = None, show_progress = True, kerb_url = None, domain_name = None):
+	def __init__(self, db_conn, ad_id, progress_queue = None, show_progress = True, kerb_url = None, domain_name = None, proxy = None):
 		self.db_conn = db_conn
 		self.ad_id = ad_id
 		self.kerb_url = kerb_url
 		self.kerb_mgr = None
+		self.proxy = proxy
 		self.domain_name = domain_name
 		self.session = None
 		self.progress_queue = progress_queue
@@ -301,34 +305,48 @@ class KerberoastGatherer:
 				logger.debug('No targets found!')
 				return True, None
 
-			if self.kerb_url == 'auto':
-				if platform.system() == 'Windows':
+			
+			if isinstance(self.kerb_url, KerberosClientURL):
+				self.kerb_mgr = self.kerb_url
+				if self.proxy is not None:
+					pu = SocksClientURL.from_urls(self.proxy)
+					p = KerberosProxy(pu, None, type='SOCKS')
+					self.kerb_mgr.proxy = p
+
+			elif isinstance(self.kerb_url, str):
+				if self.kerb_url == 'auto':
+					if platform.system() == 'Windows':
+						_, err = await self.asreproast()
+						if err is not None:
+							raise err
+
+						_, err = await self.kerberoast_sspi()
+						if err is not None:
+							raise err
+						return True, None
+					else:
+						raise Exception('No kerberos URL was provided and not running on Windows!')
+				
+				elif self.kerb_url.startswith('kerberos'):
+					self.kerb_mgr = KerberosClientURL.from_url(self.kerb_url)
+					if self.proxy is not None:
+						pu = SocksClientURL.from_urls(self.proxy)
+						p = KerberosProxy(pu, None, type='SOCKS')
+						self.kerb_mgr.proxy = p
+
 					_, err = await self.asreproast()
 					if err is not None:
 						raise err
 
-					_, err = await self.kerberoast_sspi()
+					_, err = await self.kerberoast()
 					if err is not None:
 						raise err
-					return True, None
-				else:
-					raise Exception('No kerberos URL was provided and not running on Windows!')
-			
-			elif self.kerb_url.startswith('kerberos'):
-				self.kerb_mgr = KerberosClientURL.from_url(self.kerb_url)
-				_, err = await self.asreproast()
-				if err is not None:
-					raise err
-
-				_, err = await self.kerberoast()
-				if err is not None:
-					raise err
-			
-			elif self.kerb_url.startswith('ws'):
-				if self.kerb_url.find('type=sspiproxy'):
-					await self.kerberoast_sspiproxy()
-				else:
-					await self.kerberoast_multiplexor()
+				
+				elif self.kerb_url.startswith('ws'):
+					if self.kerb_url.find('type=sspiproxy'):
+						await self.kerberoast_sspiproxy()
+					else:
+						await self.kerberoast_multiplexor()
 
 			return True, None
 		except Exception as e:

@@ -1,17 +1,18 @@
 from flask import current_app
-from jackdaw.dbmodel.storedcreds import StoredCred
+from jackdaw.dbmodel.customcred import CustomCred
 import string
 
 def store(data):
 	username = data['username']
 	domain = data.get('domain', None)
-	password = data['password']
+	secret = data['secret']
+	stype = data['stype']
 	description = data['description']
 	if domain == '':
 		domain = None
 
 	db = current_app.db
-	sc = StoredCred(username, password, description, domain = domain, ownerid=None) #TODO: fill out owner id
+	sc = CustomCred(username, stype, secret, description, domain = domain, ownerid=None) #TODO: fill out owner id
 	db.session.add(sc)
 	db.session.commit()
 	db.session.refresh(sc)
@@ -23,7 +24,7 @@ def list():
 	db = current_app.db
 	creds = []
 	ownerid = None
-	for res in db.session.query(StoredCred.id, StoredCred.description).filter_by(ownerid = ownerid).all():
+	for res in db.session.query(CustomCred.id, CustomCred.description).filter_by(ownerid = ownerid).all():
 		creds.append({
 			'id' : res[0],
 			'description' : res[1]

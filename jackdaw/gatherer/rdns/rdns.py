@@ -2,6 +2,7 @@ import asyncio
 import socket
 import ipaddress
 import traceback
+from typing import List
 
 from asysocks.common.clienturl import SocksClientURL
 from asysocks.common.comms import SocksQueueComms
@@ -11,30 +12,30 @@ from jackdaw.gatherer.rdns.udpwrapper import UDPClient
 import os
 
 class RDNS:
-	def __init__(self, server = '8.8.8.8', protocol = 'TCP', cache = True, timeout = 1):
+	def __init__(self, server = '8.8.8.8', protocol = 'TCP', cache = True, timeout = 1, proxy:List[str] = None):
 		self.server = server
 		self.protocol = protocol
+		self.port = 53
 		self.cache = {}
 		self.timeout = timeout
-		self.proxy = None
+		self.proxy:List[str] = proxy
+		self.proxyobj = None
 		self.proxy_task = None
 		self.in_q = None
 		self.out_q = None
 
 	async def setup(self):
 		try:
-			try:
-				ipaddress.ip_address(self.server)
+			if self.proxy is None:
+				# no need for additional setup
 				return None, None
-			except:
-				pass
 			
 			self.in_q = asyncio.Queue()
 			self.out_q = asyncio.Queue()
-			su = SocksClientURL.from_params(self.server)
 			comms = SocksQueueComms(self.in_q, self.out_q)
-			self.proxy = SOCKSClient(comms, su)
-			self.proxy_task = asyncio.create_task(self.proxy.run())
+			proxies = SocksClientURL.from_urls(self.proxy, self.server, self.port)
+			self.proxyobj = SOCKSClient(comms, proxies)
+			self.proxy_task = asyncio.create_task(self.proxyobj.run())
 			return None, None
 		except Exception as e:
 			return None, e
@@ -47,9 +48,9 @@ class RDNS:
 			return None, err
 		try:
 			question = DNSQuestion.construct(str(hostname), dnstype, DNSClass.IN, qu = False)
-			if self.proxy is None:
+			if self.proxyobj is None:
 				if self.protocol == 'TCP':
-					reader, writer = await asyncio.wait_for(asyncio.open_connection(self.server, 53), self.timeout)
+					reader, writer = await asyncio.wait_for(asyncio.open_connection(self.server, self.port), self.timeout)
 			
 					packet = DNSPacket.construct(
 						TID = os.urandom(2), 
@@ -94,6 +95,10 @@ class RDNS:
 
 		except Exception as e:
 			return None, e
+		finally:
+			if self.proxyobj is not None:
+				await self.proxyobj.terminate()
+
 
 	async def resolve(self, ip):
 		try:
@@ -105,7 +110,7 @@ class RDNS:
 				
 						
 			if self.protocol == 'TCP':
-				reader, writer = await asyncio.wait_for(asyncio.open_connection(self.server, 53), self.timeout)
+				reader, writer = await asyncio.wait_for(asyncio.open_connection(self.server, self.port), self.timeout)
 		
 				packet = DNSPacket.construct(
 					TID = tid,
@@ -125,7 +130,7 @@ class RDNS:
 				writer.close()
 				return data.Answers[0].domainname, None
 			else:
-				cli = UDPClient((self.server, 53))
+				cli = UDPClient((self.server, self.port))
 				
 				packet = DNSPacket.construct(
 					TID = tid, 
@@ -144,6 +149,9 @@ class RDNS:
 		
 		except Exception as e:
 			return None, e
+		finally:
+			if self.proxyobj is not None:
+				await self.proxyobj.terminate()
 
 async def amain_lookup(hostname):
 	resolver = RDNS(protocol = 'TCP')

@@ -22,8 +22,8 @@ class NestOpSMBSessionRes:
 	def from_dict(d):
 		cmd = NestOpSMBSessionRes()
 		cmd.token = d['token']
-		cmd.adid = d['ad_id']
-		cmd.machinesid = d['machine_sid']
+		cmd.adid = d['adid']
+		cmd.machinesid = d['machinesid']
 		cmd.username = d['username']
 		return cmd
 

@@ -2,15 +2,17 @@ import json
 
 from jackdaw.utils.encoder import UniversalEncoder 
 from jackdaw.nest.ws.protocol.cmdtypes import NestOpCmd
-
+from jackdaw.nest.ws.protocol.credsdef import NestOpCredsDef
+from jackdaw.nest.ws.protocol.targetdef import NestOpTargetDef
 
 class NestOpSMBSessions:
 	def __init__(self):
 		self.cmd = NestOpCmd.SMBSESSIONS
 		self.token = None
-		self.smb_url = None
-		self.all_hosts = False
-	
+		self.agent_id = None
+		self.target:NestOpTargetDef = None
+		self.creds:NestOpCredsDef = None
+
 	def to_dict(self):
 		return self.__dict__
 	
@@ -21,9 +23,9 @@ class NestOpSMBSessions:
 	def from_dict(d):
 		cmd = NestOpSMBSessions()
 		cmd.token = d['token']
-		cmd.smb_url = d['smb_url']
-		if 'all_hosts' in d:
-			cmd.all_hosts = d['all_hosts']
+		cmd.agent_id = d['agent_id']
+		cmd.target = NestOpTargetDef.from_dict(d['target'])
+		cmd.creds = NestOpCredsDef.from_dict(d['creds'])
 		return cmd
 
 	@staticmethod

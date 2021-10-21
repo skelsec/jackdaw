@@ -2,15 +2,19 @@ import json
 
 from jackdaw.utils.encoder import UniversalEncoder 
 from jackdaw.nest.ws.protocol.cmdtypes import NestOpCmd
-
+from jackdaw.nest.ws.protocol.credsdef import NestOpCredsDef
+from jackdaw.nest.ws.protocol.targetdef import NestOpTargetDef
 
 class NestOpGather:
 	def __init__(self):
 		self.cmd = NestOpCmd.GATHER
 		self.token = None
-		self.ldap_url = None
-		self.smb_url = None
-		self.kerberos_url = None
+		self.ldap_creds:NestOpCredsDef = None
+		self.ldap_target:NestOpTargetDef = None
+		self.smb_creds:NestOpCredsDef = None
+		self.smb_target:NestOpTargetDef = None
+		self.kerberos_creds:NestOpCredsDef = None
+		self.kerberos_target:NestOpTargetDef = None
 		self.ldap_workers = 4
 		self.smb_worker_cnt = 500
 		self.dns = None
@@ -27,18 +31,19 @@ class NestOpGather:
 	def from_dict(d):
 		cmd = NestOpGather()
 		cmd.token = d['token']
-		cmd.ldap_url = d['ldap_url']
+		cmd.ldap_creds = NestOpCredsDef.from_dict(d['ldap_creds'])
+		cmd.ldap_target = NestOpTargetDef.from_dict(d['ldap_target'])
+
+		cmd.smb_creds = NestOpCredsDef.from_dict(d['smb_creds'])
+		cmd.smb_target = NestOpTargetDef.from_dict(d['smb_target'])
+
+		cmd.kerberos_creds = NestOpCredsDef.from_dict(d['kerberos_creds'])
+		cmd.kerberos_target = NestOpTargetDef.from_dict(d['kerberos_target'])
+
 		cmd.agent_id = d['agent_id']
 		if cmd.agent_id is None:
 			raise Exception('Agent ID must be provided for GATHER')
-		if cmd.ldap_url.upper() == 'AUTO':
-			cmd.ldap_url = 'auto'
-		cmd.smb_url = d['smb_url']
-		if cmd.smb_url.upper() == 'AUTO':
-			cmd.smb_url = 'auto'
-		cmd.kerberos_url = d['kerberos_url']
-		if cmd.kerberos_url.upper() == 'AUTO':
-			cmd.kerberos_url = 'auto'
+		
 		if 'ldap_workers' in d:
 			cmd.ldap_workers = d['ldap_workers']
 		if 'smb_worker_cnt' in d:

@@ -1,3 +1,4 @@
+from aiosmb.dcerpc.v5.common.secrets import SMBUserSecrets
 from . import Basemodel, lf
 import datetime
 import hashlib
@@ -5,6 +6,14 @@ from sqlalchemy.orm import relationship
 from sqlalchemy import Column, Integer, String, ForeignKey, Index, DateTime
 from jackdaw.dbmodel.utils.serializer import Serializer
 from jackdaw.utils.md4 import MD4 as NT
+
+from aiosmb.commons.connection.credential import SMBCredential, SMBAuthProtocol, SMBCredentialsSecretType
+from aiosmb.commons.connection.target import SMBTarget, SMBConnectionProtocol
+from msldap.commons.credential import MSLDAPCredential, LDAPAuthProtocol
+from msldap.commons.target import LDAPProtocol, MSLDAPTarget
+from minikerberos.common.creds import KerberosCredential, KerberosSecretType
+
+
 try:
 	from pypykatz.pypykatz import pypykatz
 except ImportError:
@@ -68,7 +77,7 @@ class Credential(Basemodel, Serializer):
 		return rid
 
 	@staticmethod
-	def from_aiosmb_secret(secret, ad_id = -1):
+	def from_aiosmb_secret(secret:SMBUserSecrets, ad_id = -1):
 		# returns a complex touple in the format of (currentcred, [nthist], [lmhist], [cleartextcred], [pwds])
 		creds = []
 		pwds = []
@@ -101,8 +110,8 @@ class Credential(Basemodel, Serializer):
 
 		creds.append(cred) # this is the main one
 		
-		if secret.cleartext is not None:
-			for pw in secret.cleartext:
+		if secret.cleartext_pwds is not None:
+			for pw in secret.cleartext_pwds:
 				cred = Credential()
 				cred.ad_id = ad_id
 				cred.domain = secret.domain
@@ -344,9 +353,97 @@ class Credential(Basemodel, Serializer):
 			_, cred.domain, cred.username, cred.object_sid, pw = line.split(':', 4) #reparsing needed, pw might contain colon
 			
 			cred.object_rid = Credential.get_rid_from_sid(cred.object_sid)
-			cred.nt_hash = NT(pw).hexdigest()
+			cred.nt_hash = NT(pw.encode('utf-16-le')).hexdigest()
 			cred.lm_hash = None
 			cred.history_no = 0
 			cred.cred_type = 'aiosmb-dcsync-cleartext'
 
 		return cred, pw
+	
+	
+	def get_smb_cred(self, authtype:SMBAuthProtocol, target:SMBTarget = None, settings:dict = None):
+		stype = None
+		secret = None
+		if self.krb_rc4_hmac is not None:
+			stype = SMBCredentialsSecretType.NT
+			secret = self.krb_rc4_hmac
+			
+		elif self.nt_hash is not None:
+			stype = SMBCredentialsSecretType.NT
+			secret = self.nt_hash
+		
+		elif self.krb_aes128 is not None:
+			stype = SMBCredentialsSecretType.AES
+			secret = self.krb_aes128
+		
+		elif self.krb_aes256 is not None:
+			stype = SMBCredentialsSecretType.AES
+			secret = self.krb_aes256
+
+		if stype is None:
+			raise Exception('Couldnt figure out correct stype for customcred!')
+		
+		return SMBCredential(
+			username = self.username, 
+			domain = self.domain, 
+			secret = secret, 
+			secret_type = stype, 
+			authentication_type = authtype, 
+			settings = settings, 
+			target = target
+		)
+	
+	def get_ldap_cred(self, authtype:LDAPAuthProtocol, target:MSLDAPTarget = None, settings:dict = None):
+		secret = None
+		if self.krb_rc4_hmac is not None:
+			secret = self.krb_rc4_hmac
+			
+		elif self.nt_hash is not None:
+			secret = self.nt_hash
+		
+		elif self.krb_aes128 is not None:
+			secret = self.krb_aes128
+		
+		elif self.krb_aes256 is not None:
+			secret = self.krb_aes256
+
+		if secret is None:
+			raise Exception('Couldnt figure out correct stype for customcred!')
+
+		return MSLDAPCredential(
+			domain= self.domain, 
+			username= self.username, 
+			password = secret, 
+			auth_method = authtype,
+			settings = settings, 
+			etypes = None, 
+			encrypt = False
+		)
+	
+	def get_kerberos_cred(self):
+		secret = None
+		stye = None
+		if self.krb_rc4_hmac is not None:
+			stype = KerberosSecretType.RC4
+			secret = self.krb_rc4_hmac
+		
+		if self.nt_hash is not None:
+			stype = KerberosSecretType.RC4
+			secret = self.nt_hash
+		
+		elif self.krb_aes128 is not None:
+			stype = KerberosSecretType.AES
+			secret = self.krb_aes128
+		
+		elif self.krb_aes256 is not None:
+			stype = KerberosSecretType.AES
+			secret = self.krb_aes256
+		
+		if stye is None:
+			raise Exception('Couldnt figure out correct stype for credential!')
+
+		kc = KerberosCredential()
+		kc.add_secret(stype, secret)
+		return kc
+		
+		

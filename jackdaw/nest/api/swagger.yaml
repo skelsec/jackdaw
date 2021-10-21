@@ -2612,7 +2612,9 @@ paths:
                 type: string
               username:
                 type: string
-              password:
+              stype:
+                type: string
+              secret:
                 type: string
               description:
                 type: string

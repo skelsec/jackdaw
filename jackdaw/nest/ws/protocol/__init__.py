@@ -15,7 +15,10 @@ from jackdaw.nest.ws.protocol.gather.gather import NestOpGather
 from jackdaw.nest.ws.protocol.gather.getobjinfo import NestOpGetOBJInfo
 from jackdaw.nest.ws.protocol.gather.gatherstatus import NestOpGatherStatus
 
-from jackdaw.nest.ws.protocol.kerberos.kerberoast import NestOpKerberoast
+from jackdaw.nest.ws.protocol.kerberos.kerberoast import NestOpKerberoast, NestOpKerberoastRes
+from jackdaw.nest.ws.protocol.kerberos.asreproast import NestOpASREPRoast, NestOpASREPRoastRes
+from jackdaw.nest.ws.protocol.kerberos.gettgs import NestOpKerberosTGS, NestOpKerberosTGSRes
+from jackdaw.nest.ws.protocol.kerberos.gettgt import NestOpKerberosTGT, NestOpKerberosTGTRes
 
 from jackdaw.nest.ws.protocol.graph.listgraph import NestOpListGraph
 from jackdaw.nest.ws.protocol.graph.listgraphres import NestOpListGraphRes
@@ -28,6 +31,9 @@ from jackdaw.nest.ws.protocol.graph.pathres import NestOpPathRes
 from jackdaw.nest.ws.protocol.graph.pathkerbroast import NestOpPathKerbroast
 from jackdaw.nest.ws.protocol.graph.pathasrep import NestOpPathASREPRoast
 from jackdaw.nest.ws.protocol.graph.pathowned import NestOpPathOwned
+from jackdaw.nest.ws.protocol.graph.objowned import NestOpObjOwned
+from jackdaw.nest.ws.protocol.graph.objhvt import NestOpObjHVT
+
 
 from jackdaw.nest.ws.protocol.domain.changead import NestOpChangeAD
 from jackdaw.nest.ws.protocol.domain.listad import NestOpListAD, NestOpListADRes
@@ -42,6 +48,8 @@ from jackdaw.nest.ws.protocol.smb.smbshareres import NestOpSMBShareRes, NestOpSM
 from jackdaw.nest.ws.protocol.smb.smblocalgroupres import NestOpSMBLocalGroupRes
 from jackdaw.nest.ws.protocol.smb.smbfiles import NestOpSMBFiles
 from jackdaw.nest.ws.protocol.smb.smbfileres import NestOpSMBFileRes
+from jackdaw.nest.ws.protocol.smb.smbdcsync import NestOpSMBDCSync
+
 
 from jackdaw.nest.ws.protocol.scan.tcpscan import NestOpTCPScan, NestOpTCPScanRes
 
@@ -79,6 +87,13 @@ __all__ = [
 	'NestOpLog',
 	'NestOpListAD',
 	'NestOpKerberoast',
+	'NestOpKerberoastRes',
+	'NestOpASREPRoast',
+	'NestOpASREPRoastRes',
+	'NestOpKerberosTGS', 
+	'NestOpKerberosTGSRes',
+	'NestOpKerberosTGT',
+	'NestOpKerberosTGTRes',
 	'NestOpGetOBJInfo',
 	'NestOpGather',
 	'NestOpErr',
@@ -119,12 +134,14 @@ __all__ = [
 	'NestOpWSNETListRouters',
 	'NestOpSMBFiles',
 	'NestOpSMBFileRes',
+	'NestOpSMBDCSync',
 	'NestOpCredsDef',
 	'NestOpTargetDef',
 	'NestOpPathKerbroast',
 	'NestOpPathASREPRoast',
 	'NestOpPathOwned',
-	
+	'NestOpObjOwned',
+	'NestOpObjHVT',
 ]
 
 
@@ -145,7 +162,15 @@ class NestOpCmdDeserializer:
 type2obj = {
 	NestOpCmd.GATHER : NestOpGather,
 	NestOpCmd.KERBEROAST : NestOpKerberoast,
+	NestOpCmd.ASREPROAST : NestOpASREPRoast,
+	NestOpCmd.KERBEROASTRES : NestOpKerberoastRes,
+	NestOpCmd.ASREPROASTRES : NestOpASREPRoastRes,
+	NestOpCmd.KERBEROSTGS : NestOpKerberosTGS, 
+	NestOpCmd.KERBEROSTGSRES : NestOpKerberosTGSRes,
+	NestOpCmd.KERBEROSTGT : NestOpKerberosTGT,
+	NestOpCmd.KERBEROSTGTRES : NestOpKerberosTGTRes,
 	NestOpCmd.SMBSESSIONS : NestOpSMBSessions,
+	NestOpCmd.SMBDCSYNC : NestOpSMBDCSync,
 	NestOpCmd.PATHSHORTEST : NestOpPathShortest,
 	NestOpCmd.PATHDA : NestOpPathDA,
 	NestOpCmd.GETOBJINFO : NestOpGetOBJInfo,
@@ -193,6 +218,9 @@ type2obj = {
 	NestOpCmd.PATHKERB : NestOpPathKerbroast,
 	NestOpCmd.PATHASREP : NestOpPathASREPRoast,
 	NestOpCmd.PATHOWNED : NestOpPathOwned,
-
+	NestOpCmd.OBJOWNED : NestOpObjOwned,
+	NestOpCmd.OBJHVT : NestOpObjHVT,
+	NestOpCmd.CREDRES : NestOpCredRes,
+	NestOpCmd.TARGETRES : NestOpTargetRes,
 }
 

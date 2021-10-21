@@ -1,18 +1,18 @@
-
 import json
 
 from jackdaw.utils.encoder import UniversalEncoder 
 from jackdaw.nest.ws.protocol.cmdtypes import NestOpCmd
 
-class NestOpTargetRes:
+class NestOpObjHVT:
 	def __init__(self):
-		self.cmd = NestOpCmd.TARGETRES
+		self.cmd = NestOpCmd.OBJHVT
 		self.token = None
-		self.tid = None
+		self.graphid = None
 		self.adid = None
-		self.hostname = None
-		self.description = None
-	
+		self.otype = None
+		self.oid = None
+		self.set = None # True = mark user/machine/group etc as high-value-target, False = clear high-value-target status
+		
 	def to_dict(self):
 		return self.__dict__
 	
@@ -21,15 +21,15 @@ class NestOpTargetRes:
 	
 	@staticmethod
 	def from_dict(d):
-		cmd = NestOpTargetRes()
+		cmd = NestOpObjHVT()
 		cmd.token = d['token']
-		cmd.tid = d['tid']
+		cmd.graphid = d['graphid']
 		cmd.adid = d['adid']
-		cmd.hostname = d['hostname']
-		cmd.description = d['description']
+		cmd.otype = d['otype']
+		cmd.oid = d['oid']
+		cmd.set = d['set']
 		return cmd
 
 	@staticmethod
 	def from_json(jd):
-		return NestOpTargetRes.from_dict(json.loads(jd))
-
+		return NestOpObjHVT.from_dict(json.loads(jd))

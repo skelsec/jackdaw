@@ -6,14 +6,13 @@ from jackdaw.nest.ws.protocol.credsdef import NestOpCredsDef
 from jackdaw.nest.ws.protocol.targetdef import NestOpTargetDef
 
 
-class NestOpKerberoast:
+class NestOpKerberosTGT:
 	def __init__(self):
-		self.cmd = NestOpCmd.KERBEROAST
+		self.cmd = NestOpCmd.KERBEROSTGT
 		self.token = None
 		self.agent_id = None
 		self.target:NestOpTargetDef = None
 		self.creds:NestOpCredsDef = None
-		self.target_user:NestOpCredsDef = None
 	
 	def to_dict(self):
 		return self.__dict__
@@ -23,22 +22,21 @@ class NestOpKerberoast:
 	
 	@staticmethod
 	def from_dict(d):
-		cmd = NestOpKerberoast()
+		cmd = NestOpKerberosTGT()
 		cmd.token = d['token']
 		cmd.agent_id = d['agent_id']
 		cmd.target = NestOpTargetDef.from_dict(d['target'])
 		cmd.creds = NestOpCredsDef.from_dict(d['creds'])
-		cmd.target_user = NestOpTargetDef.from_dict(d['target_user'])
 		return cmd
 
 	@staticmethod
 	def from_json(jd):
-		return NestOpKerberoast.from_dict(json.loads(jd))
+		return NestOpKerberosTGT.from_dict(json.loads(jd))
 
 
-class NestOpKerberoastRes:
+class NestOpKerberosTGTRes:
 	def __init__(self):
-		self.cmd = NestOpCmd.KERBEROASTRES
+		self.cmd = NestOpCmd.KERBEROSTGTRES
 		self.token = None
 		self.ticket = None
 	
@@ -50,11 +48,11 @@ class NestOpKerberoastRes:
 	
 	@staticmethod
 	def from_dict(d):
-		cmd = NestOpKerberoastRes()
+		cmd = NestOpKerberosTGTRes()
 		cmd.token = d['token']
 		cmd.ticket = d['ticket']
 		return cmd
 
 	@staticmethod
 	def from_json(jd):
-		return NestOpKerberoastRes.from_dict(json.loads(jd))
+		return NestOpKerberosTGTRes.from_dict(json.loads(jd))
