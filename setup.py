@@ -64,6 +64,7 @@ setup(
 		'tqdm',
 		'networkx',
 		'flask<2,>=1.0.4',
+		'Jinja2<3.0,>=2.10.1',
 		'connexion>=2.9.0',
 		'flask-sqlalchemy',
 		'connexion[swagger-ui]',
