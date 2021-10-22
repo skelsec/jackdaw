@@ -78,8 +78,7 @@ class NestOperator:
 		while True:
 			try:
 				packet = await self.server_in_q.get()
-				print('__handle_server_in %s' % packet)
-				print('__handle_server_in %s' % packet.token)
+				print('REPLY OUT: %s' % packet.to_json())
 				await self.websocket.send(packet.to_json())
 			except Exception as e:
 				traceback.print_exc()
@@ -132,11 +131,11 @@ class NestOperator:
 			gr.gids.append(res.id)
 		
 		for gid in gr.gids:
-			adnameres = ''
+			adnameres = []
 			for res in self.db_session.query(GraphInfoAD).filter_by(graph_id = gid):
 				adinfo = self.db_session.query(ADInfo).get(res.ad_id)
-				adnameres += ',' + adinfo.name
-			gr.adnames.append(adnameres)
+				adnameres.append(adinfo.name)
+			gr.adnames.append(','.join(adnameres))
 		
 		await self.websocket.send(gr.to_json())
 		await self.send_ok(cmd)
@@ -942,6 +941,7 @@ class NestOperator:
 				try:
 					cmd_raw = await self.websocket.recv()
 					try:
+						print('CMD INCOMING: %s' % cmd_raw)
 						cmd = NestOpCmdDeserializer.from_json(cmd_raw)
 					except Exception as e:
 						traceback.print_exc()
@@ -1012,7 +1012,7 @@ class NestOperator:
 						asyncio.create_task(self.do_kerberos_tgs(cmd))
 					elif cmd.cmd == NestOpCmd.SMBDCSYNC:
 						asyncio.create_task(self.do_smbdcsync(cmd))
-					
+
 					else:
 						print('Unknown Command')
 
