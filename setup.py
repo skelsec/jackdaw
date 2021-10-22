@@ -63,6 +63,7 @@ setup(
 		'sqlalchemy<1.4',
 		'tqdm',
 		'networkx',
+		'flask<2,>=1.0.4',
 		'connexion>=2.9.0',
 		'flask-sqlalchemy',
 		'connexion[swagger-ui]',
