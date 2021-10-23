@@ -146,8 +146,10 @@ def create_db(connection, verbosity = 0):
 	try:
 		session = Session()
 		#inserting test data...
-		session.add(CustomCred('jackdaw', 'password', 'Passw0rd!1', 'test', domain=None))
-		session.add(CustomTarget('10.0.0.1', 'testserver'))
+		session.add(CustomCred('victim', 'password', 'Passw0rd!1', 'testcred', domain=None))
+		session.add(CustomTarget('10.10.10.1', 'testserver'))
+		session.add(CustomTarget('10.10.20.1', 'testserver'))
+		session.add(CustomTarget('10.10.30.1', 'testserver'))
 		session.commit()
 	finally:
 		session.close()

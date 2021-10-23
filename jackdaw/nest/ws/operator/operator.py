@@ -4,6 +4,7 @@ import platform
 import datetime
 import traceback
 import logging
+import typing
 
 from jackdaw.dbmodel.adinfo import ADInfo
 from jackdaw.dbmodel.edgelookup import EdgeLookup
@@ -228,6 +229,18 @@ class NestOperator:
 		Lists all available routers
 		"""
 		await self.server_out_q.put((self.operatorid, cmd))
+	
+	async def do_kerberoast(self, cmd):
+		"""
+		Starts a kerberoast attack against a specific user on the selected agent
+		"""
+		await self.server_out_q.put((self.operatorid, cmd))
+	
+	async def do_asreproast(self, cmd):
+		"""
+		Starts a asreproast attack against a specific user on the selected agent
+		"""
+		await self.server_out_q.put((self.operatorid, cmd))
 
 	async def do_listads(self, cmd):
 		"""
@@ -314,6 +327,7 @@ class NestOperator:
 				compbuff.token = cmd.token
 				qry = self.db_session.query(Machine).filter_by(ad_id = adid)
 				for computer  in windowed_query(qry, Machine.id, 100):
+					computer = typing.cast(Machine, computer)
 					await asyncio.sleep(0)
 					reply = NestOpComputerRes()
 					reply.token = cmd.token
@@ -510,20 +524,6 @@ class NestOperator:
 		except Exception as e:
 			await self.send_error(cmd, "Error! Reason: %s" % e)
 			logger.exception('do_load_ad')
-
-	
-	async def do_kerberoast(self, cmd):
-		"""
-		Starts a kerberoast attack against a specific user on the selected agent
-		"""
-		await self.server_out_q.put((self.operatorid, cmd))
-	
-	async def do_asreproast(self, cmd):
-		"""
-		Starts a asreproast attack against a specific user on the selected agent
-		"""
-		await self.server_out_q.put((self.operatorid, cmd))
-
 
 	async def do_pathshortest(self, cmd):
 		try:
@@ -803,6 +803,7 @@ class NestOperator:
 			ownerid = None
 			for res in self.db_session.query(CustomCred).filter_by(ownerid = ownerid).all():
 				await asyncio.sleep(0)
+				res = typing.cast(CustomCred, res)
 				cr = NestOpCredRes()
 				cr.adid = 0 # always 0 for custom creds
 				cr.token = cmd.token
