@@ -364,6 +364,22 @@ async def run(args):
 				bh.set_debug(True)
 			bh.run()
 			print('Import complete!')
+		
+		elif args.command == 'createcache':
+			print(args)
+			from jackdaw.nest.functions.graph import create as creategraphcache
+			if args.backend.upper() == 'networkx'.upper():
+				from jackdaw.nest.graph.backends.networkx.domaingraph import JackDawDomainGraphNetworkx
+				graph_type = JackDawDomainGraphNetworkx
+			elif args.backend.upper() == 'igraph'.upper():
+				from jackdaw.nest.graph.backends.igraph.domaingraph import JackDawDomainGraphIGraph
+				graph_type = JackDawDomainGraphIGraph
+			elif args.backend.upper() == 'graphtools'.upper():
+				from jackdaw.nest.graph.backends.graphtools.domaingraph import JackDawDomainGraphGrapthTools
+				graph_type = JackDawDomainGraphGrapthTools
+
+			session = get_session(db_conn)
+			creategraphcache(args.graph_id, session, args.work_dir, graph_type, db_conn)
 
 	except Exception as e:
 		jdlogger.exception('main')
@@ -490,6 +506,10 @@ def main():
 	uncracked_group.add_argument('-t','--hash-type', default='NT', choices= ['NT', 'LM'])
 	uncracked_group.add_argument('--history', action='store_true', help = 'Show password history hashes as well')
 	uncracked_group.add_argument('-d','--domain-id', type=int, default = -1, help='Domain ID to identify the domain')
+
+	crateagraphcache_group = subparsers.add_parser('createcache', help='Creates graph cache')
+	crateagraphcache_group.add_argument('--backend', default='igraph', choices=['igraph', 'networkx'])
+	crateagraphcache_group.add_argument('graph_id', type=int, help='Graph ID to create the graph for')
 	
 	cracked_group = subparsers.add_parser('cracked', help='Polls the DB for cracked passwords')
 	cracked_group.add_argument('-d','--domain-id', type=int, default = -1, help='Domain ID to identify the domain')
