@@ -147,6 +147,8 @@ def create_db(connection, verbosity = 0):
 		session = Session()
 		#inserting test data...
 		session.add(CustomCred('victim', 'password', 'Passw0rd!1', 'testcred', domain='TEST'))
+		session.add(CustomCred('victim', 'password', 'Passw0rd!1', 'testcred', domain='TEST2'))
+		session.add(CustomCred('victim', 'password', 'Passw0rd!1', 'testcred', domain='TEST3'))
 		session.add(CustomTarget('10.10.10.1', 'testserver'))
 		session.add(CustomTarget('10.10.20.1', 'testserver'))
 		session.add(CustomTarget('10.10.30.1', 'testserver'))
