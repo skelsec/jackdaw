@@ -28,7 +28,7 @@ class NestOpKerberoast:
 		cmd.agent_id = d['agent_id']
 		cmd.target = NestOpTargetDef.from_dict(d['target'])
 		cmd.creds = NestOpCredsDef.from_dict(d['creds'])
-		cmd.target_user = NestOpTargetDef.from_dict(d['target_user'])
+		cmd.target_user = NestOpCredsDef.from_dict(d['target_user'])
 		return cmd
 
 	@staticmethod

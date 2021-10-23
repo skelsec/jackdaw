@@ -581,7 +581,7 @@ class NestWebScoketClientConsole(aiocmd.PromptToolkitCmd):
 			cmd.agent_id = agent_id
 			cmd.creds = creds
 			cmd.target = target
-			cmd.target_user = NestOpTargetDef()
+			cmd.target_user = NestOpCredsDef()
 			cmd.target_user.adid = targetuser_adid
 			cmd.target_user.sid = targetuser_sid
 			
