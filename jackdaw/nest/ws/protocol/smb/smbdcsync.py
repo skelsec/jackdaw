@@ -28,7 +28,7 @@ class NestOpSMBDCSync:
 		cmd.target = NestOpTargetDef.from_dict(d['target'])
 		cmd.creds = NestOpCredsDef.from_dict(d['creds'])
 		cmd.target_user = None
-		if 'target_user' in d:
+		if 'target_user' in d and d['target_user'] is not None:
 			cmd.target_user = NestOpCredsDef.from_dict(d['target_user'])
 		return cmd
 
