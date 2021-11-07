@@ -26,14 +26,13 @@ from asysocks.common.clienturl import SocksClientURL
 from jackdaw.gatherer.progress import *
 
 class KerberoastGatherer:
-	def __init__(self, db_conn, ad_id, progress_queue = None, show_progress = True, kerb_url = None, domain_name = None, proxy = None):
-		self.db_conn = db_conn
+	def __init__(self, db_session, ad_id, progress_queue = None, show_progress = True, kerb_url = None, domain_name = None, proxy = None):
+		self.db_session = db_session
 		self.ad_id = ad_id
 		self.kerb_url = kerb_url
 		self.kerb_mgr = None
 		self.proxy = proxy
 		self.domain_name = domain_name
-		self.session = None
 		self.progress_queue = progress_queue
 		self.show_progress = show_progress
 
@@ -62,7 +61,7 @@ class KerberoastGatherer:
 				ar = APREPRoast(target)
 				res = await ar.run(self.targets_asreq[uid], override_etype = [23])
 				t = KerberoastTable.from_hash(self.ad_id, uid, res)
-				self.session.add(t)
+				self.db_session.add(t)
 				self.total_targets_finished += 1
 
 				if self.progress_queue is not None:
@@ -76,7 +75,7 @@ class KerberoastGatherer:
 					msg.step_size = 1
 					await self.progress_queue.put(msg)
 				
-			self.session.commit()
+			self.db_session.commit()
 			return True, None
 		except Exception as e:
 			return None, e
@@ -98,7 +97,7 @@ class KerberoastGatherer:
 						continue
 
 					t = KerberoastTable.from_hash(self.ad_id, uid, TGSTicket2hashcat(ticket))
-					self.session.add(t)
+					self.db_session.add(t)
 
 					self.total_targets_finished += 1
 					if self.progress_queue is not None:
@@ -114,7 +113,7 @@ class KerberoastGatherer:
 
 				except Exception as e:
 					logger.debug('Could not fetch tgs for %s' % uid)
-			self.session.commit()
+			self.db_session.commit()
 
 			return True, None
 		except Exception as e:
@@ -152,7 +151,7 @@ class KerberoastGatherer:
 					aprep = AP_REQ.load(unwrap.data[2:]).native
 					
 					t = KerberoastTable.from_hash(self.ad_id, uid, TGSTicket2hashcat(aprep))
-					self.session.add(t)
+					self.db_session.add(t)
 
 					self.total_targets_finished += 1
 					if self.progress_queue is not None:
@@ -174,7 +173,7 @@ class KerberoastGatherer:
 					except:
 						pass
 
-			self.session.commit()
+			self.db_session.commit()
 		except Exception as e:
 			return None, e
 
@@ -204,7 +203,7 @@ class KerberoastGatherer:
 				unwrap = KRB5_MECH_INDEP_TOKEN.from_bytes(apreq)
 				aprep = AP_REQ.load(unwrap.data[2:]).native
 				t = KerberoastTable.from_hash(self.ad_id, uid, TGSTicket2hashcat(aprep))
-				self.session.add(t)
+				self.db_session.add(t)
 
 				self.total_targets_finished += 1
 				if self.progress_queue is not None:
@@ -218,7 +217,7 @@ class KerberoastGatherer:
 					msg.step_size = 1
 					await self.progress_queue.put(msg)
 
-			self.session.commit()
+			self.db_session.commit()
 		except Exception as e:
 			return None, e
 	
@@ -233,7 +232,7 @@ class KerberoastGatherer:
 					hashes = await ar.run([self.targets_spn[uid]], override_etype = [23, 17, 18])
 					for h in hashes:
 						t = KerberoastTable.from_hash(self.ad_id, uid, h)
-						self.session.add(t)
+						self.db_session.add(t)
 
 						self.total_targets_finished += 1
 						if self.progress_queue is not None:
@@ -249,15 +248,15 @@ class KerberoastGatherer:
 
 				except Exception as e:
 					logger.debug('Could not fetch tgs for %s' % uid)
-			self.session.commit()
+			self.db_session.commit()
 			return True, None
 		except Exception as e:
 			return None, e
 
 	async def get_targets(self):
 		try:
-			q_asrep = self.session.query(ADUser).filter_by(ad_id = self.ad_id).filter(ADUser.UAC_DONT_REQUIRE_PREAUTH == True)
-			q_spn = self.session.query(ADUser).filter_by(ad_id = self.ad_id).filter(ADUser.servicePrincipalName != None)
+			q_asrep = self.db_session.query(ADUser).filter_by(ad_id = self.ad_id).filter(ADUser.UAC_DONT_REQUIRE_PREAUTH == True)
+			q_spn = self.db_session.query(ADUser).filter_by(ad_id = self.ad_id).filter(ADUser.servicePrincipalName != None)
 			
 			for user in q_asrep.all():
 				if user.sAMAccountName == 'krbtgt':
@@ -292,9 +291,8 @@ class KerberoastGatherer:
 				msg.domain_name = self.domain_name
 				await self.progress_queue.put(msg)
 
-			self.session = get_session(self.db_conn)
 			if self.domain_name is None:
-				info = self.session.query(ADInfo).get(self.ad_id)
+				info = self.db_session.query(ADInfo).get(self.ad_id)
 				self.domain_name = str(info.distinguishedName).replace(',','.').replace('DC=','')
 
 			_, err = await self.get_targets()

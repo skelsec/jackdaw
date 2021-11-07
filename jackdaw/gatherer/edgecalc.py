@@ -54,8 +54,8 @@ class EdgeCalcProgress:
 		
 
 class EdgeCalc:
-	def __init__(self, db_conn, ad_id, graph_id, buffer_size = 100, show_progress = True, progress_queue = None, worker_count = None, mp_pool = None, work_dir = None):
-		self.db_conn = db_conn
+	def __init__(self, db_session, ad_id, graph_id, buffer_size = 100, show_progress = True, progress_queue = None, worker_count = None, mp_pool = None, work_dir = None):
+		self.db_session = db_session
 		self.ad_id = ad_id
 		self.buffer_size = buffer_size
 		self.show_progress = show_progress
@@ -73,7 +73,6 @@ class EdgeCalc:
 		self.sd_edges_written = 0
 		self.worker_count = worker_count
 		self.boost_dict = {}
-		self.session = None
 		self.foreign_pool = False
 		if self.mp_pool is None:
 			self.foreign_pool = True
@@ -85,13 +84,13 @@ class EdgeCalc:
 		if sid in self.boost_dict:
 			return self.boost_dict[sid]
 		orig = sid
-		sid = self.session.query(EdgeLookup.id).filter_by(oid = sid).filter(EdgeLookup.ad_id == self.ad_id).first()
+		sid = self.db_session.query(EdgeLookup.id).filter_by(oid = sid).filter(EdgeLookup.ad_id == self.ad_id).first()
 		if sid is None:
 			#this should not happen
 			t = EdgeLookup(self.ad_id, sid, 'unknown')
-			self.session.add(t)
-			self.session.commit()
-			self.session.refresh(t)
+			self.db_session.add(t)
+			self.db_session.commit()
+			self.db_session.refresh(t)
 			sid = t.id
 		else:
 			sid = sid[0]
@@ -104,9 +103,9 @@ class EdgeCalc:
 		dst_id = self.get_id_for_sid(dst_sid, with_boost = with_boost)
 
 		edge = Edge(self.ad_id, self.graph_id, src_id, dst_id, label)
-		self.session.add(edge)
+		self.db_session.add(edge)
 		if self.total_edges % 10000 == 0:
-			self.session.commit()
+			self.db_session.commit()
 
 	async def log_msg(self, text):
 		if self.progress_queue is not None:
@@ -121,8 +120,8 @@ class EdgeCalc:
 	def trust_edges(self):
 		logger.debug('Adding trusts edges')
 		cnt = 0
-		adinfo = self.session.query(ADInfo).get(self.ad_id)
-		for trust in self.session.query(ADTrust).filter_by(ad_id = self.ad_id):
+		adinfo = self.db_session.query(ADInfo).get(self.ad_id)
+		for trust in self.db_session.query(ADTrust).filter_by(ad_id = self.ad_id):
 			if trust.trustDirection == 'INBOUND':
 				self.add_edge(adinfo.objectSid, trust.securityIdentifier,'trustedBy')
 				cnt += 1
@@ -140,7 +139,7 @@ class EdgeCalc:
 	def sqladmin_edges(self):
 		logger.debug('Adding sqladmin edges')
 		cnt = 0
-		for user_sid, machine_sid in self.session.query(JackDawSPN.owner_sid, Machine.objectSid)\
+		for user_sid, machine_sid in self.db_session.query(JackDawSPN.owner_sid, Machine.objectSid)\
 				.filter(JackDawSPN.ad_id == self.ad_id)\
 				.filter(Machine.ad_id == self.ad_id)\
 				.filter(ADUser.ad_id == self.ad_id)\
@@ -155,7 +154,7 @@ class EdgeCalc:
 		logger.debug('Adding hassession edges')
 		cnt = 0
 		#for user sessions
-		q = self.session.query(ADUser.objectSid, Machine.objectSid)\
+		q = self.db_session.query(ADUser.objectSid, Machine.objectSid)\
 			.filter(NetSession.username == ADUser.sAMAccountName)\
 			.filter(func.lower(NetSession.source) == func.lower(Machine.dNSHostName))\
 			.distinct(NetSession.username)
@@ -165,7 +164,7 @@ class EdgeCalc:
 			self.add_edge(res[1], res[0],'hasSession')
 			cnt += 2
 		#for machine account sessions
-		q = self.session.query(Machine.objectSid, Machine.objectSid)\
+		q = self.db_session.query(Machine.objectSid, Machine.objectSid)\
 			.filter(NetSession.username == Machine.sAMAccountName)\
 			.filter(func.lower(NetSession.source) == func.lower(Machine.dNSHostName))\
 			.distinct(NetSession.username)
@@ -178,7 +177,7 @@ class EdgeCalc:
 		
 		logger.debug('Adding hassession edges from registry')
 		
-		q = self.session.query(ADUser.objectSid, Machine.objectSid)\
+		q = self.db_session.query(ADUser.objectSid, Machine.objectSid)\
 			.filter(RegSession.user_sid == ADUser.objectSid)\
 			.filter(RegSession.machine_sid == Machine.objectSid)\
 			.filter(RegSession.ad_id == self.ad_id)\
@@ -197,7 +196,7 @@ class EdgeCalc:
 	def localgroup_edges(self):
 		logger.debug('Adding localgroup edges')
 		cnt = 0
-		q = self.session.query(ADUser.objectSid, Machine.objectSid, LocalGroup.groupname
+		q = self.db_session.query(ADUser.objectSid, Machine.objectSid, LocalGroup.groupname
 					).filter(Machine.objectSid == LocalGroup.machine_sid
 					).filter(Machine.ad_id == self.ad_id
 					).filter(ADUser.ad_id == self.ad_id
@@ -230,13 +229,13 @@ class EdgeCalc:
 		logger.debug('Adding password sharing edges')
 		cnt = 0
 		def get_sid_by_nthash(ad_id, nt_hash):
-			return self.session.query(ADUser.objectSid, Credential.username
+			return self.db_session.query(ADUser.objectSid, Credential.username
 				).filter_by(ad_id = ad_id
 				).filter(Credential.username == ADUser.sAMAccountName
 				).filter(Credential.nt_hash == nt_hash
 				)
 
-		dup_nthashes_qry = self.session.query(Credential.nt_hash
+		dup_nthashes_qry = self.db_session.query(Credential.nt_hash
 					).filter(Credential.history_no == 0
 					).filter(Credential.ad_id == self.ad_id
 					   ).filter(Credential.username != 'NA'
@@ -263,7 +262,7 @@ class EdgeCalc:
 
 	def gplink_edges(self):
 		logger.debug('Adding gplink edges')
-		q = self.session.query(ADOU.objectGUID, GPO.objectGUID)\
+		q = self.db_session.query(ADOU.objectGUID, GPO.objectGUID)\
 				.filter_by(ad_id = self.ad_id)\
 				.filter(ADOU.objectGUID == Gplink.ou_guid)\
 				.filter(Gplink.gpo_dn == GPO.cn)
@@ -275,7 +274,7 @@ class EdgeCalc:
 
 	def allowedtoact_edges(self):
 		logger.debug('Adding allowedtoact edges')
-		q = self.session.query(MachineAllowedToAct.machine_sid, MachineAllowedToAct.target_sid)\
+		q = self.db_session.query(MachineAllowedToAct.machine_sid, MachineAllowedToAct.target_sid)\
 				.filter_by(ad_id = self.ad_id)
 		cnt = 0
 		for res in windowed_query(q, MachineAllowedToAct.id, self.buffer_size, False):
@@ -287,7 +286,7 @@ class EdgeCalc:
 	def groupmembership_edges(self):
 		return
 		#logger.info('Adding groupmembership edges')
-		#q = self.session.query(JackDawTokenGroup).filter_by(ad_id = self.ad_id)
+		#q = self.db_session.query(JackDawTokenGroup).filter_by(ad_id = self.ad_id)
 		#cnt = 0
 		#for _, res in enumerate(windowed_query(q, JackDawTokenGroup.id, windowsize = self.buffer_size)):
 		#		self.add_edge(res.sid, res.member_sid, 'member')
@@ -318,9 +317,9 @@ class EdgeCalc:
 		logger.debug('starting calc_sds_mp')
 		try:
 			cnt = 0
-			total = self.session.query(func.count(JackDawSD.id)).filter(JackDawSD.ad_id == self.ad_id).scalar()
+			total = self.db_session.query(func.count(JackDawSD.id)).filter(JackDawSD.ad_id == self.ad_id).scalar()
 			logger.debug('calc_sds_mp total SDs %s' % str(total))
-			q = self.session.query(JackDawSD).filter_by(ad_id = self.ad_id)
+			q = self.db_session.query(JackDawSD).filter_by(ad_id = self.ad_id)
 
 			if self.progress_queue is not None:
 				msg = GathererProgress()
@@ -434,7 +433,7 @@ class EdgeCalc:
 			if self.show_progress is True:
 				sdcalcupload_pbar = tqdm(desc = 'Writing SD edge file contents to DB', total = cnt, disable=self.disable_tqdm)
 
-			engine = self.session.get_bind()
+			engine = self.db_session.get_bind()
 			print(engine)
 
 			testfile.seek(0,0)
@@ -493,7 +492,7 @@ class EdgeCalc:
 				msg.domain_name = self.domain_name
 				await self.progress_queue.put(msg)
 			
-			self.session.commit()
+			self.db_session.commit()
 			return True, None
 		except Exception as e:
 			logger.exception('sdcalc!')
@@ -517,7 +516,7 @@ class EdgeCalc:
 				if isinstance(self.work_dir, str):
 					self.work_dir = pathlib.Path(self.work_dir)
 
-			adinfo = self.session.query(ADInfo).get(self.ad_id)
+			adinfo = self.db_session.query(ADInfo).get(self.ad_id)
 			self.domain_name = str(adinfo.distinguishedName).replace(',','.').replace('DC=','')
 			
 
@@ -537,14 +536,14 @@ class EdgeCalc:
 			self.passwordsharing_edges()
 			await self.log_msg('Adding allowedtoact sharing edges')
 			self.allowedtoact_edges()
-			self.session.commit()
+			self.db_session.commit()
 			_, err = await self.calc_sds_mp()
 			if err is not None:
 				raise err
 			
-			adinfo = self.session.query(ADInfo).get(self.ad_id)
+			adinfo = self.db_session.query(ADInfo).get(self.ad_id)
 			adinfo.edges_finished = True
-			self.session.commit()
+			self.db_session.commit()
 			return True, None
 		except Exception as e:
 			logger.exception('edge calculation error!')
@@ -552,14 +551,13 @@ class EdgeCalc:
 
 	async def run(self):
 		try:
-			self.session = get_session(self.db_conn)
 			if self.ad_id is None and self.graph_id is not None:
 				#recalc!
-				self.session.query(Edge).filter_by(graph_id = self.graph_id).filter(Edge.label != 'member').delete()
-				self.session.commit()
+				self.db_session.query(Edge).filter_by(graph_id = self.graph_id).filter(Edge.label != 'member').delete()
+				self.db_session.commit()
 
-				res = self.session.query(GraphInfo).get(self.graph_id)
-				for giad in self.session.query(GraphInfoAD).filter_by(graph_id = self.graph_id).all():
+				res = self.db_session.query(GraphInfo).get(self.graph_id)
+				for giad in self.db_session.query(GraphInfoAD).filter_by(graph_id = self.graph_id).all():
 					self.ad_id = giad.ad_id
 					_, err = await self.start_calc()
 					if err is not None:
@@ -577,7 +575,7 @@ class EdgeCalc:
 			return False, e
 		finally:
 			try:
-				self.session.close()
+				self.db_session.close()
 			except:
 				pass
 

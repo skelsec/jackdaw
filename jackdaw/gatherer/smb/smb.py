@@ -34,21 +34,20 @@ from aiosmb.commons.utils.extb import format_exc
 from sqlalchemy import func
 
 class SMBGatherer:
-	def __init__(self, db_conn, ad_id, smb_mgr, worker_cnt = None, progress_queue = None, show_progress = True, stream_data = False):
+	def __init__(self, db_session, ad_id, smb_mgr, worker_cnt = None, progress_queue = None, show_progress = True, stream_data = False):
 		self.in_q = None
 		self.out_q = None
 		self.smb_mgr = smb_mgr
 		self.gathering_type = ['all']
 		self.localgroups = ['Administrators', 'Distributed COM Users','Remote Desktop Users','Remote Management Users']
 		self.concurrent_connections = worker_cnt if worker_cnt is not None else get_cpu_count()
-		self.db_conn = db_conn
+		self.db_session = db_session
 		self.progress_queue = progress_queue
 		self.show_progress = show_progress
 
 		self.queue_size = self.concurrent_connections
 
 		self.total_targets = 0
-		self.session = None
 
 		self.gatherer = None
 		self.gatherer_task = None
@@ -85,7 +84,7 @@ class SMBGatherer:
 			
 	async def generate_targets(self):
 		try:
-			q = self.session.query(Machine).filter_by(ad_id = self.ad_id)
+			q = self.db_session.query(Machine).filter_by(ad_id = self.ad_id)
 			for machine in windowed_query(q, Machine.id, 100):
 				try:
 					dns_name = machine.dNSHostName
@@ -102,36 +101,35 @@ class SMBGatherer:
 	
 	def flush_buffer(self):
 		try:
-			self.session.bulk_save_objects(self.result_buffer)
-			self.session.commit()
+			self.db_session.bulk_save_objects(self.result_buffer)
+			self.db_session.commit()
 		except Exception as e:
 			print('Save failed! %s' % e)
-			self.session.rollback()
+			self.db_session.rollback()
 
 			for result in self.result_buffer:
 				try:
-					self.session.add(result)
+					self.db_session.add(result)
 				except:
 					pass
-			self.session.commit()
+			self.db_session.commit()
 			
 		self.result_buffer = []
 		
 	async def run(self):
 		try:
 			logger.debug('[+] Starting SMB information acqusition. This might take a while...')
-			self.session = get_session(self.db_conn)
 			self.in_q = asyncio.Queue(self.queue_size)
 			self.out_q = asyncio.Queue(self.queue_size)
 			
 			
 			
-			info = self.session.query(ADInfo).get(self.ad_id)
+			info = self.db_session.query(ADInfo).get(self.ad_id)
 			info.smb_enumeration_state = 'STARTED'
 			self.domain_name = str(info.distinguishedName).replace(',','.').replace('DC=','')
-			self.session.commit()
+			self.db_session.commit()
 			
-			self.total_targets = self.session.query(func.count(Machine.id)).filter(Machine.ad_id == self.ad_id).scalar()
+			self.total_targets = self.db_session.query(func.count(Machine.id)).filter(Machine.ad_id == self.ad_id).scalar()
 			
 			
 			if self.show_progress is True:
@@ -181,7 +179,7 @@ class SMBGatherer:
 					err.ad_id = self.ad_id
 					err.machine_sid = tid
 					err.error = str(error)
-					self.session.add(err)
+					self.db_session.add(err)
 					
 
 				if result is not None:
@@ -258,9 +256,9 @@ class SMBGatherer:
 			if len(self.result_buffer) > 0:
 				self.flush_buffer()
 
-			info = self.session.query(ADInfo).get(self.ad_id)
+			info = self.db_session.query(ADInfo).get(self.ad_id)
 			info.smb_enumeration_state = 'FINISHED'
-			self.session.commit()
+			self.db_session.commit()
 
 			logger.debug('[+] SMB information acquisition finished!')
 			if self.progress_queue is not None:

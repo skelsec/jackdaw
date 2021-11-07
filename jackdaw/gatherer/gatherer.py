@@ -2,6 +2,7 @@
 import pathlib
 import asyncio
 import platform
+import traceback
 from aiosmb.commons.connection.proxy import SMBProxy, SMBProxyType
 
 from asysocks.common.clienturl import SocksClientURL
@@ -21,8 +22,8 @@ from tqdm import tqdm
 from jackdaw.gatherer.progress import *
 
 class Gatherer:
-	def __init__(self, db_url, work_dir, ldap_url, smb_url, kerb_url = None, ad_id = None, calc_edges = True, ldap_worker_cnt = 4, smb_worker_cnt = 100, mp_pool = None, smb_enum_shares = False, smb_gather_types = ['all'], progress_queue = None, show_progress = True, dns = None, store_to_db = True, graph_id = None, stream_data = False, no_work_dir = False, proxy = None):
-		self.db_url = db_url
+	def __init__(self, db_session, work_dir, ldap_url, smb_url, kerb_url = None, ad_id = None, calc_edges = True, ldap_worker_cnt = 4, smb_worker_cnt = 100, mp_pool = None, smb_enum_shares = False, smb_gather_types = ['all'], progress_queue = None, show_progress = True, dns = None, store_to_db = True, graph_id = None, stream_data = False, no_work_dir = False, proxy = None):
+		self.db_session = db_session
 		self.work_dir = work_dir
 		self.no_work_dir = no_work_dir
 		self.mp_pool = mp_pool
@@ -254,7 +255,7 @@ class Gatherer:
 	async def gather_ldap(self):
 		try:
 			self.ldap_gatherer = LDAPGatherer(
-				self.db_url,
+				self.db_session,
 				self.ldap_mgr,
 				agent_cnt=self.ldap_worker_cnt, 
 				work_dir = self.ldap_work_dir,
@@ -277,7 +278,7 @@ class Gatherer:
 	async def kerberoast(self):
 		try:
 			gatherer = KerberoastGatherer(
-				self.db_url, 
+				self.db_session, 
 				self.ad_id, 
 				progress_queue = self.progress_queue,
 				show_progress = False,
@@ -296,7 +297,7 @@ class Gatherer:
 	async def gather_smb(self):
 		try:
 			mgr = SMBGatherer(
-				self.db_url,
+				self.db_session,
 				self.ad_id,
 				self.smb_mgr, 
 				worker_cnt=self.smb_worker_cnt,
@@ -314,7 +315,7 @@ class Gatherer:
 	async def gather_dns(self):
 		try:
 			mgr = DNSGatherer(
-				self.db_url,
+				self.db_session,
 				self.ad_id,
 				self.rdns_resolver,
 				worker_cnt = 100,
@@ -337,7 +338,7 @@ class Gatherer:
 	async def calc_edges(self):
 		try:
 			ec = EdgeCalc(
-				self.db_url, 
+				self.db_session, 
 				self.ad_id, 
 				self.graph_id, 
 				buffer_size = 100, 

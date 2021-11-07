@@ -12,8 +12,8 @@ from sqlalchemy import func
 
 
 class DNSGatherer:
-	def __init__(self, db_conn, ad_id, rdns_resolver, worker_cnt = None, progress_queue = None, stream_data = False):
-		self.db_conn = db_conn
+	def __init__(self, db_session, ad_id, rdns_resolver, worker_cnt = None, progress_queue = None, stream_data = False):
+		self.db_session = db_session
 		self.ad_id = ad_id
 		self.rdns_resolver = rdns_resolver
 		self.worker_cnt = worker_cnt
@@ -31,12 +31,12 @@ class DNSGatherer:
 		self.progress_step_size = 1
 		self.prg_hosts_cnt = 0
 		self.prg_errors_cnt = 0
-		self.session = None
+		
 
 
 	async def generate_targets(self):
 		try:
-			q = self.session.query(Machine).filter_by(ad_id = self.ad_id)
+			q = self.db_session.query(Machine).filter_by(ad_id = self.ad_id)
 			for machine in windowed_query(q, Machine.id, 100):
 				try:
 					dns_name = machine.dNSHostName
@@ -55,10 +55,9 @@ class DNSGatherer:
 
 	async def run(self):
 		try:
-			self.session = get_session(self.db_conn)
-			info = self.session.query(ADInfo).get(self.ad_id)
+			info = self.db_session.query(ADInfo).get(self.ad_id)
 			self.domain_name = str(info.distinguishedName).replace(',','.').replace('DC=','')
-			self.total_targets = self.session.query(func.count(Machine.id)).filter(Machine.ad_id == self.ad_id).scalar()
+			self.total_targets = self.db_session.query(func.count(Machine.id)).filter(Machine.ad_id == self.ad_id).scalar()
 			self.job_generator_task = asyncio.create_task(self.generate_targets())
 			
 			for _ in range(self.worker_cnt):
@@ -80,13 +79,13 @@ class DNSGatherer:
 					err.ad_id = self.ad_id
 					err.machine_sid = sid
 					err.error = str(error)
-					self.session.add(err)
+					self.db_session.add(err)
 					self.prg_errors_cnt += 1
 					continue
 				
-				self.session.add(result)
+				self.db_session.add(result)
 				if self.prg_hosts_cnt % self.progress_step_size == 0:
-					self.session.commit()
+					self.db_session.commit()
 
 				self.prg_hosts_cnt += 1
 

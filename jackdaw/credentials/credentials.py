@@ -25,7 +25,7 @@ class JackDawCredentials:
 			alphabet_size += 10
 
 		if he.pw_special is True:
-			alphabet_size += len(" !\"#$%&'()*+,-./:;<=>?@[\\]^_`{|}~ ") #from hashcat
+			alphabet_size += len(" !\"#$%&'()*+,-./:;<=>?@[\\]^_`{|}~") #from hashcat
 
 		res = (alphabet_size**he.pw_length) // self.cracking_speed
 		return res

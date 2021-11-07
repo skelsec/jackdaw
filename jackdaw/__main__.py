@@ -142,7 +142,9 @@ async def run(args):
 			smb_url = args.smb_url
 
 		db_conn = args.sql
+		db_session = None
 		if db_conn is not None:
+			db_session = get_session(db_conn)
 			os.environ['JACKDAW_SQLITE'] = '0'
 			if args.sql.lower().startswith('sqlite'):
 				os.environ['JACKDAW_SQLITE'] = '1'
@@ -152,7 +154,7 @@ async def run(args):
 		if args.command == 'enum':
 			with multiprocessing.Pool() as mp_pool:
 				gatherer = Gatherer(
-					db_conn, 
+					db_session, 
 					work_dir, 
 					ldap_url, 
 					smb_url,
@@ -190,12 +192,11 @@ async def run(args):
 			create_db(db_conn)
 		
 		elif args.command == 'adinfo':
-			session = get_session(db_conn)
 			from jackdaw.dbmodel.adinfo import ADInfo
 			from jackdaw.utils.table import print_table
 			
 			rows = [['Ad ID', 'domain name', 'scantime']]
-			for did, distinguishedName, creation in session.query(ADInfo).with_entities(ADInfo.id, ADInfo.distinguishedName, ADInfo.fetched_at).all():
+			for did, distinguishedName, creation in db_session.query(ADInfo).with_entities(ADInfo.id, ADInfo.distinguishedName, ADInfo.fetched_at).all():
 				name = distinguishedName.replace('DC=','')
 				name = name.replace(',','.')
 				rows.append([str(did), name, creation.isoformat()])
@@ -204,7 +205,7 @@ async def run(args):
 		elif args.command == 'ldap':
 			with multiprocessing.Pool() as mp_pool:
 				gatherer = Gatherer(
-					db_conn, 
+					db_session, 
 					work_dir, 
 					ldap_url, 
 					smb_url, 
@@ -219,11 +220,13 @@ async def run(args):
 					no_work_dir=args.no_work_dir,
 					proxy=args.proxy
 				)
-				await gatherer.run()
+				_, err = await gatherer.run()
+				if err is not None:
+					raise err
 
 		elif args.command == 'kerberoast':
 			gatherer = Gatherer(
-				db_conn,
+				db_session,
 				work_dir,
 				None,
 				None,
@@ -238,7 +241,9 @@ async def run(args):
 				ad_id=args.ad_id,
 				proxy=args.proxy
 			)
-			await gatherer.run()
+			_, err = await gatherer.run()
+			if err is not None:
+				raise err
 			print('Kerberoast Finished!')
 
 			
@@ -247,7 +252,7 @@ async def run(args):
 				args.command = 'all'
 
 			gatherer = Gatherer(
-				db_conn, 
+				db_session, 
 				work_dir, 
 				ldap_url, 
 				smb_url,
@@ -261,11 +266,13 @@ async def run(args):
 				calc_edges=False,
 				proxy=args.proxy
 			)
-			await gatherer.run()
+			_, err = await gatherer.run()
+			if err is not None:
+				raise err
 
 		elif args.command == 'dns':
 			gatherer = Gatherer(
-				db_conn, 
+				db_session, 
 				work_dir, 
 				None, 
 				None,
@@ -280,7 +287,9 @@ async def run(args):
 				dns=args.dns,
 				proxy=args.proxy
 			)
-			await gatherer.run()
+			_, err = await gatherer.run()
+			if err is not None:
+				raise err
 
 		elif args.command == 'version':
 			print('Jackdaw version: %s' % jdversion)
@@ -289,7 +298,7 @@ async def run(args):
 
 		elif args.command == 'smbfiles':
 			gatherer = SMBFileGatherer(
-				db_conn, 
+				db_session, 
 				args.ad_id, 
 				args.smb_url, 
 				worker_cnt = args.smb_workers, 
@@ -300,6 +309,8 @@ async def run(args):
 				to_file=args.out_file,
 			)
 			_, err = await gatherer.run()
+			if err is not None:
+				raise err
 			
 		elif args.command == 'creds':
 			creds = JackDawCredentials(db_conn, args.domain_id)
@@ -321,7 +332,7 @@ async def run(args):
 		elif args.command == 'recalc':
 			with multiprocessing.Pool() as mp_pool:
 				gatherer = Gatherer(
-					db_conn, 
+					db_session, 
 					work_dir, 
 					None, 
 					None, 
@@ -333,7 +344,9 @@ async def run(args):
 					ad_id=None,
 					graph_id=args.graphid
 				)
-				await gatherer.run()
+				_, err = await gatherer.run()
+				if err is not None:
+					raise err
 
 		elif args.command == 'nest':
 			from jackdaw.nest.wrapper import NestServer

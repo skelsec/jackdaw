@@ -52,8 +52,8 @@ from jackdaw.gatherer.ldap.collectors.membership import MembershipCollector
 import pathlib
 
 class LDAPGatherer:
-	def __init__(self, db_conn, ldap_mgr, agent_cnt = None, progress_queue = None, ad_id = None, graph_id = None, work_dir = None, show_progress = True, store_to_db = True, base_collection_finish_evt = None, stream_data = False, no_work_dir = False, proxy = None):
-		self.db_conn = db_conn
+	def __init__(self, db_session, ldap_mgr, agent_cnt = None, progress_queue = None, ad_id = None, graph_id = None, work_dir = None, show_progress = True, store_to_db = True, base_collection_finish_evt = None, stream_data = False, no_work_dir = False, proxy = None):
+		self.db_session = db_session
 		self.ldap_mgr = ldap_mgr
 		self.work_dir = work_dir
 		self.no_work_dir = no_work_dir
@@ -62,7 +62,6 @@ class LDAPGatherer:
 		self.progress_queue = progress_queue
 		self.base_collection_finish_evt = base_collection_finish_evt
 		self.proxy = proxy
-		self.session = None
 
 		self.agent_in_q = None
 		self.agent_out_q = None
@@ -92,7 +91,7 @@ class LDAPGatherer:
 			self.members_file_handle = gzip.GzipFile(self.members_target_file_name,mode='rb')
 
 			mc = MembershipCollector(
-				self.session,
+				self.db_session,
 				self.ldap_mgr,
 				ad_id = self.ad_id,
 				agent_cnt = self.agent_cnt,
@@ -132,7 +131,7 @@ class LDAPGatherer:
 			self.sd_file_handle = gzip.GzipFile(self.sd_target_file_name,mode='rb')
 
 			sdc = SDCollector(
-				self.session, 
+				self.db_session, 
 				self.ldap_mgr, 
 				ad_id = self.ad_id, 
 				graph_id = self.graph_id, 
@@ -168,7 +167,6 @@ class LDAPGatherer:
 	async def run(self):
 		try:
 			logger.debug('[+] Starting LDAP information acqusition. This might take a while...')
-			self.session = get_session(self.db_conn)
 
 			if self.no_work_dir is False:
 				if self.work_dir is None:
@@ -188,7 +186,7 @@ class LDAPGatherer:
 				self.members_file_handle = gzip.GzipFile(self.members_target_file_name,mode='wb')
 				self.sd_file_handle = gzip.GzipFile(self.sd_target_file_name,mode='wb')
 				bc = BaseCollector(
-					self.session, 
+					self.db_session, 
 					self.ldap_mgr, 
 					agent_cnt = self.agent_cnt, 
 					progress_queue = self.progress_queue, 
@@ -215,25 +213,25 @@ class LDAPGatherer:
 					raise err
 			
 			else:
-				adinfo = self.session.query(ADInfo).get(self.ad_id)
+				adinfo = self.db_session.query(ADInfo).get(self.ad_id)
 				self.graph_id = adinfo.graph_id
 				if adinfo.ldap_sds_finished is True and adinfo.ldap_members_finished is True:
 					return self.ad_id, self.graph_id, None
 
 				if adinfo.ldap_sds_finished is False:
-					self.session.query(JackDawSD).filter_by(ad_id = self.ad_id).delete()
-					self.session.commit()
+					self.db_session.query(JackDawSD).filter_by(ad_id = self.ad_id).delete()
+					self.db_session.commit()
 
 				if adinfo.ldap_members_finished is False:
-					self.session.query(Edge).delete()
-					self.session.commit()
+					self.db_session.query(Edge).delete()
+					self.db_session.commit()
 
 				if adinfo.ldap_members_finished is False:
 					self.members_file_handle = gzip.GzipFile(self.members_target_file_name,mode='wb')
 				if adinfo.ldap_sds_finished is False:
 					self.sd_file_handle = gzip.GzipFile(self.sd_target_file_name,mode='wb')
 
-				res = self.session.query(ADInfo).get(self.ad_id)
+				res = self.db_session.query(ADInfo).get(self.ad_id)
 				data = {
 					'dn' : res.distinguishedName,
 					'sid' : res.objectSid,
@@ -243,7 +241,7 @@ class LDAPGatherer:
 				if adinfo.ldap_sds_finished is False:
 					self.sd_file_handle.write(json.dumps(data).encode() + b'\r\n')
 
-				q = self.session.query(ADUser).filter_by(ad_id = self.ad_id)
+				q = self.db_session.query(ADUser).filter_by(ad_id = self.ad_id)
 				for res in windowed_query(q, ADUser.id, 100):
 					data = {
 						'dn' : res.dn,
@@ -256,7 +254,7 @@ class LDAPGatherer:
 					if adinfo.ldap_members_finished is False:
 						self.members_file_handle.write(json.dumps(data).encode() + b'\r\n')
 
-				q = self.session.query(Machine).filter_by(ad_id = self.ad_id)
+				q = self.db_session.query(Machine).filter_by(ad_id = self.ad_id)
 				for res in windowed_query(q, Machine.id, 100):
 					data = {
 						'dn' : res.dn,
@@ -269,7 +267,7 @@ class LDAPGatherer:
 					if adinfo.ldap_members_finished is False:
 						self.members_file_handle.write(json.dumps(data).encode() + b'\r\n')
 
-				q = self.session.query(Group).filter_by(ad_id = self.ad_id)
+				q = self.db_session.query(Group).filter_by(ad_id = self.ad_id)
 				for res in windowed_query(q, Group.id, 100):
 					data = {
 						'dn' : res.dn,
@@ -282,7 +280,7 @@ class LDAPGatherer:
 					if adinfo.ldap_members_finished is False:
 						self.members_file_handle.write(json.dumps(data).encode() + b'\r\n')
 
-				q = self.session.query(ADOU).filter_by(ad_id = self.ad_id)
+				q = self.db_session.query(ADOU).filter_by(ad_id = self.ad_id)
 				for res in windowed_query(q, ADOU.id, 100):
 					data = {
 						'dn' : res.dn,
@@ -293,7 +291,7 @@ class LDAPGatherer:
 					if adinfo.ldap_sds_finished is False:
 						self.sd_file_handle.write(json.dumps(data).encode() + b'\r\n')
 
-				q = self.session.query(GPO).filter_by(ad_id = self.ad_id)
+				q = self.db_session.query(GPO).filter_by(ad_id = self.ad_id)
 				for res in windowed_query(q, GPO.id, 100):
 					data = {
 						'dn' : res.dn,
