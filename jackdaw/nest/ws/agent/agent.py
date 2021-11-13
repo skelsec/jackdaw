@@ -4,12 +4,19 @@ import platform
 import multiprocessing
 import logging
 import typing
+import copy
+
 from aiosmb.commons.connection.url import SMBConnectionURL
+from aiosmb.commons.connection.proxy import SMBProxy, SMBProxyType
+
 from minikerberos.common.url import KerberosClientURL
+from minikerberos.common.proxy import KerberosProxy
 from msldap.commons.url import MSLDAPURLDecoder
 
 from sqlalchemy.exc import IntegrityError
 from msldap.commons.target import MSLDAPTarget
+from msldap.commons.proxy import MSLDAPProxy, MSLDAPProxyType
+
 from msldap.commons.credential import MSLDAPCredential, LDAPAuthProtocol
 from msldap.connection import MSLDAPClientConnection
 
@@ -59,6 +66,17 @@ from jackdaw.dbmodel.aduser import ADUser
 from jackdaw.dbmodel.adobjprops import ADObjProps
 from jackdaw.dbmodel.credential import Credential
 
+from aardwolf.commons.url import RDPConnectionURL
+from aardwolf.commons.target import RDPTarget, RDPConnectionProtocol, RDPConnectionDialect
+from aardwolf.commons.credential import RDPAuthProtocol
+from aardwolf.commons.iosettings import RDPIOSettings
+from aardwolf.commons.queuedata import RDPDATATYPE
+from aardwolf.commons.queuedata.keyboard import RDP_KEYBOARD_SCANCODE
+from aardwolf.commons.queuedata.mouse import RDP_MOUSE
+from aardwolf.utils.qt import RDPBitmapToQtImage
+from PyQt5.QtCore import QByteArray, QBuffer
+from aardwolf.commons.proxy import RDPProxy, RDPProxyType
+
 logger = logging.getLogger(__name__)
 
 STANDARD_PROGRESS_MSG_TYPES = [
@@ -83,7 +101,7 @@ class CONNECTIONPROTO:
 
 
 class JackDawAgent:
-	def __init__(self, agent_id, agent_type, agent_platform, db_session, db_url, work_dir, pid = 0, username = '', domain = '', logonserver = '', cpuarch = '', hostname = '', usersid = '', internal_id = None):
+	def __init__(self, agent_id, agent_type, agent_platform, db_session, work_dir, pid = 0, username = '', domain = '', logonserver = '', cpuarch = '', hostname = '', usersid = '', internal_id = None, proxy = None):
 		self.agent_id = agent_id
 		self.agent_type = agent_type
 		self.platform = agent_platform
@@ -97,9 +115,8 @@ class JackDawAgent:
 		self.internal_id = internal_id
 		self.connection_via = []
 		self.db_session = db_session
-		self.proxy = None # TODO: agents should have a asysocks proxy definition which will be added to all connections!
+		self.proxy = proxy #this is a mandatory-first proxy to use. if the agent is internal then it's none
 		self.cmd_in_q = None
-		self.db_url = db_url
 		self.work_dir = work_dir
 		self.show_progress = True
 		self.__cmd_dispatch_table = {}
@@ -235,6 +252,53 @@ class JackDawAgent:
 		ad_server = self.db_session.query(Machine.dNSHostName).filter_by(UAC_SERVER_TRUST_ACCOUNT = True).filter(Machine.ad_id == adid).filter(Machine.dNSHostName != None).first()
 		ad_server = typing.cast(Machine, ad_server)
 		return ad_server
+	
+	def to_asysocks(self, endpoint_ip, endpoint_port):
+		proxy = copy.deepcopy(self.proxy)
+		proxy.endpoint_ip = endpoint_ip 
+		proxy.endpoint_port = int(endpoint_port)
+		return proxy
+	
+	def get_smb_proxy(self, target:SMBTarget):
+		if self.proxy is None:
+			return target
+		proxy = SMBProxy()
+		proxy.auth = None
+		proxy.type = SMBProxyType.SOCKS5 #doesnt matter here
+		proxy.target = [self.to_asysocks(target.get_ip(), int(target.port)).get_target()]
+
+		target.proxy = proxy
+		return target
+
+	def get_rdp_proxy(self, target):
+		if self.proxy is None:
+			return target
+		
+		proxy = RDPProxy()
+		proxy.auth = None
+		proxy.type = RDPProxyType.SOCKS5 #doesnt matter here
+		proxy.target = [self.to_asysocks(target.get_ip(), int(target.port)).get_target()]
+
+		target.proxy = proxy
+	
+	def get_ldap_proxy(self, target:MSLDAPTarget):
+		if self.proxy is None:
+			return target
+		proxy = MSLDAPProxy()
+		proxy.auth = None
+		proxy.type = MSLDAPProxyType.SOCKS5 #doesnt matter here
+		proxy.target = [self.to_asysocks(target.host, int(target.port)).get_target()]
+
+		target.proxy = proxy
+
+		return target
+	
+	def get_kerberos_proxy(self, target:KerberosTarget):
+		if self.proxy is None:
+			return target
+
+		target.proxy = KerberosProxy([self.to_asysocks(target.ip, int(target.port))], None, type='SOCKS')
+		return target
 
 	def get_target_address_db(self, cmd:NestOpTargetDef, protocol:CONNECTIONPROTO):
 		"""
@@ -250,11 +314,18 @@ class JackDawAgent:
 			res = typing.cast(CustomTarget, res)
 			
 			if protocol == CONNECTIONPROTO.SMB:
-				return res.get_smb_target(domain = None, proxy = self.proxy, dc_ip = dc_ip, timeout = cmd.timeout)
+				target = res.get_smb_target(domain = None, proxy = self.proxy, dc_ip = dc_ip, timeout = cmd.timeout)
+				return self.get_smb_proxy(target)
+				 
 			elif protocol == CONNECTIONPROTO.LDAP:
-				return res.get_ldap_target(proxy = self.proxy, timeout = cmd.timeout)
+				target = res.get_ldap_target(proxy = self.proxy, timeout = cmd.timeout)
+				return self.get_ldap_proxy(target)
 			elif protocol == CONNECTIONPROTO.KERBEROS:
-				return res.get_kerberos_target(proxy = self.proxy, timeout = cmd.timeout)
+				target = res.get_kerberos_target(proxy = self.proxy, timeout = cmd.timeout)
+				return self.get_kerberos_proxy(target)
+			elif protocol == CONNECTIONPROTO.RDP:
+				target = res.get_rdp_target(domain = None, proxy = self.proxy, dc_ip = dc_ip, timeout = cmd.timeout)
+				return self.get_rdp_proxy(target)
 			else:
 				raise NotImplementedError()
 		
@@ -275,7 +346,7 @@ class JackDawAgent:
 				hostname_or_ip = ip
 			
 			if protocol == CONNECTIONPROTO.SMB:
-				return SMBTarget(
+				target = SMBTarget(
 					ip = ip,
 					hostname = hostname, 
 					timeout = cmd.timeout,
@@ -285,25 +356,36 @@ class JackDawAgent:
 					protocol = SMBConnectionProtocol.TCP,
 					path = None
 				)
+				return self.get_smb_proxy(target)
 			elif protocol == CONNECTIONPROTO.LDAP:
-				return MSLDAPTarget(
+				target = MSLDAPTarget(
 					hostname_or_ip, 
 					#port = 389, 
 					#proto = LDAPProtocol.TCP, 
 					#tree = None, 
-					proxy = self.proxy, 
+					proxy = None, 
 					timeout = cmd.timeout, 
 					#ldap_query_page_size = 1000, 
 					#ldap_query_ratelimit = 0
 				)
+				return self.get_ldap_proxy(target)
 			elif protocol == CONNECTIONPROTO.KERBEROS:
 				kt = KerberosTarget()
 				kt.ip = hostname_or_ip
 				kt.port = 88
 				kt.protocol = KerberosSocketType.TCP
-				kt.proxy = self.proxy
+				kt.proxy = None
 				kt.timeout = cmd.timeout
-				return kt
+				return self.get_kerberos_proxy(kt)
+			elif protocol == CONNECTIONPROTO.RDP:
+				target = RDPTarget(
+					ip = ip,
+					hostname = hostname,
+					dc_ip = dc_ip,
+					domain = domain,
+					proxy = self.proxy
+				)
+				return self.get_rdp_proxy(target)
 			else:
 				raise NotImplementedError()
 
@@ -319,6 +401,8 @@ class JackDawAgent:
 				elif protocol == CONNECTIONPROTO.KERBEROS:
 					return res.get_kerberos_cred(), None
 				elif protocol == CONNECTIONPROTO.RDP:
+					return res.get_rdp_cred(RDPAuthProtocol('PLAIN'), target = target), None
+				else:
 					raise NotImplementedError()
 				
 			else:
@@ -337,6 +421,8 @@ class JackDawAgent:
 					elif protocol == CONNECTIONPROTO.KERBEROS:
 						return res.get_kerberos_cred(), None
 					elif protocol == CONNECTIONPROTO.RDP:
+						return res.get_rdp_cred(SMBAuthProtocol(cmd.authtype), target = target), None
+					else:
 						raise NotImplementedError()
 			
 			return res, None
@@ -373,7 +459,7 @@ class JackDawAgent:
 	
 	def get_kerberos_connection(self, cmd):
 		try:
-			target = self.get_target_address_db(cmd.target, CONNECTIONPROTO.KERBEROS)			
+			target = self.get_target_address_db(cmd.target, CONNECTIONPROTO.KERBEROS)
 			if hasattr(cmd, 'creds') is False:
 				# asreproast doesnt need creds
 				return target, None, None
@@ -387,8 +473,73 @@ class JackDawAgent:
 			traceback.print_exc()
 			return None, None, e
 
+	async def do_rdpconnect(self, cmd:NestOpRDPConnect, out_q, op_in_q):
+		try:
+			height = 768
+			width = 1024
 
-	async def do_smbfiles(self, cmd, out_q):
+			iosettings = RDPIOSettings()
+			iosettings.video_width = width
+			iosettings.video_height = height
+			iosettings.video_bpp_min = 15 #servers dont support 8 any more :/
+			iosettings.video_bpp_max = 32
+
+			target = self.get_target_address_db(cmd.target, CONNECTIONPROTO.RDP)
+			cred, err = self.get_stored_cred_db(cmd.creds, protocol=CONNECTIONPROTO.RDP)
+			if err is not None:
+				raise err
+
+			proxy = None
+
+			rdpurl = RDPConnectionURL(None, target = target, cred = cred, proxy = proxy)
+			rdpconn = rdpurl.get_connection(iosettings)
+			_, err = await rdpconn.connect()
+			if err is not None:
+				raise err
+
+			#asyncio.create_task(self.inputhandler())
+			while True:
+				try:
+					data = await rdpconn.ext_out_queue.get()
+					if data is None:
+						return
+					if data.type == RDPDATATYPE.VIDEO:
+						image = RDPBitmapToQtImage(data.width, data.height, data.bitsPerPixel, data.is_compressed, data.data)
+						qbytearr = QByteArray()
+						buf = QBuffer(qbytearr)
+						image.save(buf, 'PNG')
+						imagedata = str(qbytearr.toBase64())[2:-1]
+						ri = NestOpRDPRectangle()
+						ri.token = cmd.token
+						ri.x = data.x
+						ri.y = data.y
+						ri.image = imagedata
+						ri.height = data.height
+						ri.width = data.width
+						ri.imgtype = 'PNG'
+						await out_q.put(ri)
+						
+
+					elif data.type == RDPDATATYPE.CLIPBOARD_READY:
+						continue
+					else:
+						logger.debug('Unknown incoming data: %s'% data)
+				except Exception as e:
+					traceback.print_exc()
+					print('do_rdpconnect error! %s' % e)
+					await out_q.put(NestOpErr(cmd.token, str(e)))
+					return
+
+
+		except asyncio.CancelledError:
+			return
+		except Exception as e:
+			traceback.print_exc()
+			print('do_rdpconnect error! %s' % e)
+			await out_q.put(NestOpErr(cmd.token, str(e)))
+
+
+	async def do_smbfiles(self, cmd, out_q, op_in_q):
 		try:
 			connection, err = self.get_smb_connection(cmd)
 			if err is not None:
@@ -444,7 +595,7 @@ class JackDawAgent:
 			print('do_smbfiles error! %s' % e)
 			await out_q.put(NestOpErr(cmd.token, str(e)))
 
-	async def do_smbsessions(self, cmd, out_q):
+	async def do_smbsessions(self, cmd, out_q, op_in_q):
 		try:
 			target_machine_ad_id = cmd.target.adid
 			target_machine_sid = cmd.target.sid
@@ -494,7 +645,7 @@ class JackDawAgent:
 			print('do_smbsessions error! %s' % e)
 			await out_q.put(NestOpErr(cmd.token, str(e)))
 	
-	async def do_smbdcsync(self, cmd:NestOpSMBDCSync, out_q):
+	async def do_smbdcsync(self, cmd:NestOpSMBDCSync, out_q, op_in_q):
 		try:
 			connection, err = self.get_smb_connection(cmd)
 			if err is not None:
@@ -562,10 +713,10 @@ class JackDawAgent:
 			return
 		except Exception as e:
 			traceback.print_exc()
-			print('do_smbsessions error! %s' % e)
+			print('do_smbdcsync error! %s' % e)
 			await out_q.put(NestOpErr(cmd.token, str(e)))
 	
-	async def do_kerberoast(self, cmd:NestOpKerberoast, out_q):
+	async def do_kerberoast(self, cmd:NestOpKerberoast, out_q, op_in_q):
 		try:
 			target, credential, err = self.get_kerberos_connection(cmd)
 			if err is not None:
@@ -603,10 +754,10 @@ class JackDawAgent:
 			return
 		except Exception as e:
 			traceback.print_exc()
-			print('do_smbsessions error! %s' % e)
+			print('do_kerberoast error! %s' % e)
 			await out_q.put(NestOpErr(cmd.token, str(e)))
 	
-	async def do_gettgt(self, cmd:NestOpKerberosTGT, out_q):
+	async def do_gettgt(self, cmd:NestOpKerberosTGT, out_q, op_in_q):
 		try:
 			target, credential, err = self.get_kerberos_connection(cmd)
 			if err is not None:
@@ -635,10 +786,10 @@ class JackDawAgent:
 			return
 		except Exception as e:
 			traceback.print_exc()
-			print('do_smbsessions error! %s' % e)
+			print('do_gettgt error! %s' % e)
 			await out_q.put(NestOpErr(cmd.token, str(e)))
 	
-	async def do_gettgs(self, cmd:NestOpKerberosTGS, out_q):
+	async def do_gettgs(self, cmd:NestOpKerberosTGS, out_q, op_in_q):
 		try:
 			target, credential, err = self.get_kerberos_connection(cmd)
 			if err is not None:
@@ -673,10 +824,9 @@ class JackDawAgent:
 			return
 		except Exception as e:
 			traceback.print_exc()
-			print('do_gettgs error! %s' % e)
 			await out_q.put(NestOpErr(cmd.token, str(e)))
 	
-	async def do_asreproast(self, cmd, out_q):
+	async def do_asreproast(self, cmd, out_q, op_in_q):
 		try:
 			target, _, err = self.get_kerberos_connection(cmd)
 			if err is not None:
@@ -713,7 +863,7 @@ class JackDawAgent:
 			return
 		except Exception as e:
 			traceback.print_exc()
-			print('do_smbsessions error! %s' % e)
+			print('do_asreproast error! %s' % e)
 			await out_q.put(NestOpErr(cmd.token, str(e)))
 
 	async def __gathermonitor(self, cmd, results_queue, out_q):
@@ -862,7 +1012,7 @@ class JackDawAgent:
 			print('resmon died! %s' % e)
 			await out_q.put(NestOpErr(cmd.token, str(e)))
 
-	async def do_gather(self, cmd:NestOpGather, out_q):
+	async def do_gather(self, cmd:NestOpGather, out_q, op_in_q):
 		# well... the connection/credential parameters needed to be re-encoded to the url format.		
 		try:
 			progress_queue = asyncio.Queue()
@@ -982,7 +1132,7 @@ class JackDawAgent:
 			print(dns)
 			with multiprocessing.Pool() as mp_pool:
 				gatherer = Gatherer(
-					self.db_url,
+					self.db_session,
 					self.work_dir,
 					ldap_url, 
 					smb_url,
@@ -1022,9 +1172,10 @@ class JackDawAgent:
 		try:
 			while True:
 				try:
-					cmd, out_q = await self.cmd_in_q.get()
+					# op_in_q is for certain command only which take further inputs from the operator (eg. rdpconnect)
+					cmd, out_q, op_in_q = await self.cmd_in_q.get()
 					if cmd.cmd in self.__cmd_dispatch_table:
-						x = asyncio.create_task(self.__cmd_dispatch_table[cmd.cmd](cmd, out_q))
+						x = asyncio.create_task(self.__cmd_dispatch_table[cmd.cmd](cmd, out_q, op_in_q))
 					else:
 						raise Exception('Agent got unrecognized command')
 				except Exception as e:
@@ -1035,7 +1186,6 @@ class JackDawAgent:
 	
 	async def run(self):
 		self.cmd_in_q = asyncio.Queue()
-		self.command_task = asyncio.create_task(self.__handle_commands())
 		self.__cmd_dispatch_table = {
 			NestOpCmd.GATHER : self.do_gather,
 			NestOpCmd.SMBFILES : self.do_smbfiles,
@@ -1045,7 +1195,10 @@ class JackDawAgent:
 			NestOpCmd.ASREPROAST : self.do_asreproast,
 			NestOpCmd.KERBEROSTGS : self.do_gettgs,
 			NestOpCmd.KERBEROSTGT : self.do_gettgt,
+			NestOpCmd.RDPCONNECT : self.do_rdpconnect,
 
 		}
+
+		self.command_task = asyncio.create_task(self.__handle_commands())
 		await asyncio.sleep(0)
 		return

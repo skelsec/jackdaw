@@ -57,6 +57,37 @@ class CustomCred(Basemodel, Serializer):
 			settings = settings, 
 			target = target
 		)
+
+	def get_rdp_cred(self, authtype, target = None, settings:dict = None):
+		from aardwolf.commons.credential import RDPAuthProtocol, RDPCredentialsSecretType, RDPCredential
+
+		stype = None
+		dbstype = self.stype.upper()
+		if dbstype in ['PW', 'PASSWORD', 'PASS']:
+			stype = RDPCredentialsSecretType.PASSWORD
+		elif dbstype in ['AES', 'AES128', 'AES256']:
+			stype = RDPCredentialsSecretType.AES
+		elif dbstype in ['KEYTAB']:
+			stype = RDPCredentialsSecretType.KEYTAB
+		elif dbstype in ['KIRBI']:
+			stype = RDPCredentialsSecretType.KIRBI
+		
+		if authtype == RDPAuthProtocol.NTLM:	
+			if dbstype in ['RC4', 'NT']:
+				stype = RDPCredentialsSecretType.NT
+
+		if stype is None:
+			raise Exception('Couldnt figure out correct stype for customcred!')
+		
+		return RDPCredential(
+			username = self.username, 
+			domain = self.domain, 
+			secret = self.secret, 
+			secret_type = stype, 
+			authentication_type = authtype, 
+			settings = settings, 
+			target = target
+		)
 	
 	def get_ldap_cred(self, authtype:LDAPAuthProtocol, target:MSLDAPTarget = None, settings:dict = None):
 		return MSLDAPCredential(

@@ -34,7 +34,8 @@ class NestWebScoketClientConsole(aiocmd.PromptToolkitCmd):
 					continue
 				if cmd.token not in self.reply_dispatch_table:
 					print('Unknown reply arrived! %s' % cmd)
-
+					continue
+				
 				await self.reply_dispatch_table[cmd.token].put(cmd)
 
 			except Exception as e:
@@ -690,6 +691,36 @@ class NestWebScoketClientConsole(aiocmd.PromptToolkitCmd):
 					raise Exception(msg.reason)
 				elif msg.cmd == NestOpCmd.KERBEROSTGSRES:
 					print('TGT! %s' % msg.ticket)
+					
+			return True, None
+		except Exception as e:
+			traceback.print_exc()
+			return False, e
+	
+	async def do_rdpconnect(self, credid, targetid, agent_id = '0'):
+		"""Creates an RDP connection and streams video data"""
+		try:
+			creds, stype = self.get_cred(credid)
+			#creds.authtype = authproto
+			target = self.get_target(targetid)
+
+			cmd = NestOpRDPConnect()
+			cmd.agent_id = agent_id
+			cmd.creds = creds
+			cmd.target = target
+			
+			msg_queue, err = await self.__sr(cmd)
+			if err is not None:
+				raise err
+
+			while True:
+				msg = await msg_queue.get()
+				if msg.cmd == NestOpCmd.OK:
+					break
+				elif msg.cmd == NestOpCmd.ERR:
+					raise Exception(msg.reason)
+				elif msg.cmd == NestOpCmd.RDPRECT:
+					print('RDP Rect! %s' % msg.__dict__)
 					
 			return True, None
 		except Exception as e:

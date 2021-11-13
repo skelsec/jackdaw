@@ -180,67 +180,73 @@ class NestOperator:
 	
 	async def do_list_agents(self, cmd):
 		# just forwards the request to the server which will send the list of agents back to the server_in_q where it will be dispatched
-		await self.server_out_q.put((self.operatorid, cmd))
+		await self.server_out_q.put((self.operatorid, cmd, None))
 
 	async def do_kerberos_tgt(self, cmd: NestOpKerberosTGT):
 		"""
 		Fetches a kerberos TGT in kirbi format
 		"""
-		await self.server_out_q.put((self.operatorid, cmd))
+		await self.server_out_q.put((self.operatorid, cmd, None))
 	
 	async def do_kerberos_tgs(self, cmd: NestOpKerberosTGS):
 		"""
 		Fetches a kerberos TGT in kirbi format
 		"""
-		await self.server_out_q.put((self.operatorid, cmd))
+		await self.server_out_q.put((self.operatorid, cmd, None))
 
 	async def do_smbdcsync(self, cmd: NestOpSMBDCSync):
 		"""
 		Starts am SMB share enumeration process on the selected agent
 		"""
-		await self.server_out_q.put((self.operatorid, cmd))
+		await self.server_out_q.put((self.operatorid, cmd, None))
+	
+	async def do_rdpconnect(self, cmd):
+		"""
+		Connects to RDP server and streams video
+		"""
+		await self.server_out_q.put((self.operatorid, cmd, None))
 	
 	async def do_smbfiles(self, cmd: NestOpSMBFiles):
 		"""
 		Starts am SMB share enumeration process on the selected agent
 		"""
-		await self.server_out_q.put((self.operatorid, cmd))
+		await self.server_out_q.put((self.operatorid, cmd, None))
 	
 	async def do_smbsessions(self, cmd: NestOpSMBSessions):
 		"""
 		Starts an SMB session enumeration process on the selected agent
 		"""
-		await self.server_out_q.put((self.operatorid, cmd))
+		await self.server_out_q.put((self.operatorid, cmd, None))
 
 	async def do_gather(self, cmd):
 		"""
 		Starts a gathering process on the selected agent
 		"""
-		await self.server_out_q.put((self.operatorid, cmd))
+		await self.server_out_q.put((self.operatorid, cmd, None))
 
 	async def do_wsnetrouter_connect(self, cmd):
 		"""
 		Connects to a new router
 		"""
-		await self.server_out_q.put((self.operatorid, cmd))
+		await self.server_out_q.put((self.operatorid, cmd, None))
 
 	async def do_wsnetrouter_list(self, cmd):
 		"""
 		Lists all available routers
 		"""
-		await self.server_out_q.put((self.operatorid, cmd))
+		await self.server_out_q.put((self.operatorid, cmd, None))
 	
 	async def do_kerberoast(self, cmd):
 		"""
 		Starts a kerberoast attack against a specific user on the selected agent
 		"""
-		await self.server_out_q.put((self.operatorid, cmd))
+		await self.server_out_q.put((self.operatorid, cmd, None))
 	
 	async def do_asreproast(self, cmd):
 		"""
 		Starts a asreproast attack against a specific user on the selected agent
 		"""
-		await self.server_out_q.put((self.operatorid, cmd))
+		await self.server_out_q.put((self.operatorid, cmd, None))
 
 	async def do_listads(self, cmd):
 		"""
@@ -1013,6 +1019,8 @@ class NestOperator:
 						asyncio.create_task(self.do_kerberos_tgs(cmd))
 					elif cmd.cmd == NestOpCmd.SMBDCSYNC:
 						asyncio.create_task(self.do_smbdcsync(cmd))
+					elif cmd.cmd == NestOpCmd.RDPCONNECT:
+						asyncio.create_task(self.do_rdpconnect(cmd))
 
 					else:
 						print('Unknown Command')

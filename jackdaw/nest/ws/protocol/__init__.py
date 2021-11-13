@@ -73,6 +73,9 @@ from jackdaw.nest.ws.protocol.wsnet.proxylist import NestOpWSNETListRouters
 from jackdaw.nest.ws.protocol.credsdef import NestOpCredsDef
 from jackdaw.nest.ws.protocol.targetdef import NestOpTargetDef
 
+from jackdaw.nest.ws.protocol.rdp.rdpconnect import NestOpRDPConnect
+from jackdaw.nest.ws.protocol.rdp.rdprect import NestOpRDPRectangle
+
 
 __all__ = [
 	'NestOpCmd',
@@ -142,6 +145,8 @@ __all__ = [
 	'NestOpPathOwned',
 	'NestOpObjOwned',
 	'NestOpObjHVT',
+	'NestOpRDPConnect',
+	'NestOpRDPRectangle',
 ]
 
 
@@ -222,5 +227,7 @@ type2obj = {
 	NestOpCmd.OBJHVT : NestOpObjHVT,
 	NestOpCmd.CREDRES : NestOpCredRes,
 	NestOpCmd.TARGETRES : NestOpTargetRes,
+	NestOpCmd.RDPCONNECT : NestOpRDPConnect,
+	NestOpCmd.RDPRECT : NestOpRDPRectangle,
 }
 

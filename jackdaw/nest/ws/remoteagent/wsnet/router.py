@@ -2,12 +2,15 @@ import uuid
 import asyncio
 import websockets
 import traceback
+from urllib.parse import urlparse
 
 from wsnet.protocol import *
 from jackdaw.nest.ws.agent.agent import JackDawAgent
+from asysocks.common.clienturl import SocksClientURL
+from asysocks.common.constants import SocksServerVersion
 
 class WSNETRouterHandler:
-	def __init__(self, server_url, proxy_id, server_out_q, db_session, ext_ws = None):
+	def __init__(self, server_url, proxy_id, server_out_q, db_session, work_dir, ext_ws = None):
 		self.connected_evt = asyncio.Event()
 		self.disconnected_evt = asyncio.Event()
 		self.proxyid = proxy_id
@@ -15,10 +18,16 @@ class WSNETRouterHandler:
 		self.server_in_q = None
 		self.server_out_q = server_out_q
 		self.db_session = db_session
+		self.work_dir = work_dir
 		self.agents = {}
 		self.__token = 1
 		self.reply_dispatch_table = {}
 		self.ws = ext_ws
+
+		url = urlparse(server_url)
+		self.proxy_host = url.hostname
+		self.proxy_port = url.port
+		self.proxy_proto = SocksServerVersion.WSNETWSS if url.scheme.lower() == 'wss' else SocksServerVersion.WSNETWS
 	
 	def __get_token(self):
 		t = self.__token
@@ -37,24 +46,36 @@ class WSNETRouterHandler:
 				data = await self.ws.recv()
 				print('DATA IN -> %s' % data)
 				cmd = CMD.from_bytes(data)
+				if cmd.type == CMDType.OK:
+					continue
 				
 				if cmd.type == CMDType.AGENTINFO:
 					agent_id = str(uuid.uuid4())
 					agent_type = 'wsnet'
 
+					su = SocksClientURL()
+					su.version = self.proxy_proto
+					su.server_ip = self.proxy_host
+					su.server_port = self.proxy_port
+					su.timeout = 10
+					su.buffer_size = 4096
+					su.agentid = cmd.agentid.hex()
+
 					agent = JackDawAgent(
-						agent_id, 
-						agent_type, 
-						'windows',#agent_platform, 
+						agent_id,
+						agent_type,
+						'windows',#agent_platform,
 						self.db_session,
-						pid = 0, 
-						username = cmd.username, 
-						domain = cmd.domain, 
-						logonserver = cmd.logonserver, 
-						cpuarch = cmd.cpuarch, 
-						hostname = cmd.hostname, 
+						self.work_dir,
+						pid = 0,
+						username = cmd.username,
+						domain = cmd.domain,
+						logonserver = cmd.logonserver,
+						cpuarch = cmd.cpuarch,
+						hostname = cmd.hostname,
 						usersid = cmd.usersid,
 						internal_id = cmd.agentid.hex(),
+						proxy = su
 					)
 					agent.connection_via.append(self.proxyid)
 		

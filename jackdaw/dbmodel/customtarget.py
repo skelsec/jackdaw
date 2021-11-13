@@ -43,6 +43,26 @@ class CustomTarget(Basemodel, Serializer):
 			path = None
 		)
 	
+	def get_rdp_target(self, domain = None, proxy = None, dc_ip = None, timeout = 1):
+		from aardwolf.commons.target import RDPTarget
+
+		ip = None
+		hostname = self.hostname
+		try:
+			ipaddress.ip_address(hostname)
+			ip = hostname
+			hostname = None
+		except:
+			pass
+
+		return RDPTarget(
+			ip = ip,
+			hostname = hostname,
+			dc_ip = dc_ip,
+			domain = domain,
+			proxy = proxy
+		)
+		
 	def get_ldap_target(self, proxy = None, timeout = 1):
 		return MSLDAPTarget(
 			self.hostname, 
