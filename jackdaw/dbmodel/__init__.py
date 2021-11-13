@@ -153,6 +153,7 @@ def create_db(connection, verbosity = 0):
 		session.add(CustomTarget('10.10.10.1', 'testserver'))
 		session.add(CustomTarget('10.10.20.1', 'testserver'))
 		session.add(CustomTarget('10.10.30.1', 'testserver'))
+		session.add(CustomTarget('10.10.10.102', 'fileserver'))
 		session.commit()
 	finally:
 		session.close()
