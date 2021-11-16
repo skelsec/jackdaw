@@ -479,7 +479,6 @@ class JackDawAgent:
 			while True:
 				data = await op_in_q.get()
 				if data.cmd == NestOpCmd.RDPMOUSE:
-					print('MOUSE!')
 					rmouse = RDP_MOUSE()
 					rmouse.xPos = data.xPos
 					rmouse.yPos = data.yPos
