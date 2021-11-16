@@ -868,7 +868,7 @@ class NestOperator:
 			traceback.print_exc()
 			await self.send_error(cmd, str(e))
 
-	async def do_list_target(self, cmd):
+	async def do_list_target(self, cmd:NestOpListTarget):
 		try:
 			logger.info('do_list_target')
 			ownerid = None

@@ -331,6 +331,7 @@ class JackDawAgent:
 				raise NotImplementedError()
 		
 		else:
+			ip = None
 			res = self.db_session.query(Machine.dNSHostName).filter_by(objectSid = cmd.sid).filter(Machine.ad_id == cmd.adid).first()
 			if res is not None:
 				hostname = res[0]
@@ -345,6 +346,9 @@ class JackDawAgent:
 			hostname_or_ip = hostname
 			if hostname_or_ip is None:
 				hostname_or_ip = ip
+			
+			if hostname is None and ip is None:
+				raise Exception('Couldnt find address for server %s' % cmd.sid)
 			
 			if protocol == CONNECTIONPROTO.SMB:
 				target = SMBTarget(
