@@ -5,6 +5,7 @@ import multiprocessing
 import logging
 import typing
 import copy
+from aardwolf.connection import RDPConnection
 
 from aiosmb.commons.connection.url import SMBConnectionURL
 from aiosmb.commons.connection.proxy import SMBProxy, SMBProxyType
@@ -473,6 +474,26 @@ class JackDawAgent:
 			traceback.print_exc()
 			return None, None, e
 
+	async def rdp_input_monitor(self, cmd:NestOpRDPConnect, rdpconn:RDPConnection, out_q, op_in_q):
+		try:
+			while True:
+				data = await op_in_q.get()
+				if data.cmd == NestOpCmd.RDPMOUSE:
+					rmouse = RDP_MOUSE()
+					rmouse.xPos = data.xPos
+					rmouse.yPos = data.yPos
+					rmouse.button = data.button
+					rmouse.pressed = data.pressed
+					await rdpconn.ext_in_queue.put(rmouse)
+
+		
+		except asyncio.CancelledError:
+			return
+		except Exception as e:
+			traceback.print_exc()
+			print('do_rdpconnect error! %s' % e)
+			await out_q.put(NestOpErr(cmd.token, str(e)))
+		
 	async def do_rdpconnect(self, cmd:NestOpRDPConnect, out_q, op_in_q):
 		try:
 			height = 768
