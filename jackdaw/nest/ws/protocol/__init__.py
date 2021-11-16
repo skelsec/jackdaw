@@ -75,7 +75,7 @@ from jackdaw.nest.ws.protocol.targetdef import NestOpTargetDef
 
 from jackdaw.nest.ws.protocol.rdp.rdpconnect import NestOpRDPConnect
 from jackdaw.nest.ws.protocol.rdp.rdprect import NestOpRDPRectangle
-
+from jackdaw.nest.ws.protocol.rdp.rdpmouse import NestOpRDPMouse
 
 __all__ = [
 	'NestOpCmd',
@@ -147,6 +147,7 @@ __all__ = [
 	'NestOpObjHVT',
 	'NestOpRDPConnect',
 	'NestOpRDPRectangle',
+	'NestOpRDPMouse',
 ]
 
 
@@ -229,5 +230,6 @@ type2obj = {
 	NestOpCmd.TARGETRES : NestOpTargetRes,
 	NestOpCmd.RDPCONNECT : NestOpRDPConnect,
 	NestOpCmd.RDPRECT : NestOpRDPRectangle,
+	NestOpCmd.RDPMOUSE : NestOpRDPMouse,
 }
 

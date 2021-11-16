@@ -80,3 +80,4 @@ class NestOpCmd(enum.Enum):
 
 	RDPCONNECT = 'RDPCONNECT'
 	RDPRECT = 'RDPRECT'
+	RDPMOUSE = 'RDPMOUSE'

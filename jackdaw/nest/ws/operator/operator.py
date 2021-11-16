@@ -58,6 +58,7 @@ class NestOperator:
 		self.server_in_q = None
 		self.server_out_q = server_out_q
 		self.operatorid = operatorid
+		self.task_in_queue = {} #token -> async queue
 
 		# for internal signaling
 		self.graph_loading_evt = {}
@@ -204,7 +205,9 @@ class NestOperator:
 		"""
 		Connects to RDP server and streams video
 		"""
-		await self.server_out_q.put((self.operatorid, cmd, None))
+		task_in_q = asyncio.Queue()
+		self.task_in_queue[cmd.token] = task_in_q
+		await self.server_out_q.put((self.operatorid, cmd, task_in_q))
 	
 	async def do_smbfiles(self, cmd: NestOpSMBFiles):
 		"""
@@ -956,6 +959,11 @@ class NestOperator:
 						continue
 					
 					await self.info('Got command: %s' % cmd.cmd.name)
+
+					if cmd.token in self.task_in_queue:
+						# this command is for an active agent task
+						await self.task_in_queue[cmd.token].put(cmd)
+						continue
 				
 					if cmd.cmd == NestOpCmd.GATHER:
 						asyncio.create_task(self.do_gather(cmd))
