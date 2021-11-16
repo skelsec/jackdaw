@@ -479,6 +479,7 @@ class JackDawAgent:
 			while True:
 				data = await op_in_q.get()
 				if data.cmd == NestOpCmd.RDPMOUSE:
+					print('MOUSE!')
 					rmouse = RDP_MOUSE()
 					rmouse.xPos = data.xPos
 					rmouse.yPos = data.yPos
@@ -518,7 +519,7 @@ class JackDawAgent:
 			if err is not None:
 				raise err
 
-			#asyncio.create_task(self.inputhandler())
+			asyncio.create_task(self.rdp_input_monitor(cmd, rdpconn, out_q, op_in_q))
 			while True:
 				try:
 					data = await rdpconn.ext_out_queue.get()
