@@ -396,6 +396,7 @@ class JackDawAgent:
 
 	def get_stored_cred_db(self, cmd:NestOpCredsDef, protocol:CONNECTIONPROTO, target = None):
 		try:
+			res = None
 			if str(cmd.adid) == '0':
 				res = self.db_session.query(CustomCred).get(cmd.sid)
 				res = typing.cast(CustomCred, res)
@@ -430,7 +431,7 @@ class JackDawAgent:
 					else:
 						raise NotImplementedError()
 			
-			return res, None
+			raise Exception('Failed to find credential for user sid %s' % cmd.sid)
 
 		except Exception as e:
 			return None, e
