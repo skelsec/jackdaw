@@ -332,21 +332,30 @@ class JackDawAgent:
 				raise NotImplementedError()
 		
 		else:
+			samaccname = None
 			ip = None
-			res = self.db_session.query(Machine.dNSHostName).filter_by(objectSid = cmd.sid).filter(Machine.ad_id == cmd.adid).first()
+			res = self.db_session.query(Machine.dNSHostName, Machine.sAMAccountName).filter_by(objectSid = cmd.sid).filter(Machine.ad_id == cmd.adid).first()
 			if res is not None:
 				hostname = res[0]
+				samaccname = res[1]
 			else:
 				res = self.db_session.query(DNSLookup.ip).filter_by(sid = cmd.sid).filter(DNSLookup.ad_id == cmd.adid).first()
 				if res is not None:
 					ip = res[0]
 			
-			if hostname is None and ip is None:
+			if hostname is None and ip is None and samaccname is None:
 				raise Exception('Couldnt find address for target')
 			
+			if hostname is None and ip is None:
+				hostname = samaccname
+
 			hostname_or_ip = hostname
 			if hostname_or_ip is None:
 				hostname_or_ip = ip
+			
+			print('hostname: %s' % hostname)
+			print('ip: %s' % ip)
+			print('samaccname : %s' % samaccname)
 			
 			if hostname is None and ip is None:
 				raise Exception('Couldnt find address for server %s' % cmd.sid)
