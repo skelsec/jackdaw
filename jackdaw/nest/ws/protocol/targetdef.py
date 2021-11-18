@@ -28,3 +28,6 @@ class NestOpTargetDef:
 	@staticmethod
 	def from_json(jd):
 		return NestOpTargetDef.from_dict(json.loads(jd))
+	
+	def __repr__(self):
+		return 'NestOpTargetDef: adid: %s sid: %s timeout: %s' % (self.adid, self.sid, self.timeout)

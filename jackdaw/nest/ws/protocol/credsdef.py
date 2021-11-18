@@ -27,3 +27,6 @@ class NestOpCredsDef:
 	@staticmethod
 	def from_json(jd):
 		return NestOpCredsDef.from_dict(json.loads(jd))
+
+	def __repr__(self):
+		return 'NestOpCredsDef: adid: %s sid: %s authtype: %s' % (self.adid, self.sid, self.authtype)

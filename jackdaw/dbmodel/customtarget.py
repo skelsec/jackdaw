@@ -31,7 +31,7 @@ class CustomTarget(Basemodel, Serializer):
 			hostname = None
 		except:
 			pass
-
+		print('get_smb_target: domain: %s , ip: %s, hostname: %s' % (domain, ip, hostname))
 		return SMBTarget(
 			ip = ip,
 			hostname = hostname, 
@@ -54,7 +54,8 @@ class CustomTarget(Basemodel, Serializer):
 			hostname = None
 		except:
 			pass
-
+		
+		print('get_rdp_target: domain: %s , ip: %s, hostname: %s' % (domain, ip, hostname))
 		return RDPTarget(
 			ip = ip,
 			hostname = hostname,

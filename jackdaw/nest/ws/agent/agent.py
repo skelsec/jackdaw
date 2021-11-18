@@ -305,6 +305,7 @@ class JackDawAgent:
 		"""
 		Creates the appropriate TARGET class for a given connection protocol using the connection info in the database
 		"""
+		print('get_target_db: proto: %s , target: %s' % (protocol.name, cmd))
 		dc_ip = self.get_domain_ip(cmd.adid)
 		domain = self.get_domain_name(cmd.adid)
 		if str(cmd.adid) == '0':
