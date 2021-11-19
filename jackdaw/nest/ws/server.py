@@ -134,7 +134,7 @@ class NestWebSocketServer:
 						await self.operators[operator_id].server_in_q.put(NestOpErr(cmd.token, 'Agent id not found!'))
 						continue
 					agent = self.agents[cmd.agent_id]
-					await agent.cmd_in_q.put((cmd, self.operators[operator_id].server_in_q, op_cmd_q))
+					await agent.cmd_in_q.put((self.operators[operator_id], cmd, self.operators[operator_id].server_in_q, op_cmd_q))
 					
 		except Exception as e:
 			traceback.print_exc()
@@ -231,6 +231,7 @@ class NestWebSocketServer:
 		self.operators[operator_id] = operator
 		await operator.run()
 		logger.info('Operator disconnected! %s:%s' % (remote_ip, remote_port))
+
 	
 	async def handle_guac(self, websocket, path, protocol):
 		
@@ -379,7 +380,7 @@ class NestWebSocketServer:
 
 		if self.enable_local_agent is True:
 			agentid = '0' #str(uuid.uuid4())
-			internal_agent = JackDawAgent(agentid, 'internal', platform.system().upper(), self.db_session, self.work_dir)
+			internal_agent = JackDawAgent(self, agentid, 'internal', platform.system().upper(), self.db_session, self.work_dir)
 			self.agents[agentid] = internal_agent
 			asyncio.create_task(internal_agent.run())
 

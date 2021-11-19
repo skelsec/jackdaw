@@ -78,6 +78,8 @@ from aardwolf.utils.qt import RDPBitmapToQtImage
 from PyQt5.QtCore import QByteArray, QBuffer
 from aardwolf.commons.proxy import RDPProxy, RDPProxyType
 
+from jackdaw.nest.ws.operator.operator import NestOperator
+
 logger = logging.getLogger(__name__)
 
 STANDARD_PROGRESS_MSG_TYPES = [
@@ -102,7 +104,8 @@ class CONNECTIONPROTO:
 
 
 class JackDawAgent:
-	def __init__(self, agent_id, agent_type, agent_platform, db_session, work_dir, pid = 0, username = '', domain = '', logonserver = '', cpuarch = '', hostname = '', usersid = '', internal_id = None, proxy = None):
+	def __init__(self, server, agent_id, agent_type, agent_platform, db_session, work_dir, pid = 0, username = '', domain = '', logonserver = '', cpuarch = '', hostname = '', usersid = '', internal_id = None, proxy = None):
+		self.__server = server
 		self.agent_id = agent_id
 		self.agent_type = agent_type
 		self.platform = agent_platform
@@ -356,6 +359,8 @@ class JackDawAgent:
 			print('hostname: %s' % hostname)
 			print('ip: %s' % ip)
 			print('samaccname : %s' % samaccname)
+			print('hostname_or_ip : %s' % hostname_or_ip)
+			
 			
 			if hostname is None and ip is None:
 				raise Exception('Couldnt find address for server %s' % cmd.sid)
@@ -489,9 +494,9 @@ class JackDawAgent:
 			traceback.print_exc()
 			return None, None, e
 
-	async def rdp_input_monitor(self, cmd:NestOpRDPConnect, rdpconn:RDPConnection, out_q, op_in_q):
+	async def rdp_input_monitor(self, operator:NestOperator, cmd:NestOpRDPConnect, rdpconn:RDPConnection, out_q, op_in_q):
 		try:
-			while True:
+			while not operator.disconnected_evt.is_set():
 				data = await op_in_q.get()
 				if data.cmd == NestOpCmd.RDPMOUSE:
 					rmouse = RDP_MOUSE()
@@ -509,7 +514,7 @@ class JackDawAgent:
 			print('do_rdpconnect error! %s' % e)
 			await out_q.put(NestOpErr(cmd.token, str(e)))
 		
-	async def do_rdpconnect(self, cmd:NestOpRDPConnect, out_q, op_in_q):
+	async def do_rdpconnect(self, operator:NestOperator, cmd:NestOpRDPConnect, out_q, op_in_q):
 		try:
 			height = 768
 			width = 1024
@@ -533,8 +538,8 @@ class JackDawAgent:
 			if err is not None:
 				raise err
 
-			asyncio.create_task(self.rdp_input_monitor(cmd, rdpconn, out_q, op_in_q))
-			while True:
+			asyncio.create_task(self.rdp_input_monitor(operator, cmd, rdpconn, out_q, op_in_q))
+			while not operator.disconnected_evt.is_set():
 				try:
 					data = await rdpconn.ext_out_queue.get()
 					if data is None:
@@ -573,9 +578,13 @@ class JackDawAgent:
 			traceback.print_exc()
 			print('do_rdpconnect error! %s' % e)
 			await out_q.put(NestOpErr(cmd.token, str(e)))
+		finally:
+			if rdpconn is not None:
+				await asyncio.wait_for(rdpconn.terminate(), 5)
+				print('RDP disconnected!')
 
 
-	async def do_smbfiles(self, cmd, out_q, op_in_q):
+	async def do_smbfiles(self, operator:NestOperator, cmd, out_q, op_in_q):
 		try:
 			connection, err = self.get_smb_connection(cmd)
 			if err is not None:
@@ -631,7 +640,7 @@ class JackDawAgent:
 			print('do_smbfiles error! %s' % e)
 			await out_q.put(NestOpErr(cmd.token, str(e)))
 
-	async def do_smbsessions(self, cmd, out_q, op_in_q):
+	async def do_smbsessions(self, operator:NestOperator, cmd, out_q, op_in_q):
 		try:
 			target_machine_ad_id = cmd.target.adid
 			target_machine_sid = cmd.target.sid
@@ -681,7 +690,7 @@ class JackDawAgent:
 			print('do_smbsessions error! %s' % e)
 			await out_q.put(NestOpErr(cmd.token, str(e)))
 	
-	async def do_smbdcsync(self, cmd:NestOpSMBDCSync, out_q, op_in_q):
+	async def do_smbdcsync(self, operator:NestOperator, cmd:NestOpSMBDCSync, out_q, op_in_q):
 		try:
 			connection, err = self.get_smb_connection(cmd)
 			if err is not None:
@@ -752,7 +761,7 @@ class JackDawAgent:
 			print('do_smbdcsync error! %s' % e)
 			await out_q.put(NestOpErr(cmd.token, str(e)))
 	
-	async def do_kerberoast(self, cmd:NestOpKerberoast, out_q, op_in_q):
+	async def do_kerberoast(self, operator:NestOperator, cmd:NestOpKerberoast, out_q, op_in_q):
 		try:
 			target, credential, err = self.get_kerberos_connection(cmd)
 			if err is not None:
@@ -793,7 +802,7 @@ class JackDawAgent:
 			print('do_kerberoast error! %s' % e)
 			await out_q.put(NestOpErr(cmd.token, str(e)))
 	
-	async def do_gettgt(self, cmd:NestOpKerberosTGT, out_q, op_in_q):
+	async def do_gettgt(self, operator:NestOperator, cmd:NestOpKerberosTGT, out_q, op_in_q):
 		try:
 			target, credential, err = self.get_kerberos_connection(cmd)
 			if err is not None:
@@ -825,7 +834,7 @@ class JackDawAgent:
 			print('do_gettgt error! %s' % e)
 			await out_q.put(NestOpErr(cmd.token, str(e)))
 	
-	async def do_gettgs(self, cmd:NestOpKerberosTGS, out_q, op_in_q):
+	async def do_gettgs(self, operator:NestOperator, cmd:NestOpKerberosTGS, out_q, op_in_q):
 		try:
 			target, credential, err = self.get_kerberos_connection(cmd)
 			if err is not None:
@@ -862,7 +871,7 @@ class JackDawAgent:
 			traceback.print_exc()
 			await out_q.put(NestOpErr(cmd.token, str(e)))
 	
-	async def do_asreproast(self, cmd, out_q, op_in_q):
+	async def do_asreproast(self, operator:NestOperator, cmd, out_q, op_in_q):
 		try:
 			target, _, err = self.get_kerberos_connection(cmd)
 			if err is not None:
@@ -902,7 +911,7 @@ class JackDawAgent:
 			print('do_asreproast error! %s' % e)
 			await out_q.put(NestOpErr(cmd.token, str(e)))
 
-	async def __gathermonitor(self, cmd, results_queue, out_q):
+	async def __gathermonitor(self, operator:NestOperator ,cmd, results_queue, out_q):
 		try:
 			usernames_testing = []
 			machine_sids_testing = []
@@ -911,7 +920,7 @@ class JackDawAgent:
 			temp_adid_testing = None
 			temp_started = False
 			
-			while True:
+			while not operator.disconnected_evt.is_set():
 				try:
 					msg = await results_queue.get()
 					if msg is None:
@@ -1048,11 +1057,11 @@ class JackDawAgent:
 			print('resmon died! %s' % e)
 			await out_q.put(NestOpErr(cmd.token, str(e)))
 
-	async def do_gather(self, cmd:NestOpGather, out_q, op_in_q):
+	async def do_gather(self, operator:NestOperator, cmd:NestOpGather, out_q, op_in_q):
 		# well... the connection/credential parameters needed to be re-encoded to the url format.		
 		try:
 			progress_queue = asyncio.Queue()
-			gatheringmonitor_task = asyncio.create_task(self.__gathermonitor(cmd, progress_queue, out_q))
+			gatheringmonitor_task = asyncio.create_task(self.__gathermonitor(operator, cmd, progress_queue, out_q))
 			
 			if cmd.ldap_creds is None:
 				if platform.system().lower() == 'windows':
@@ -1209,9 +1218,9 @@ class JackDawAgent:
 			while True:
 				try:
 					# op_in_q is for certain command only which take further inputs from the operator (eg. rdpconnect)
-					cmd, out_q, op_in_q = await self.cmd_in_q.get()
+					operator, cmd, out_q, op_in_q = await self.cmd_in_q.get()
 					if cmd.cmd in self.__cmd_dispatch_table:
-						x = asyncio.create_task(self.__cmd_dispatch_table[cmd.cmd](cmd, out_q, op_in_q))
+						x = asyncio.create_task(self.__cmd_dispatch_table[cmd.cmd](operator, cmd, out_q, op_in_q))
 					else:
 						raise Exception('Agent got unrecognized command')
 				except Exception as e:

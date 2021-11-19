@@ -58,6 +58,7 @@ class NestOperator:
 		self.server_in_q = None
 		self.server_out_q = server_out_q
 		self.operatorid = operatorid
+		self.disconnected_evt = None
 		self.task_in_queue = {} #token -> async queue
 
 		# for internal signaling
@@ -943,11 +944,12 @@ class NestOperator:
 
 	async def run(self):
 		try:
+			self.disconnected_evt = asyncio.Event()
 			self.server_in_q = asyncio.Queue()
 			self.server_in_task = asyncio.create_task(self.__handle_server_in())
 			self.db_session = get_session(self.db_url)
 
-			while True:
+			while self.websocket.open:
 				try:
 					cmd_raw = await self.websocket.recv()
 					try:
@@ -1043,3 +1045,5 @@ class NestOperator:
 			return
 		except Exception as e:
 			print(e)
+		finally:
+			self.disconnected_evt.set()
