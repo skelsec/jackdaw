@@ -77,6 +77,8 @@ from jackdaw.nest.ws.protocol.rdp.rdpconnect import NestOpRDPConnect
 from jackdaw.nest.ws.protocol.rdp.rdprect import NestOpRDPRectangle
 from jackdaw.nest.ws.protocol.rdp.rdpmouse import NestOpRDPMouse
 
+from jackdaw.nest.ws.protocol.ldap.ldapspns import NestOpLDAPSPNs
+
 __all__ = [
 	'NestOpCmd',
 	'NestOpCmdDeserializer',
@@ -148,6 +150,7 @@ __all__ = [
 	'NestOpRDPConnect',
 	'NestOpRDPRectangle',
 	'NestOpRDPMouse',
+	'NestOpLDAPSPNs',
 ]
 
 
@@ -231,5 +234,6 @@ type2obj = {
 	NestOpCmd.RDPCONNECT : NestOpRDPConnect,
 	NestOpCmd.RDPRECT : NestOpRDPRectangle,
 	NestOpCmd.RDPMOUSE : NestOpRDPMouse,
+	NestOpCmd.LDAPSPNS : NestOpLDAPSPNs,
 }
 

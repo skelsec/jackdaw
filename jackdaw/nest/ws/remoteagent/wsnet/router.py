@@ -10,7 +10,8 @@ from asysocks.common.clienturl import SocksClientURL
 from asysocks.common.constants import SocksServerVersion
 
 class WSNETRouterHandler:
-	def __init__(self, server_url, proxy_id, server_out_q, db_session, work_dir, ext_ws = None):
+	def __init__(self, server, server_url, proxy_id, server_out_q, db_session, work_dir, ext_ws = None):
+		self.jd_server = server
 		self.connected_evt = asyncio.Event()
 		self.disconnected_evt = asyncio.Event()
 		self.proxyid = proxy_id
@@ -25,6 +26,7 @@ class WSNETRouterHandler:
 		self.ws = ext_ws
 
 		url = urlparse(server_url)
+		self.router_proto = url.scheme.lower()
 		self.proxy_host = url.hostname
 		self.proxy_port = url.port
 		self.proxy_proto = SocksServerVersion.WSNETWSS if url.scheme.lower() == 'wss' else SocksServerVersion.WSNETWS
@@ -61,21 +63,29 @@ class WSNETRouterHandler:
 					su.buffer_size = 4096
 					su.agentid = cmd.agentid.hex()
 
+					username = cmd.username
+					if cmd.username.find('\\') != -1:
+						domain, username = cmd.username.split('\\', 1)
+
 					agent = JackDawAgent(
+						self.jd_server,
 						agent_id,
 						agent_type,
 						'windows',#agent_platform,
 						self.db_session,
 						self.work_dir,
 						pid = 0,
-						username = cmd.username,
+						username = username,
 						domain = cmd.domain,
 						logonserver = cmd.logonserver,
 						cpuarch = cmd.cpuarch,
 						hostname = cmd.hostname,
 						usersid = cmd.usersid,
 						internal_id = cmd.agentid.hex(),
-						proxy = su
+						proxy = su,
+						router_proto = self.router_proto,
+						router_host = self.proxy_host,
+						router_port = self.proxy_port
 					)
 					agent.connection_via.append(self.proxyid)
 		

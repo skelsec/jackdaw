@@ -2,6 +2,7 @@ from aiosmb.commons.connection.target import SMBTarget
 from msldap.commons.credential import MSLDAPCredential, LDAPAuthProtocol
 from msldap.commons.target import MSLDAPTarget
 from minikerberos.common.creds import KerberosCredential, KerberosSecretType
+from websockets import auth
 from . import Basemodel
 import datetime
 from sqlalchemy.orm import relationship
@@ -29,22 +30,33 @@ class CustomCred(Basemodel, Serializer):
 		self.secret = secret
 		self.description = description
 	
-	def get_smb_cred(self, authtype:SMBAuthProtocol, target:SMBTarget = None, settings:dict = None):
+	def get_smb_cred(self, authtype_str:str, target:SMBTarget = None, settings:dict = None):
 		stype = None
+		authtype_str = authtype_str.upper()
 		dbstype = self.stype.upper()
-		if dbstype in ['PW', 'PASSWORD', 'PASS']:
-			stype = SMBCredentialsSecretType.PASSWORD
-		elif dbstype in ['AES', 'AES128', 'AES256']:
-			stype = SMBCredentialsSecretType.AES
-		elif dbstype in ['KEYTAB']:
-			stype = SMBCredentialsSecretType.KEYTAB
-		elif dbstype in ['KIRBI']:
-			stype = SMBCredentialsSecretType.KIRBI
-		
-		if authtype == SMBAuthProtocol.NTLM:	
-			if dbstype in ['RC4', 'NT']:
+		if dbstype == 'SSPIPROXY':
+			if authtype_str == 'NTLM':
+				authtype = SMBAuthProtocol.SSPIPROXY_NTLM
 				stype = SMBCredentialsSecretType.NT
-
+			if authtype_str == 'KERBEROS':
+				authtype = SMBAuthProtocol.SSPIPROXY_KERBEROS
+				stype = SMBCredentialsSecretType.NT
+		
+		else:
+			authtype = SMBAuthProtocol(authtype_str)
+			if dbstype in ['PW', 'PASSWORD', 'PASS']:
+				stype = SMBCredentialsSecretType.PASSWORD
+			elif dbstype in ['AES', 'AES128', 'AES256']:
+				stype = SMBCredentialsSecretType.AES
+			elif dbstype in ['KEYTAB']:
+				stype = SMBCredentialsSecretType.KEYTAB
+			elif dbstype in ['KIRBI']:
+				stype = SMBCredentialsSecretType.KIRBI
+			
+			if authtype == SMBAuthProtocol.NTLM:	
+				if dbstype in ['RC4', 'NT']:
+					stype = SMBCredentialsSecretType.NT
+		
 		if stype is None:
 			raise Exception('Couldnt figure out correct stype for customcred!')
 		
@@ -72,7 +84,7 @@ class CustomCred(Basemodel, Serializer):
 		elif dbstype in ['KIRBI']:
 			stype = RDPCredentialsSecretType.KIRBI
 		
-		if authtype == RDPAuthProtocol.NTLM:	
+		if authtype == RDPAuthProtocol.NTLM:
 			if dbstype in ['RC4', 'NT']:
 				stype = RDPCredentialsSecretType.NT
 
@@ -89,7 +101,45 @@ class CustomCred(Basemodel, Serializer):
 			target = target
 		)
 	
-	def get_ldap_cred(self, authtype:LDAPAuthProtocol, target:MSLDAPTarget = None, settings:dict = None):
+	def get_ldap_cred(self, authtype_str:str, target:MSLDAPTarget = None, settings:dict = None, agent_id = None):
+		authtype_str = authtype_str.upper()
+		stype = self.stype.upper()
+		
+		authtype = None
+		if stype == 'SSPIPROXY':
+			if authtype_str == 'NTLM':
+				authtype = LDAPAuthProtocol.SSPIPROXY_NTLM
+			if authtype_str == 'KERBEROS':
+				authtype = LDAPAuthProtocol.SSPIPROXY_KERBEROS
+
+		else:
+			if authtype_str == 'NTLM':
+				if stype == 'PASSWORD':
+					authtype = LDAPAuthProtocol.NTLM_PASSWORD
+				elif stype in ['RC4', 'NT']:
+					authtype = LDAPAuthProtocol.NTLM_NT
+			elif authtype_str == 'KERBEROS':
+				if stype == 'PASSWORD':
+					authtype = LDAPAuthProtocol.KERBEROS_PASSWORD
+				elif stype in ['RC4', 'NT']:
+					authtype = LDAPAuthProtocol.KERBEROS_RC4
+				elif stype in ['AES', 'AES128', 'AES256']:
+					authtype = LDAPAuthProtocol.KERBEROS_AES
+			elif authtype_str in ['SSPI', 'SSPI_NTLM']:
+				authtype = LDAPAuthProtocol.SSPI_NTLM
+			
+			elif authtype_str == 'SSPI_KERBEROS':
+				authtype = LDAPAuthProtocol.SSPI_KERBEROS
+			
+			elif authtype_str == 'SSPIPROXY_KERBEROS':
+				authtype = LDAPAuthProtocol.SSPIPROXY_KERBEROS
+			
+			elif authtype_str == 'SSPIPROXY_NTLM':
+				authtype = LDAPAuthProtocol.SSPIPROXY_NTLM
+		
+		if authtype is None:
+			raise Exception('Couldnt find proper LDAP authtype!')
+		
 		return MSLDAPCredential(
 			domain= self.domain, 
 			username= self.username, 
@@ -97,7 +147,7 @@ class CustomCred(Basemodel, Serializer):
 			auth_method = authtype,
 			settings = settings, 
 			etypes = None, 
-			encrypt = False
+			encrypt = False,
 		)
 	
 	def get_kerberos_cred(self):

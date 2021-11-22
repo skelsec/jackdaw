@@ -22,3 +22,8 @@ python3 -m jackdaw.nest.ws.client 'ws://127.0.0.1:5001' connect 'gettgs 1 1 1' <
 python3 -m jackdaw.nest.ws.client 'ws://127.0.0.1:5001' connect 'smbdcsync 14 1 1 S-1-5-21-3448413973-1765323015-1500960949-1118'
 
 python3 -m jackdaw.nest.ws.client 'ws://127.0.0.1:5001' connect 'rdpconnect 14 1'
+
+# with proxy!!!
+python3 -m jackdaw.nest.ws.client 'ws://127.0.0.1:5001' connect listads listcreds listtargets creds targets listagents 'smbsessions 14 1'
+python3 -m jackdaw.nest.ws.client 'ws://127.0.0.1:5001' connect listads listcreds listtargets creds targets listagents 'ldapspns 14 1'
+python3 -m jackdaw.nest.ws.client 'ws://127.0.0.1:5001' connect listads listcreds listtargets creds targets listagents 'ldapspns 14 1 SSPIPROXY_NTLM'

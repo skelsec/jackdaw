@@ -20,6 +20,7 @@ from msldap.commons.proxy import MSLDAPProxy, MSLDAPProxyType
 
 from msldap.commons.credential import MSLDAPCredential, LDAPAuthProtocol
 from msldap.connection import MSLDAPClientConnection
+from msldap.client import MSLDAPClient
 
 from minikerberos.aioclient import AIOKerberosClient
 from minikerberos.common.spn import KerberosSPN
@@ -104,7 +105,7 @@ class CONNECTIONPROTO:
 
 
 class JackDawAgent:
-	def __init__(self, server, agent_id, agent_type, agent_platform, db_session, work_dir, pid = 0, username = '', domain = '', logonserver = '', cpuarch = '', hostname = '', usersid = '', internal_id = None, proxy = None):
+	def __init__(self, server, agent_id, agent_type, agent_platform, db_session, work_dir, pid = 0, username = '', domain = '', logonserver = '', cpuarch = '', hostname = '', usersid = '', internal_id = None, proxy = None, router_proto = None, router_host = None, router_port = None):
 		self.__server = server
 		self.agent_id = agent_id
 		self.agent_type = agent_type
@@ -123,6 +124,9 @@ class JackDawAgent:
 		self.cmd_in_q = None
 		self.work_dir = work_dir
 		self.show_progress = True
+		self.router_proto = router_proto
+		self.router_host = router_host
+		self.router_port = router_port
 		self.__cmd_dispatch_table = {}
 
 	async def log(self, level, msg):
@@ -411,14 +415,23 @@ class JackDawAgent:
 
 	def get_stored_cred_db(self, cmd:NestOpCredsDef, protocol:CONNECTIONPROTO, target = None):
 		try:
+			settings = None
+			if self.internal_id is not None:
+				settings = {
+					'proto': [self.router_proto],
+					'port' : [self.router_port],
+					'host' : [self.router_host],
+					'agentid' : [self.internal_id]
+				}
+
 			res = None
 			if str(cmd.adid) == '0':
 				res = self.db_session.query(CustomCred).get(cmd.sid)
 				res = typing.cast(CustomCred, res)
 				if protocol == CONNECTIONPROTO.SMB:
-					return res.get_smb_cred(SMBAuthProtocol(cmd.authtype), target = target), None
+					return res.get_smb_cred(cmd.authtype, target = target, settings = settings), None
 				elif protocol == CONNECTIONPROTO.LDAP:
-					return res.get_ldap_cred(LDAPAuthProtocol(cmd.authtype), target= target), None
+					return res.get_ldap_cred(cmd.authtype, target = target, settings = settings), None
 				elif protocol == CONNECTIONPROTO.KERBEROS:
 					return res.get_kerberos_cred(), None
 				elif protocol == CONNECTIONPROTO.RDP:
@@ -438,7 +451,7 @@ class JackDawAgent:
 					if protocol == CONNECTIONPROTO.SMB:
 						return res.get_smb_cred(SMBAuthProtocol(cmd.authtype), target = target), None
 					elif protocol == CONNECTIONPROTO.LDAP:
-						return res.get_ldap_cred(LDAPAuthProtocol(cmd.authtype), target= target), None
+						return res.get_ldap_cred(cmd.authtype, target= target), None
 					elif protocol == CONNECTIONPROTO.KERBEROS:
 						return res.get_kerberos_cred(), None
 					elif protocol == CONNECTIONPROTO.RDP:
@@ -470,6 +483,8 @@ class JackDawAgent:
 		try:
 			target = self.get_target_address_db(cmd.target, CONNECTIONPROTO.LDAP)
 			credential, err = self.get_stored_cred_db(cmd.creds, CONNECTIONPROTO.LDAP, target=target)
+			print(target)
+			print(credential)
 			if err is not None:
 				raise err
 			
@@ -688,6 +703,47 @@ class JackDawAgent:
 		except Exception as e:
 			traceback.print_exc()
 			print('do_smbsessions error! %s' % e)
+			await out_q.put(NestOpErr(cmd.token, str(e)))
+
+	async def do_ldapspns(self, operator:NestOperator, cmd:NestOpLDAPSPNs, out_q, op_in_q):
+		try:
+			connection, err = self.get_ldap_connection(cmd)
+			if err is not None:
+				await out_q.put(NestOpErr(cmd.token, str(err)))
+				return
+			
+			_, err = await connection.connect()
+			if err is not None:
+				raise err
+			
+			res, err = await connection.bind()
+			if err is not None:
+				return False, err
+
+			client = MSLDAPClient(None, None, connection)
+			_, err = await client.connect()
+			if err is not None:
+				raise err
+			
+			async for entry, err in client.get_all_service_users():
+				if err is not None:
+					raise err
+
+				reply = NestOpUserRes()
+				reply.token = cmd.token
+				reply.name = entry.name
+				reply.adid = None #we dont know this at this point
+				reply.sid = entry.objectSid
+				reply.kerberoast = 1
+						
+				await out_q.put(reply)
+
+			await out_q.put(NestOpOK(cmd.token))
+		except asyncio.CancelledError:
+			return
+		except Exception as e:
+			traceback.print_exc()
+			print('do_smbdcsync error! %s' % e)
 			await out_q.put(NestOpErr(cmd.token, str(e)))
 	
 	async def do_smbdcsync(self, operator:NestOperator, cmd:NestOpSMBDCSync, out_q, op_in_q):
@@ -1241,6 +1297,7 @@ class JackDawAgent:
 			NestOpCmd.KERBEROSTGS : self.do_gettgs,
 			NestOpCmd.KERBEROSTGT : self.do_gettgt,
 			NestOpCmd.RDPCONNECT : self.do_rdpconnect,
+			NestOpCmd.LDAPSPNS : self.do_ldapspns,
 
 		}
 

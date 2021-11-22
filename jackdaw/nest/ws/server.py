@@ -1,11 +1,13 @@
 
 import asyncio
 import traceback
+from sqlalchemy.orm import session
 import websockets
 import pathlib
 import uuid
 import os
 import platform
+import typing
 from http import HTTPStatus
 from urllib.parse import urlparse, parse_qs
 
@@ -14,6 +16,7 @@ from jackdaw.nest.ws.protocol.ok import NestOpOK
 from jackdaw.nest.ws.protocol.cmdtypes import NestOpCmd
 from jackdaw.nest.ws.protocol.wsnet.proxy import NestOpWSNETRouter
 from jackdaw.nest.ws.protocol.wsnet.proxyconnect import NestOpWSNETRouterconnect
+from jackdaw.nest.ws.protocol.customcred.credres import NestOpCredRes
 
 
 from jackdaw import logger
@@ -27,6 +30,7 @@ from jackdaw.dbmodel.credential import Credential
 from jackdaw.dbmodel.customcred import CustomCred
 from jackdaw.dbmodel.customtarget import CustomTarget
 from jackdaw.nest.ws.remoteagent.wsnet.router import WSNETRouterHandler
+
 
 
 # https://gist.github.com/artizirk/04eb23d957d7916c01ca632bb27d5436
@@ -142,7 +146,7 @@ class NestWebSocketServer:
 	async def __add_wsnet_router(self, cmd):
 		try:
 			proxy_id = str(uuid.uuid4())
-			phandler = WSNETRouterHandler(cmd.url, proxy_id, self.sspi_proxy_out_q, self.db_session, self.work_dir)
+			phandler = WSNETRouterHandler(self, cmd.url, proxy_id, self.sspi_proxy_out_q, self.db_session, self.work_dir)
 			asyncio.create_task(phandler.run())
 			try:
 				await asyncio.wait_for(phandler.connect_wait(), 5)
@@ -159,12 +163,31 @@ class NestWebSocketServer:
 			while True:
 				proxyid, datatype, data = await self.sspi_proxy_out_q.get()
 				if datatype == 'AGENT_IN':
+					data = typing.cast(JackDawAgent, data)
 					#new agent connected via router
 					self.agents[data.agent_id] = data
 					asyncio.create_task(data.run())
 					#notifying all operators
 					for operator_id in self.operators:
 						await self.operators[operator_id].server_in_q.put(data.get_list_reply(NestOpOK(0)))
+					
+					if data.platform.lower() == 'windows':
+						# adding default custom credential for authentication and notifying all operators
+						cc = CustomCred(data.username, 'sspiproxy', '', 'SSPIPROXY ;)', data.domain)
+						self.db_session.add(cc)
+						self.db_session.commit()
+						self.db_session.refresh(cc)
+						credres = NestOpCredRes()
+						credres.token = 0
+						credres.cid = cc.id
+						credres.adid = "0"
+						credres.domain = cc.domain
+						credres.username = cc.username
+						credres.secret = cc.secret
+						credres.stype = cc.stype
+						credres.description = cc.description
+						for operator_id in self.operators:
+							await self.operators[operator_id].server_in_q.put(credres)
 					
 		
 		except Exception as e:

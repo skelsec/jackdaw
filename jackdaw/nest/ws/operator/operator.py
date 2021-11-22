@@ -210,6 +210,12 @@ class NestOperator:
 		self.task_in_queue[cmd.token] = task_in_q
 		await self.server_out_q.put((self.operatorid, cmd, task_in_q))
 	
+	async def do_ldapspns(self, cmd: NestOpLDAPSPNs):
+		"""
+		LDAP SPN enum
+		"""
+		await self.server_out_q.put((self.operatorid, cmd, None))
+
 	async def do_smbfiles(self, cmd: NestOpSMBFiles):
 		"""
 		Starts am SMB share enumeration process on the selected agent
@@ -1031,6 +1037,8 @@ class NestOperator:
 						asyncio.create_task(self.do_smbdcsync(cmd))
 					elif cmd.cmd == NestOpCmd.RDPCONNECT:
 						asyncio.create_task(self.do_rdpconnect(cmd))
+					elif cmd.cmd == NestOpCmd.LDAPSPNS:
+						asyncio.create_task(self.do_ldapspns(cmd))
 
 					else:
 						print('Unknown Command')

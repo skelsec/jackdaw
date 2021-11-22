@@ -21,6 +21,7 @@ class NestWebScoketClientConsole(aiocmd.PromptToolkitCmd):
 		self.websocket = None
 		self.creds = {} #credid -> customcred
 		self.targets = {}
+		self.current_agent = "0"
 
 
 	async def __handle_in(self):
@@ -299,6 +300,7 @@ class NestWebScoketClientConsole(aiocmd.PromptToolkitCmd):
 					raise Exception(msg.reason)
 				elif msg.cmd == NestOpCmd.AGENT:
 					print('AGENT: %s' % msg.agentid)
+					self.current_agent = msg.agentid
 
 			return True, None
 		except Exception as e:
@@ -322,9 +324,12 @@ class NestWebScoketClientConsole(aiocmd.PromptToolkitCmd):
 			traceback.print_exc()
 			return False, e
 
-	async def do_gather(self, ldap_credid, ldap_targetid, smb_credid = None, smb_targetid = None, kerberos_credid = None, kerberos_targetid = None, dns = None, agentid = '0'):
+	async def do_gather(self, ldap_credid, ldap_targetid, smb_credid = None, smb_targetid = None, kerberos_credid = None, kerberos_targetid = None, dns = None, agentid = None):
 		"""Perform full gather on an agent"""
 		try:
+			if agentid is None:
+				agentid = self.current_agent
+				
 			cmd = NestOpGather()
 			cmd.agent_id = agentid
 
@@ -350,7 +355,7 @@ class NestWebScoketClientConsole(aiocmd.PromptToolkitCmd):
 				ldap_credid = None
 			else:
 				cmd.ldap_creds, stype = self.get_cred(ldap_credid)
-				cmd.ldap_creds.authtype = 'NTLM_PASSWORD'
+				cmd.ldap_creds.authtype = 'NTLM'
 			
 			if ldap_targetid is None or ldap_targetid.lower() == 'auto':
 				cmd.ldap_target = None
@@ -469,9 +474,11 @@ class NestWebScoketClientConsole(aiocmd.PromptToolkitCmd):
 		creds.sid = self.targets[targetid].tid
 		return creds
 
-	async def do_smbfiles(self, credid, targetid, agent_id = '0', depth = 3, authproto = 'NTLM'):
+	async def do_smbfiles(self, credid, targetid, agent_id = None, depth = 3, authproto = 'NTLM'):
 		"""Starts SMB file enumeration on given host"""
 		try:
+			if agent_id is None:
+				agent_id = self.current_agent
 			creds, stype = self.get_cred(credid)
 			creds.authtype = authproto
 			target = self.get_target(targetid)
@@ -501,9 +508,11 @@ class NestWebScoketClientConsole(aiocmd.PromptToolkitCmd):
 			traceback.print_exc()
 			return False, e
 
-	async def do_smbsessions(self, credid, targetid, authproto = 'NTLM', agent_id = '0'):
+	async def do_smbsessions(self, credid, targetid, authproto = 'NTLM', agent_id = None):
 		"""Starts SMB session enumeration on given host"""
 		try:
+			if agent_id is None:
+				agent_id = self.current_agent
 			creds, stype = self.get_cred(credid)
 			creds.authtype = authproto
 			target = self.get_target(targetid)
@@ -532,9 +541,12 @@ class NestWebScoketClientConsole(aiocmd.PromptToolkitCmd):
 			traceback.print_exc()
 			return False, e
 	
-	async def do_smbdcsync(self, credid, targetid, targetuser_adid, targetuser_sid = None, authproto = 'NTLM', agent_id = '0'):
+	async def do_smbdcsync(self, credid, targetid, targetuser_adid, targetuser_sid = None, authproto = 'NTLM', agent_id = None):
 		"""Starts SMB dcsync attack. If no targetuser_sid is specified then it means all"""
 		try:
+			if agent_id is None:
+				agent_id = self.current_agent
+
 			creds, stype = self.get_cred(credid)
 			creds.authtype = authproto
 			target = self.get_target(targetid)
@@ -570,10 +582,47 @@ class NestWebScoketClientConsole(aiocmd.PromptToolkitCmd):
 		except Exception as e:
 			traceback.print_exc()
 			return False, e
+	
+	async def do_ldapspns(self, credid, targetid, authproto = 'NTLM', agent_id = None):
+		"""Starts SMB dcsync attack. If no targetuser_sid is specified then it means all"""
+		try:
+			if agent_id is None:
+				agent_id = self.current_agent
 
-	async def do_kerberoast(self, credid, targetid, targetuser_adid, targetuser_sid, agent_id = '0'):
+			creds, stype = self.get_cred(credid)
+			creds.authtype = authproto
+			target = self.get_target(targetid)
+
+			cmd = NestOpLDAPSPNs()
+			cmd.agent_id = agent_id
+			cmd.creds = creds
+			cmd.target = target
+			
+			msg_queue, err = await self.__sr(cmd)
+			if err is not None:
+				raise err
+
+			while True:
+				msg = await msg_queue.get()
+				if msg.cmd == NestOpCmd.OK:
+					print('OK!')
+					return True, None
+				elif msg.cmd == NestOpCmd.ERR:
+					raise Exception(msg.reason)
+				elif msg.cmd == NestOpCmd.USERRES:
+					print('SPN user! %s' % msg.name)
+					
+
+		except Exception as e:
+			traceback.print_exc()
+			return False, e
+
+	async def do_kerberoast(self, credid, targetid, targetuser_adid, targetuser_sid, agent_id = None):
 		"""Starts Kerberoast (spnroast) against a given user"""
 		try:
+			if agent_id is None:
+				agent_id = self.current_agent
+
 			creds, stype = self.get_cred(credid)
 			#creds.authtype = authproto
 			target = self.get_target(targetid)
@@ -604,9 +653,12 @@ class NestWebScoketClientConsole(aiocmd.PromptToolkitCmd):
 			traceback.print_exc()
 			return False, e
 	
-	async def do_asreproast(self, targetid, targetuser_adid, targetuser_sid, agent_id = '0'):
+	async def do_asreproast(self, targetid, targetuser_adid, targetuser_sid, agent_id = None):
 		"""Starts ASREProast against a given user"""
 		try:
+			if agent_id is None:
+				agent_id = self.current_agent
+
 			target = self.get_target(targetid)
 
 			target_user = NestOpCredsDef()
@@ -636,9 +688,11 @@ class NestWebScoketClientConsole(aiocmd.PromptToolkitCmd):
 			traceback.print_exc()
 			return False, e
 	
-	async def do_gettgt(self, credid, targetid, agent_id = '0'):
+	async def do_gettgt(self, credid, targetid, agent_id = None):
 		"""Starts Kerberoast (spnroast) against a given user"""
 		try:
+			if agent_id is None:
+				agent_id = self.current_agent
 			creds, stype = self.get_cred(credid)
 			#creds.authtype = authproto
 			target = self.get_target(targetid)
@@ -666,9 +720,11 @@ class NestWebScoketClientConsole(aiocmd.PromptToolkitCmd):
 			traceback.print_exc()
 			return False, e
 	
-	async def do_gettgs(self, credid, targetid, spn, agent_id = '0'):
+	async def do_gettgs(self, credid, targetid, spn, agent_id = None):
 		"""Starts Kerberoast (spnroast) against a given user"""
 		try:
+			if agent_id is None:
+				agent_id = self.current_agent
 			creds, stype = self.get_cred(credid)
 			#creds.authtype = authproto
 			target = self.get_target(targetid)
@@ -697,9 +753,12 @@ class NestWebScoketClientConsole(aiocmd.PromptToolkitCmd):
 			traceback.print_exc()
 			return False, e
 	
-	async def do_rdpconnect(self, credid, targetid, agent_id = '0'):
+	async def do_rdpconnect(self, credid, targetid, agent_id = None):
 		"""Creates an RDP connection and streams video data"""
 		try:
+			if agent_id is None:
+				agent_id = self.current_agent
+
 			creds, stype = self.get_cred(credid)
 			#creds.authtype = authproto
 			target = self.get_target(targetid)

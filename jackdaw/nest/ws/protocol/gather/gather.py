@@ -37,8 +37,9 @@ class NestOpGather:
 		cmd.smb_creds = NestOpCredsDef.from_dict(d['smb_creds'])
 		cmd.smb_target = NestOpTargetDef.from_dict(d['smb_target'])
 
-		cmd.kerberos_creds = NestOpCredsDef.from_dict(d['kerberos_creds'])
-		cmd.kerberos_target = NestOpTargetDef.from_dict(d['kerberos_target'])
+		if 'kerberos_creds' in d and d['kerberos_creds'] is not None:
+			cmd.kerberos_creds = NestOpCredsDef.from_dict(d['kerberos_creds'])
+			cmd.kerberos_target = NestOpTargetDef.from_dict(d['kerberos_target'])
 
 		cmd.agent_id = d['agent_id']
 		if cmd.agent_id is None:
