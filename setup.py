@@ -73,7 +73,7 @@ setup(
 		'swagger-ui-bundle>=0.0.2',
 		'colorama; platform_system=="Windows"',
 		'winacl>=0.1.1',
-		'python-igraph==0.8.3',
+		'python-igraph', #'python-igraph==0.8.3',
 		'aiosqlite',
 	],
 	# 'aiohttp',
