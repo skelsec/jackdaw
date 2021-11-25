@@ -32,6 +32,7 @@ class GathererProgress:
 		self.type = GathererProgressType.BASIC
 		self.msg_type = MSGTYPE.PROGRESS
 		self.adid = None
+		self.graphid = None
 		self.domain_name = None
 		self.total = None #total number of elements needs processing
 		self.total_finished = None #finished number of elements

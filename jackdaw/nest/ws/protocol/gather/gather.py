@@ -17,7 +17,7 @@ class NestOpGather:
 		self.kerberos_target:NestOpTargetDef = None
 		self.ldap_workers = 4
 		self.smb_worker_cnt = 500
-		self.dns = None
+		self.dns:NestOpTargetDef = None
 		self.stream_data = False
 		self.agent_id = None
 	
@@ -49,11 +49,8 @@ class NestOpGather:
 			cmd.ldap_workers = d['ldap_workers']
 		if 'smb_worker_cnt' in d:
 			cmd.smb_worker_cnt = d['smb_worker_cnt']
-		if 'dns' in d:
-			cmd.dns = d['dns']
-			if cmd.dns is not None:
-				if cmd.dns.upper() == 'AUTO':
-					cmd.dns = 'auto'
+		if 'dns' in d and d['dns'] is not None:
+			cmd.dns = NestOpTargetDef.from_dict(d['dns'])
 		if 'stream_data' in d:
 			cmd.stream_data = d['stream_data']
 		return cmd

@@ -11,6 +11,7 @@ class NestOpGatherStatus:
 		self.current_progress_type = None
 		self.msg_type = None
 		self.adid = None
+		self.graphid = None
 		self.domain_name = None
 		self.total = None
 		self.step_size = None
@@ -35,6 +36,7 @@ class NestOpGatherStatus:
 		cmd.current_progress_type = d['current_progress_type']
 		cmd.msg_type = d['msg_type']
 		cmd.adid = d['adid']
+		cmd.graphid = d['graphid']
 		cmd.domain_name = d['domain_name']
 		cmd.total = d['total']
 		cmd.step_size = d['step_size']

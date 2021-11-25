@@ -324,68 +324,36 @@ class NestWebScoketClientConsole(aiocmd.PromptToolkitCmd):
 			traceback.print_exc()
 			return False, e
 
-	async def do_gather(self, ldap_credid, ldap_targetid, smb_credid = None, smb_targetid = None, kerberos_credid = None, kerberos_targetid = None, dns = None, agentid = None):
+	async def do_gather(self, ldap_credid, ldap_targetid, smb_credid, smb_targetid, kerberos_credid = None, kerberos_targetid = None, dns_target = None, agentid = None):
 		"""Perform full gather on an agent"""
 		try:
-			if agentid is None:
-				agentid = self.current_agent
-				
 			cmd = NestOpGather()
 			cmd.agent_id = agentid
+			if agentid is None:
+				cmd.agent_id = self.current_agent
+			
+			cmd.ldap_creds, stype = self.get_cred(ldap_credid)
+			cmd.ldap_creds.authtype = 'NTLM'
+			cmd.ldap_target = self.get_target(ldap_targetid)
 
-			if ldap_credid == '':
-				ldap_credid = None
-			if ldap_targetid == '':
-				ldap_targetid = None
+			cmd.smb_creds, stype = self.get_cred(smb_credid)
+			cmd.smb_creds.authtype = 'NTLM'
+			cmd.smb_target = self.get_target(smb_targetid)
 			
-			if smb_credid == '':
-				smb_credid = None
-			if smb_targetid == '':
-				smb_targetid = None
-			
-			if kerberos_credid == '':
-				kerberos_credid = None
-			if kerberos_targetid == '':
-				kerberos_targetid = None
-			
-			if dns == '':
-				dns = None
-			
-			if ldap_credid is None or ldap_credid.lower() == 'auto':
-				ldap_credid = None
-			else:
-				cmd.ldap_creds, stype = self.get_cred(ldap_credid)
-				cmd.ldap_creds.authtype = 'NTLM'
-			
-			if ldap_targetid is None or ldap_targetid.lower() == 'auto':
-				cmd.ldap_target = None
-			else:
-				cmd.ldap_target = self.get_target(ldap_targetid)
-
-			if smb_credid is None or smb_credid.lower() == 'auto':
-				cmd.smb_creds = None
-			else:
-				cmd.smb_creds, stype = self.get_cred(smb_credid)
-				cmd.smb_creds.authtype = 'NTLM'
-			
-			if smb_targetid is None or smb_targetid.lower() == 'auto':
-				cmd.smb_target = None
-			else:
-				cmd.smb_target = self.get_target(smb_targetid)
-
-			if kerberos_credid is None or kerberos_credid.lower() == 'auto':
+			if kerberos_credid == '' or kerberos_credid == None:
 				cmd.kerberos_creds = None
 			else:
 				cmd.kerberos_creds, stype = self.get_cred(kerberos_credid)
-				#cmd.kerberos_creds.authtype = 'NTLM'
-			if kerberos_targetid is None or kerberos_targetid.lower() == 'auto':
-				cmd.kerberos_target = None
-			else:
+				cmd.kerberos_creds.authtype = 'NTLM'
 				cmd.kerberos_target = self.get_target(kerberos_targetid)
+			
+			if dns_target == '' or dns_target is None:
+				cmd.dns = self.get_target(ldap_targetid)
+			else:
+				cmd.dns = self.get_target(dns_target)
 			
 			cmd.ldap_workers = 4
 			cmd.smb_worker_cnt = 100
-			cmd.dns = dns
 			cmd.stream_data = True
 			
 			msg_queue, err = await self.__sr(cmd)

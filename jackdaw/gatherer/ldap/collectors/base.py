@@ -117,6 +117,7 @@ class BaseCollector:
 				msg.type = GathererProgressType.BASIC
 				msg.msg_type = MSGTYPE.PROGRESS
 				msg.adid = self.ad_id
+				msg.graphid = self.graph_id
 				msg.domain_name = self.domain_name
 				msg.finished = self.finished_enums
 				msg.running = self.running_enums

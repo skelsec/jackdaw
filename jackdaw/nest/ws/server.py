@@ -10,6 +10,7 @@ import platform
 import typing
 from http import HTTPStatus
 from urllib.parse import urlparse, parse_qs
+from jackdaw.nest.ws.protocol.customtarget.targetres import NestOpTargetRes
 
 from jackdaw.nest.ws.protocol.error import NestOpErr
 from jackdaw.nest.ws.protocol.ok import NestOpOK
@@ -90,55 +91,60 @@ class NestWebSocketServer:
 	async def __handle_server_in(self):
 		try:
 			while True:
-				operator_id, cmd, op_cmd_q = await self.server_out_q.get()
-				if cmd.cmd == NestOpCmd.CANCEL:
-					if cmd.agent_id not in self.agent_cancellable_tasks:
-						await self.operators[operator_id].server_in_q.put(NestOpErr(cmd.token, 'Agent id not found!'))
-						continue
-					if cmd.token not in self.agent_cancellable_tasks[cmd.agent_id]:
-						await self.operators[operator_id].server_in_q.put(NestOpErr(cmd.token, 'Token incorrect!'))
-					self.agent_cancellable_tasks[cmd.agent_id][cmd.token].cancel()
+				try:
+					operator_id, cmd, op_cmd_q = await self.server_out_q.get()
+					if cmd.cmd == NestOpCmd.CANCEL:
+						if cmd.agent_id not in self.agent_cancellable_tasks:
+							await self.operators[operator_id].server_in_q.put(NestOpErr(cmd.token, 'Agent id not found!'))
+							continue
+						if cmd.token not in self.agent_cancellable_tasks[cmd.agent_id]:
+							await self.operators[operator_id].server_in_q.put(NestOpErr(cmd.token, 'Token incorrect!'))
+						self.agent_cancellable_tasks[cmd.agent_id][cmd.token].cancel()
 
-				elif cmd.cmd == NestOpCmd.LISTAGENTS:
-					for agentid in self.agents:
-						agentreply = self.agents[agentid].get_list_reply(cmd)
-						await self.operators[operator_id].server_in_q.put(agentreply)
-					await self.operators[operator_id].server_in_q.put(NestOpOK(cmd.token))
-				
-				elif cmd.cmd == NestOpCmd.WSNETLISTROUTERS:
-					for router_id in self.sspi_proxies:
+					elif cmd.cmd == NestOpCmd.LISTAGENTS:
+						for agentid in self.agents:
+							agentreply = self.agents[agentid].get_list_reply(cmd)
+							await self.operators[operator_id].server_in_q.put(agentreply)
+						await self.operators[operator_id].server_in_q.put(NestOpOK(cmd.token))
+					
+					elif cmd.cmd == NestOpCmd.WSNETLISTROUTERS:
+						for router_id in self.sspi_proxies:
+							notify = NestOpWSNETRouter()
+							notify.token = cmd.token
+							notify.url = self.sspi_proxies[router_id].url
+							notify.router_id = router_id
+							await self.operators[operator_id].server_in_q.put(notify)
+						
+						await self.operators[operator_id].server_in_q.put(NestOpOK(cmd.token))
+					
+					elif cmd.cmd == NestOpCmd.WSNETROUTERCONNECT:
+						# operator is requesting the server to create a connection to a wsnet router
+						proxy_id, err = await self.__add_wsnet_router(cmd)
+						if err is not None:
+							await self.operators[operator_id].server_in_q.put(NestOpErr(cmd.token, str(e)))
+							continue
+						
+						await self.operators[operator_id].server_in_q.put(NestOpOK(cmd.token))
+
 						notify = NestOpWSNETRouter()
-						notify.token = cmd.token
-						notify.url = self.sspi_proxies[router_id].url
-						notify.router_id = router_id
-						await self.operators[operator_id].server_in_q.put(notify)
+						notify.token = 0
+						notify.url = cmd.url
+						notify.router_id = proxy_id
+						for operator_id in self.operators:
+							await self.operators[operator_id].server_in_q.put(notify)
 					
-					await self.operators[operator_id].server_in_q.put(NestOpOK(cmd.token))
-				
-				elif cmd.cmd == NestOpCmd.WSNETROUTERCONNECT:
-					# operator is requesting the server to create a connection to a wsnet router
-					proxy_id, err = await self.__add_wsnet_router(cmd)
-					if err is not None:
-						await self.operators[operator_id].server_in_q.put(NestOpErr(cmd.token, str(e)))
-						continue
+					else:
+						logger.info('Dispatching message from operator "%s" to Agent "%s" Command: %s' % (operator_id, cmd.agent_id, cmd.cmd ))
+						# operator asks for a full gather to be executed on an agent
+						if cmd.agent_id not in self.agents:
+							await self.operators[operator_id].server_in_q.put(NestOpErr(cmd.token, 'Agent id not found!'))
+							continue
+						agent = self.agents[cmd.agent_id]
+						await agent.cmd_in_q.put((self.operators[operator_id], cmd, self.operators[operator_id].server_in_q, op_cmd_q))
 					
-					await self.operators[operator_id].server_in_q.put(NestOpOK(cmd.token))
-
-					notify = NestOpWSNETRouter()
-					notify.token = 0
-					notify.url = cmd.url
-					notify.router_id = proxy_id
-					for operator_id in self.operators:
-						await self.operators[operator_id].server_in_q.put(notify)
-				
-				else:
-					logger.info('Dispatching message from operator "%s" to Agent "%s" Command: %s' % (operator_id, cmd.agent_id, cmd.cmd ))
-					# operator asks for a full gather to be executed on an agent
-					if cmd.agent_id not in self.agents:
-						await self.operators[operator_id].server_in_q.put(NestOpErr(cmd.token, 'Agent id not found!'))
-						continue
-					agent = self.agents[cmd.agent_id]
-					await agent.cmd_in_q.put((self.operators[operator_id], cmd, self.operators[operator_id].server_in_q, op_cmd_q))
+				except Exception as e:
+					print('Error processing command!')
+					traceback.print_exc()
 					
 		except Exception as e:
 			traceback.print_exc()
@@ -188,6 +194,20 @@ class NestWebSocketServer:
 						credres.description = cc.description
 						for operator_id in self.operators:
 							await self.operators[operator_id].server_in_q.put(credres)
+						
+						ct = CustomTarget(data.domain, 'SSPI agent targeted domain')
+						self.db_session.add(ct)
+						self.db_session.commit()
+						self.db_session.refresh(cc)
+						targetres = NestOpTargetRes()
+						targetres.token = 0
+						targetres.description = ct.description
+						targetres.adid = '0'
+						targetres.tid = ct.id
+						for operator_id in self.operators:
+							await self.operators[operator_id].server_in_q.put(targetres)
+
+
 					
 		
 		except Exception as e:

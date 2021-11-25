@@ -101,6 +101,7 @@ class CONNECTIONPROTO:
 	KERBEROS = 'KERBEROS'
 	LDAP = 'LDAP'
 	RDP = 'RDP'
+	DNS = 'DNS'
 
 
 
@@ -335,6 +336,8 @@ class JackDawAgent:
 			elif protocol == CONNECTIONPROTO.RDP:
 				target = res.get_rdp_target(domain = None, proxy = self.proxy, dc_ip = dc_ip, timeout = cmd.timeout)
 				return self.get_rdp_proxy(target)
+			elif protocol == CONNECTIONPROTO.DNS:
+				return dc_ip
 			else:
 				raise NotImplementedError()
 		
@@ -410,6 +413,8 @@ class JackDawAgent:
 					proxy = self.proxy
 				)
 				return self.get_rdp_proxy(target)
+			elif protocol == CONNECTIONPROTO.DNS:
+				return dc_ip
 			else:
 				raise NotImplementedError()
 
@@ -994,6 +999,7 @@ class JackDawAgent:
 						reply.current_progress_type = msg.type.value
 						reply.msg_type = msg.msg_type.value
 						reply.adid = msg.adid
+						reply.graphid = msg.graphid
 						reply.domain_name = msg.domain_name
 						reply.total = msg.total
 						reply.step_size = msg.step_size
@@ -1113,14 +1119,14 @@ class JackDawAgent:
 			print('resmon died! %s' % e)
 			await out_q.put(NestOpErr(cmd.token, str(e)))
 
-	async def do_gather(self, operator:NestOperator, cmd:NestOpGather, out_q, op_in_q):
-		# well... the connection/credential parameters needed to be re-encoded to the url format.		
+	async def do_gather(self, operator:NestOperator, cmd:NestOpGather, out_q, op_in_q):	
 		try:
 			progress_queue = asyncio.Queue()
 			gatheringmonitor_task = asyncio.create_task(self.__gathermonitor(operator, cmd, progress_queue, out_q))
 			
 			if cmd.ldap_creds is None:
 				if platform.system().lower() == 'windows':
+					raise Exception('Not implemented!')
 					from winacl.functions.highlevel import get_logon_info
 					logon = get_logon_info()
 					
@@ -1134,26 +1140,27 @@ class JackDawAgent:
 				if err is not None:
 					raise err
 
-				ldap_url = MSLDAPURLDecoder(None)
-				ldap_url.ldap_scheme = ldaptarget.proto
-				ldap_url.auth_scheme = ldapcred.auth_method
-
-				ldap_url.domain = ldapcred.domain
-				ldap_url.username = ldapcred.username
-				ldap_url.password = ldapcred.password
-				ldap_url.encrypt = ldapcred.encrypt
-				ldap_url.auth_settings = ldapcred.settings
-				ldap_url.etypes = ldapcred.etypes
-
-				ldap_url.ldap_host = ldaptarget.host
-				ldap_url.ldap_port = ldaptarget.port
-				ldap_url.ldap_tree = ldaptarget.tree
-				ldap_url.target_timeout = ldaptarget.timeout
-				ldap_url.target_pagesize = ldaptarget.ldap_query_page_size
-				ldap_url.target_ratelimit = ldaptarget.ldap_query_ratelimit
-				ldap_url.dc_ip = ldaptarget.dc_ip
-				ldap_url.serverip = ldaptarget.serverip
-				ldap_url.proxy = ldaptarget.proxy
+				ldap_url = MSLDAPURLDecoder(None, ldapcred, ldaptarget)
+				
+				#ldap_url.ldap_scheme = ldaptarget.proto
+				#ldap_url.auth_scheme = ldapcred.auth_method
+				#
+				#ldap_url.domain = ldapcred.domain
+				#ldap_url.username = ldapcred.username
+				#ldap_url.password = ldapcred.password
+				#ldap_url.encrypt = ldapcred.encrypt
+				#ldap_url.auth_settings = ldapcred.settings
+				#ldap_url.etypes = ldapcred.etypes
+				#
+				#ldap_url.ldap_host = ldaptarget.host
+				#ldap_url.ldap_port = ldaptarget.port
+				#ldap_url.ldap_tree = ldaptarget.tree
+				#ldap_url.target_timeout = ldaptarget.timeout
+				#ldap_url.target_pagesize = ldaptarget.ldap_query_page_size
+				#ldap_url.target_ratelimit = ldaptarget.ldap_query_ratelimit
+				#ldap_url.dc_ip = ldaptarget.dc_ip
+				#ldap_url.serverip = ldaptarget.serverip
+				#ldap_url.proxy = ldaptarget.proxy
 
 			
 			if cmd.smb_creds is None:
@@ -1170,64 +1177,33 @@ class JackDawAgent:
 				if err is not None:
 					raise err
 				
-				smb_url = SMBConnectionURL(None)
-				#credential
-				smb_url.authentication_protocol = smbcredential.authentication_type
-				smb_url.secret_type = smbcredential.secret_type
-				smb_url.domain = smbcredential.domain
-				smb_url.username = smbcredential.username
-				smb_url.secret = smbcredential.secret
-				smb_url.is_anonymous = False
-				smb_url.auth_settings = smbcredential.settings
-
-				#target
-				smb_url.dialect = smbtarget.preferred_dialects
-				smb_url.protocol = smbtarget.protocol
-				smb_url.hostname = smbtarget.hostname
-				smb_url.dc_ip = smbtarget.dc_ip
-				smb_url.port = smbtarget.port
-				smb_url.ip = smbtarget.ip
-				smb_url.timeout = smbtarget.timeout
-				#smb_url.server_ip = smbtarget.serverip
-				smb_url.fragment = None
-				smb_url.path = smbtarget.path
-				smb_url.compression = smbtarget.compression
-
-				#proxy
-				smb_url.proxy= smbtarget.proxy
-
+				smb_url = SMBConnectionURL(None, smbcredential, smbtarget)
+			
+			kerberos_url = None
 			if cmd.kerberos_creds is None:
 				kerberos_url = None
 			else:
 				kerbtarget = self.get_target_address_db(cmd.kerberos_target, CONNECTIONPROTO.KERBEROS)
 				kerbcred, err = self.get_stored_cred_db(cmd.kerberos_creds, CONNECTIONPROTO.KERBEROS, target=kerbtarget)
 				if err is not None:
-					raise err
+					print('TODO: Kerberos error! %s' % err)
+					#raise err
 				
-				kerberos_url = KerberosClientURL()
-				kerberos_url.domain = kerbcred.domain
-				kerberos_url.username = kerbcred.username
-				kerberos_url.secret_type = KerberosSecretType.PASSWORD #TODO!
-				kerberos_url.secret = kerbcred.password
-				kerberos_url.dc_ip = None
-				kerberos_url.protocol = kerbtarget.protocol
-				kerberos_url.timeout = kerbtarget.timeout
-				kerberos_url.port = kerbtarget.port
-				kerberos_url.proxy = kerbtarget.proxy			
-
-			dns = cmd.dns
-			if dns == 'auto':
-				if platform.system().lower() == 'windows':
-					from jackdaw.gatherer.rdns.dnstest import get_correct_dns_win
-					srv_domain = '%s.%s' % (logon['logonserver'], logon['dnsdomainname'])
-					dns = await get_correct_dns_win(srv_domain)
-					if dns is None:
-						dns = None #failed to get dns
-					else:
-						dns = str(dns)
-			
 				else:
-					raise Exception('dns auto mode selected, but it is not supported on this platform')
+					kerberos_url = KerberosClientURL()
+					kerberos_url.domain = kerbcred.domain
+					kerberos_url.username = kerbcred.username
+					kerberos_url.secret_type = KerberosSecretType.PASSWORD #TODO!
+					kerberos_url.secret = kerbcred.password
+					kerberos_url.dc_ip = None
+					kerberos_url.protocol = kerbtarget.protocol
+					kerberos_url.timeout = kerbtarget.timeout
+					kerberos_url.port = kerbtarget.port
+					kerberos_url.proxy = kerbtarget.proxy
+
+			dns = None
+			if cmd.dns is not None:
+				dns = self.get_target_address_db(cmd.dns, CONNECTIONPROTO.DNS)
 			print(ldap_url)
 			print(smb_url)
 			print(dns)
