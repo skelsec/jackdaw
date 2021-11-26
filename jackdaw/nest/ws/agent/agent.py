@@ -279,7 +279,7 @@ class JackDawAgent:
 		target.proxy = proxy
 		return target
 
-	def get_rdp_proxy(self, target):
+	def get_rdp_proxy(self, target:RDPTarget):
 		if self.proxy is None:
 			return target
 		
@@ -550,9 +550,8 @@ class JackDawAgent:
 			if err is not None:
 				raise err
 
-			proxy = None
-
-			rdpurl = RDPConnectionURL(None, target = target, cred = cred, proxy = proxy)
+			rdpurl = RDPConnectionURL(None, target = target, cred = cred, proxy = target.proxy)
+			print(rdpurl)
 			rdpconn = rdpurl.get_connection(iosettings)
 			_, err = await rdpconn.connect()
 			if err is not None:
