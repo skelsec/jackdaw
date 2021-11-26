@@ -289,6 +289,7 @@ class JackDawAgent:
 		proxy.target = [self.to_asysocks(target.get_ip(), int(target.port)).get_target()]
 
 		target.proxy = proxy
+		return target
 	
 	def get_ldap_proxy(self, target:MSLDAPTarget):
 		if self.proxy is None:
