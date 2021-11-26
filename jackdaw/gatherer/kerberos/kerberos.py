@@ -179,7 +179,7 @@ class KerberoastGatherer:
 
 	async def kerberoast_sspiproxy(self):
 		try:
-			from pyodidewsnet.sspiproxyws import SSPIProxyWS
+			from wsnet.operator.sspiproxy import WSNETSSPIProxy
 			
 			url = self.kerb_url
 			agentid = None
@@ -193,7 +193,7 @@ class KerberoastGatherer:
 			for uid in self.targets_spn:
 				if self.targets_spn[uid].get_formatted_pname().lower().startswith('krbtgt'):
 					continue
-				sspi = SSPIProxyWS(url, agentid)
+				sspi = WSNETSSPIProxy(url, agentid)
 				status, ctxattr, apreq, err = await sspi.authenticate('KERBEROS', '', self.targets_spn[uid].get_formatted_pname(), 3, 2048, authdata = b'')
 				if err is not None:
 					print(err.__traceback__)

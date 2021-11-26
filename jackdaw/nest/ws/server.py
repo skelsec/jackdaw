@@ -201,7 +201,10 @@ class NestWebSocketServer:
 						for operator_id in self.operators:
 							await self.operators[operator_id].server_in_q.put(credres)
 						
-						ct = CustomTarget(data.domain, 'SSPI agent targeted domain')
+						logonserver = data.domain
+						if data.logonserver is not None:
+							logonserver = data.logonserver
+						ct = CustomTarget(logonserver, 'SSPI agent targeted domain')
 						res = self.db_session.query(CustomTarget).filter_by(checksum = ct.checksum).first()
 						if res is None:
 							self.db_session.add(ct)
