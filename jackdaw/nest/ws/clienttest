@@ -27,3 +27,26 @@ python3 -m jackdaw.nest.ws.client 'ws://127.0.0.1:5001' connect 'rdpconnect 14 1
 python3 -m jackdaw.nest.ws.client 'ws://127.0.0.1:5001' connect listads listcreds listtargets creds targets listagents 'smbsessions 14 1'
 python3 -m jackdaw.nest.ws.client 'ws://127.0.0.1:5001' connect listads listcreds listtargets creds targets listagents 'ldapspns 14 1'
 python3 -m jackdaw.nest.ws.client 'ws://127.0.0.1:5001' connect listads listcreds listtargets creds targets listagents 'ldapspns 14 1 SSPIPROXY_NTLM'
+
+
+
+
+021-11-24 17:30:44,758 jackdaw.nest.ws.operator.operator INFO     OK!
+INFO:jackdaw.nest.ws.operator.operator:OK!
+CMD INCOMING: {"token":"4a78aa0b-a46f-42d9-8193-bd6a0febf960","cmd":"GATHER","ldap_creds":{"adid":"0","sid":"1","authtype":"NTLM"},"ldap_target":{"adid":"0","sid":"1","timeout":5},"smb_creds":{"adid":"0","sid":"1","authtype":"NTLM"},"smb_target":{"adid":"0","sid":"1","timeout":5},"kerberos_creds":{"adid":"0","sid":"1","authtype":"NTLM"},"kerberos_target":{"adid":"0","sid":"1","timeout":5},"ldap_workers":4,"smb_worker_cnt":100,"dns":{"adid":"0","sid":"1","timeout":5},"agent_id":"0","stream_data":true}
+{'adid': '0', 'sid': '1', 'authtype': 'NTLM'}
+{'adid': '0', 'sid': '1', 'authtype': 'NTLM'}
+{'adid': '0', 'sid': '1', 'authtype': 'NTLM'}
+2021-11-24 17:30:58,299 jackdaw.nest.ws.operator.operator INFO     Got command: GATHER
+INFO:jackdaw.nest.ws.operator.operator:Got command: GATHER
+
+
+
+CMD INCOMING: {"cmd": "GATHER", "token": 7, "ldap_creds": {"adid": 0, "sid": 1, "authtype": "NTLM"}, "ldap_target": {"adid": 0, "sid": 1, "timeout": 5}, "smb_creds": {"adid": 0, "sid": 1, "authtype": "NTLM"}, "smb_target": {"adid": 0, "sid": 1, "timeout": 5}, "kerberos_creds": null, "kerberos_target": null, "ldap_workers": 4, "smb_worker_cnt": 100, "dns": null, "stream_data": true, "agent_id": "0"}
+{'adid': 0, 'sid': 1, 'authtype': 'NTLM'}
+{'adid': 0, 'sid': 1, 'authtype': 'NTLM'}
+2021-11-24 17:34:39,822 jackdaw.nest.ws.operator.operator INFO     Got command: GATHER
+INFO:jackdaw.nest.ws.operator.operator:Got command: GATHER
+
+
+

@@ -6,6 +6,7 @@ from jackdaw.dbmodel.utils.serializer import Serializer
 from aiosmb.commons.connection.target import SMBTarget, SMBConnectionProtocol
 from msldap.commons.target import MSLDAPTarget
 from minikerberos.common.target import KerberosTarget, KerberosSocketType
+import hashlib
 
 class CustomTarget(Basemodel, Serializer):
 	__tablename__ = 'customtargets'
@@ -15,12 +16,20 @@ class CustomTarget(Basemodel, Serializer):
 	linksid = Column(String, index=True)
 	hostname = Column(String, index=True)
 	description = Column(String, index=True)
+	checksum = Column(String, index=True)
 
 	def __init__(self, hostname, description, linksid = None, ownerid=None):
 		self.linksid = linksid
 		self.hostname = hostname
 		self.ownerid = ownerid
 		self.description = description
+		self.checksum = CustomTarget.calc_checksum(self.hostname, self.description, self.linksid, self.ownerid)
+
+
+	@staticmethod
+	def calc_checksum(hostname, description, linksid, ownerid):
+		buff = str(hostname) + str(description) + str(linksid) + str(description) + str(ownerid)
+		return hashlib.md5(buff.encode()).hexdigest()
 	
 	def get_smb_target(self, domain = None, proxy = None, dc_ip = None, timeout = 1):
 		ip = None

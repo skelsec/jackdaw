@@ -179,10 +179,16 @@ class NestWebSocketServer:
 					
 					if data.platform.lower() == 'windows':
 						# adding default custom credential for authentication and notifying all operators
+
 						cc = CustomCred(data.username, 'sspiproxy', '', 'SSPIPROXY ;)', data.domain)
-						self.db_session.add(cc)
-						self.db_session.commit()
-						self.db_session.refresh(cc)
+						# checking if we already have this entry in DB
+						res = self.db_session.query(CustomCred).filter_by(checksum = cc.checksum).first()
+						if res is None:
+							self.db_session.add(cc)
+							self.db_session.commit()
+							self.db_session.refresh(cc)
+						else:
+							cc = res
 						credres = NestOpCredRes()
 						credres.token = 0
 						credres.cid = cc.id
@@ -196,9 +202,13 @@ class NestWebSocketServer:
 							await self.operators[operator_id].server_in_q.put(credres)
 						
 						ct = CustomTarget(data.domain, 'SSPI agent targeted domain')
-						self.db_session.add(ct)
-						self.db_session.commit()
-						self.db_session.refresh(cc)
+						res = self.db_session.query(CustomTarget).filter_by(checksum = ct.checksum).first()
+						if res is None:
+							self.db_session.add(ct)
+							self.db_session.commit()
+							self.db_session.refresh(ct)
+						else:
+							ct = res
 						targetres = NestOpTargetRes()
 						targetres.token = 0
 						targetres.description = ct.description

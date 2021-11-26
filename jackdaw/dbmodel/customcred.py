@@ -8,6 +8,7 @@ import datetime
 from sqlalchemy.orm import relationship
 from sqlalchemy import Column, Integer, String, DateTime, ForeignKey
 from jackdaw.dbmodel.utils.serializer import Serializer
+import hashlib
 
 from aiosmb.commons.connection.credential import SMBCredential, SMBAuthProtocol, SMBCredentialsSecretType
 
@@ -21,6 +22,7 @@ class CustomCred(Basemodel, Serializer):
 	stype = Column(String) #password/nt/rc4/aes/etc...
 	secret = Column(String)
 	description = Column(String, index=True)
+	checksum = Column(String, index=True)
 
 	def __init__(self, username, stype, secret, description, domain = None, ownerid=None):
 		self.ownerid = ownerid
@@ -29,7 +31,13 @@ class CustomCred(Basemodel, Serializer):
 		self.stype = stype
 		self.secret = secret
 		self.description = description
+		self.checksum = CustomCred.calc_checksum(self.username, self.stype, self.secret, self.description, self.domain, self.ownerid)
 	
+	@staticmethod
+	def calc_checksum(username, stype, secret, description, domain, ownerid):
+		buff = str(username) + str(stype) + str(secret) + str(description) + str(domain) + str(ownerid)
+		return hashlib.md5(buff.encode()).hexdigest()
+
 	def get_smb_cred(self, authtype_str:str, target:SMBTarget = None, settings:dict = None):
 		stype = None
 		authtype_str = authtype_str.upper()
