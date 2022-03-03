@@ -173,7 +173,8 @@ async def run(args):
 					ad_id=None,
 					dns=args.dns,
 					no_work_dir=args.no_work_dir,
-					proxy=args.proxy
+					proxy=args.proxy,
+					keep_sd_file=True,
 				)
 				res, err = await gatherer.run()
 				if err is not None:

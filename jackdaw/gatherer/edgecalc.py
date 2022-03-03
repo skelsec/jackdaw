@@ -1,11 +1,14 @@
 
+import hashlib
 import os
+import io
 import asyncio
 import logging
 import datetime
 import tempfile
 import platform
 import pathlib
+import gzip
 
 try:
 	import multiprocessing as mp
@@ -54,7 +57,7 @@ class EdgeCalcProgress:
 		
 
 class EdgeCalc:
-	def __init__(self, db_session, ad_id, graph_id, buffer_size = 100, show_progress = True, progress_queue = None, worker_count = None, mp_pool = None, work_dir = None):
+	def __init__(self, db_session, ad_id, graph_id, buffer_size = 100, show_progress = True, progress_queue = None, worker_count = None, mp_pool = None, work_dir = None, from_sdfile = None):
 		self.db_session = db_session
 		self.ad_id = ad_id
 		self.buffer_size = buffer_size
@@ -68,11 +71,13 @@ class EdgeCalc:
 		self.domain_name = None
 		self.progress_last_updated = datetime.datetime.utcnow()
 		self.disable_tqdm = True if platform.system() == 'Emscripten' else False
+		self.from_sdfile = from_sdfile
 
 		self.total_edges = 0
 		self.sd_edges_written = 0
 		self.worker_count = worker_count
 		self.boost_dict = {}
+		self.__sd_path_lookup = {} # objtype+sd_hash -> paths
 		self.foreign_pool = False
 		if self.mp_pool is None:
 			self.foreign_pool = True
@@ -293,34 +298,69 @@ class EdgeCalc:
 		#		cnt += 1
 		#logger.info('Added %s groupmembership edges' % cnt)
 
-	def calc_sds_batch(self, buffer, testfile):
+	async def calc_sds_batch(self, buffer, testfile):
 		if self.mp_pool is not None:
+			write_buffer = ''
 			for res in self.mp_pool.imap_unordered(calc_sd_edges, buffer):
 				for r in res:
 					src,dst,label,ad_id = r
 					src = self.get_id_for_sid(src, with_boost=True)
 					dst = self.get_id_for_sid(dst, with_boost=True)
 					self.sd_edges_written += 1
-					testfile.write('%s,%s,%s,%s\r\n' % (src, dst, label, ad_id))
+					write_buffer += '%s,%s,%s,%s\r\n' % (src, dst, label, ad_id)
+			testfile.write(write_buffer)
 		else:
-			#this will take forever like this...
+			write_buffer = ''
 			for adsd in buffer:
-				for res in calc_sd_edges(adsd):
-					src,dst,label,ad_id = res
-					src = self.get_id_for_sid(src, with_boost=True)
-					dst = self.get_id_for_sid(dst, with_boost=True)
-					self.sd_edges_written += 1
-					testfile.write('%s,%s,%s,%s\r\n' % (src, dst, label, ad_id))
+				tkey = adsd.object_type + adsd.sd_hash
+				if tkey in self.__sd_path_lookup:
+					sidid = self.get_id_for_sid(adsd.sid, with_boost=True)
+					for src,_,label,ad_id in self.__sd_path_lookup[tkey]:
+						self.sd_edges_written += 1
+						write_buffer += '%s,%s,%s,%s\r\n' % (src, sidid, label, ad_id)
+				else:
+					self.__sd_path_lookup[tkey] = []
+					for res in calc_sd_edges(adsd):
+						src,dst,label,ad_id = res
+						src = self.get_id_for_sid(src, with_boost=True)
+						dst = self.get_id_for_sid(dst, with_boost=True)
+						self.sd_edges_written += 1
+						self.__sd_path_lookup[tkey].append((src, dst, label, ad_id))
+						write_buffer += '%s,%s,%s,%s\r\n' % (src, dst, label, ad_id)
+			testfile.write(write_buffer)
+
+	def get_total_sd_cnt(self):
+		total = 0
+		if self.from_sdfile is not None:
+			with gzip.GzipFile(self.from_sdfile, 'r') as f:
+				for line in f:
+					total += 1
+		else:
+			total = self.db_session.query(func.count(JackDawSD.id)).filter(JackDawSD.ad_id == self.ad_id).scalar()
+		return total
+	
+	def get_sds(self):
+		if self.from_sdfile is not None:
+			with gzip.GzipFile(self.from_sdfile, 'r') as f:
+				for line in f:
+					line = line.strip()
+					if line == '':
+						continue
+					yield JackDawSD.from_json(line)
+		else:
+			q = self.db_session.query(JackDawSD).filter_by(ad_id = self.ad_id)
+			for adsd in windowed_query(q, JackDawSD.id, self.buffer_size):
+				self.db_session.expunge(adsd)
+				yield adsd
 
 	async def calc_sds_mp(self):
 		await self.log_msg('Calculating SD edges')
 		logger.debug('starting calc_sds_mp')
 		try:
 			cnt = 0
-			total = self.db_session.query(func.count(JackDawSD.id)).filter(JackDawSD.ad_id == self.ad_id).scalar()
+			total = self.get_total_sd_cnt()
 			logger.debug('calc_sds_mp total SDs %s' % str(total))
-			q = self.db_session.query(JackDawSD).filter_by(ad_id = self.ad_id)
-
+			
 			if self.progress_queue is not None:
 				msg = GathererProgress()
 				msg.type = GathererProgressType.SDCALC
@@ -338,6 +378,7 @@ class EdgeCalc:
 				sdfilename = str(self.work_dir.joinpath('sdcalc.csv'))
 
 			testfile = open(sdfilename, 'w+', newline = '') #tempfile.TemporaryFile('w+', newline = '')
+			#testfile = io.StringIO()
 			buffer = []
 			if self.mp_pool is None:
 				try:
@@ -349,12 +390,13 @@ class EdgeCalc:
 			tf = 0
 			last_stat_cnt = 0
 			try:
-				for adsd in windowed_query(q, JackDawSD.id, self.buffer_size):
+				for adsd in self.get_sds():
+				#for adsd in self.db_session.query(JackDawSD).filter_by(ad_id = self.ad_id).yield_per(81):
 					tf += 1
-					adsd = JackDawSD.from_dict(adsd.to_dict())
+					#adsd = JackDawSD.from_dict(adsd.to_dict())
 					buffer.append(adsd)
 					if len(buffer) == self.buffer_size:
-						self.calc_sds_batch(buffer, testfile)
+						await self.calc_sds_batch(buffer, testfile)
 						buffer = []
 						
 						if sdcalc_pbar is not None:
@@ -379,7 +421,7 @@ class EdgeCalc:
 						await asyncio.sleep(0)
 				
 				if len(buffer) > 0:
-					self.calc_sds_batch(buffer, testfile)
+					await self.calc_sds_batch(buffer, testfile)
 					if self.progress_queue is not None:
 						now = datetime.datetime.utcnow()
 						td = (now - self.progress_last_updated).total_seconds()
@@ -434,8 +476,6 @@ class EdgeCalc:
 				sdcalcupload_pbar = tqdm(desc = 'Writing SD edge file contents to DB', total = cnt, disable=self.disable_tqdm)
 
 			engine = self.db_session.get_bind()
-			print(engine)
-
 			testfile.seek(0,0)
 			last_stat_cnt = 0
 			i = 0
@@ -443,11 +483,11 @@ class EdgeCalc:
 			insert_buffer = []
 			for line in testfile:
 				i += 1
-				line = line.strip()
+				line = line.strip()				
 				src_id, dst_id, label, _ = line.split(',')
 				insert_buffer.append(
 					{
-						"ad_id": self.ad_id,
+						'ad_id': self.ad_id,
 						'graph_id' : self.graph_id,
 						'src' : int(src_id),
 						'dst' : int(dst_id),
@@ -500,7 +540,7 @@ class EdgeCalc:
 		finally:
 			try:
 				testfile.close()
-			except:
+			except Exception as e:
 				pass
 			try:
 				os.remove(sdfilename)
@@ -579,6 +619,9 @@ class EdgeCalc:
 			except:
 				pass
 
+async def test_edgecalc(calc):
+	await calc.run()
+
 def main():
 	import argparse
 	import os
@@ -625,7 +668,7 @@ def main():
 
 	if args.command == 'run':
 		calc = EdgeCalc(session, args.ad, graph_id, buffer_size = 100, worker_count = args.worker_count)
-		calc.run()
+		asyncio.run(test_edgecalc(calc))
 	
 	else:
 		print('?????')

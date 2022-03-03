@@ -57,11 +57,16 @@ class GathererProgress:
 		#FOR STREAMING
 		self.data = None
 
+	def get_percentage(self):
+		if self.total is not None and self.total_finished is not None:
+			p = (int(self.total_finished)/int(self.total))*100
+			return '%.2f %%' % p
+		return 'NA'
 
 	def __str__(self):
 		if self.type == GathererProgressType.BASIC:
 			if self.msg_type == MSGTYPE.PROGRESS:
-				return '[%s][%s][%s][%s] FINISHED %s RUNNING %s TOTAL %s SPEED %s' % (
+				return '[%s][%s][%s][%s] FINISHED %s RUNNING %s GATHERED %s SPEED %s obj/s' % (
 					self.type.value, 
 					self.domain_name, 
 					self.adid,
@@ -69,17 +74,19 @@ class GathererProgress:
 					','.join(self.finished), 
 					','.join(self.running), 
 					self.total_finished, 
-					self.speed
+					'%.2f' % float(self.speed) if self.speed is not None else 'NA'
 				)
 			else:
 				return '[%s][%s][%s][%s]' % (self.type.value, self.domain_name, self.adid, self.msg_type.value)
 		else:
-			return '[%s][%s][%s][%s] TOTAL %s SPEED %s' % (
+			return '[%s][%s][%s][%s] PROGRESS %s/%s (%s) SPEED %s obj/s' % (
 				self.type.value,
 				self.domain_name, 
 				self.adid,
 				self.msg_type.value,
-				self.total_finished, 
-				self.speed
+				self.total,
+				self.total_finished,
+				self.get_percentage(),
+				'%.2f' % float(self.speed) if self.speed is not None else 'NA'
 			)
 		

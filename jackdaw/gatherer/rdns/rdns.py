@@ -11,14 +11,20 @@ from jackdaw.gatherer.rdns.protocol import DNSPacket, DNSQuestion, DNSResponse, 
 from jackdaw.gatherer.rdns.udpwrapper import UDPClient
 import os
 
-class RDNS:
-	def __init__(self, server = '8.8.8.8', protocol = 'TCP', cache = True, timeout = 1, proxy:List[str] = None):
-		self.server = server
+class DNSTarget:
+	def __init__(self, ip, port = 53, protocol = 'TCP', timeout = 5, proxy = None):
+		self.ip = ip
+		self.port = port
 		self.protocol = protocol
-		self.port = 53
-		self.cache = {}
 		self.timeout = timeout
-		self.proxy:List[str] = proxy
+		self.proxy = proxy
+
+class RDNS:
+	def __init__(self, target:DNSTarget, cache:bool = True):
+		self.target = target
+		self.cache_enabled = cache
+		self.cache = {}
+
 		self.proxyobj = None
 		self.proxy_task = None
 		self.in_q = None
@@ -26,15 +32,14 @@ class RDNS:
 
 	async def setup(self):
 		try:
-			if self.proxy is None:
+			if self.target.proxy is None:
 				# no need for additional setup
 				return None, None
 			
 			self.in_q = asyncio.Queue()
 			self.out_q = asyncio.Queue()
 			comms = SocksQueueComms(self.in_q, self.out_q)
-			proxies = SocksClientURL.from_urls(self.proxy, self.server, self.port)
-			self.proxyobj = SOCKSClient(comms, proxies)
+			self.proxyobj = SOCKSClient(comms, self.target.proxy)
 			self.proxy_task = asyncio.create_task(self.proxyobj.run())
 			return None, None
 		except Exception as e:
@@ -49,8 +54,8 @@ class RDNS:
 		try:
 			question = DNSQuestion.construct(str(hostname), dnstype, DNSClass.IN, qu = False)
 			if self.proxyobj is None:
-				if self.protocol == 'TCP':
-					reader, writer = await asyncio.wait_for(asyncio.open_connection(self.server, self.port), self.timeout)
+				if self.target.protocol == 'TCP':
+					reader, writer = await asyncio.wait_for(asyncio.open_connection(self.target.ip, self.target.port), self.target.timeout)
 			
 					packet = DNSPacket.construct(
 						TID = os.urandom(2), 
@@ -71,7 +76,7 @@ class RDNS:
 				else:
 					raise NotImplementedError()
 			else:
-				if self.protocol == 'TCP':
+				if self.target.protocol == 'TCP':
 					packet = DNSPacket.construct(
 						TID = os.urandom(2), 
 						flags = DNSFlags.RD,
@@ -102,15 +107,15 @@ class RDNS:
 
 	async def resolve(self, ip):
 		try:
-			if ip in self.cache:
+			if self.cache_enabled is True and ip in self.cache:
 				return self.cache[ip]
 			ip = ipaddress.ip_address(ip).reverse_pointer
 			tid = os.urandom(2)
 			question = DNSQuestion.construct(ip, DNSType.PTR, DNSClass.IN, qu = False)
 				
 						
-			if self.protocol == 'TCP':
-				reader, writer = await asyncio.wait_for(asyncio.open_connection(self.server, self.port), self.timeout)
+			if self.target.protocol == 'TCP':
+				reader, writer = await asyncio.wait_for(asyncio.open_connection(self.target.ip, self.target.port), self.target.timeout)
 		
 				packet = DNSPacket.construct(
 					TID = tid,
@@ -130,7 +135,7 @@ class RDNS:
 				writer.close()
 				return data.Answers[0].domainname, None
 			else:
-				cli = UDPClient((self.server, self.port))
+				cli = UDPClient((self.target.server, self.target.port))
 				
 				packet = DNSPacket.construct(
 					TID = tid, 
@@ -142,7 +147,7 @@ class RDNS:
 					proto = socket.SOCK_DGRAM
 				)
 						
-				reader, writer = await cli.run(packet.to_bytes())	
+				reader, writer = await cli.run(packet.to_bytes())
 				data = await DNSPacket.from_streamreader(reader)
 				self.cache[ip] = data.Answers[0].domainname
 				return data.Answers[0].domainname, None

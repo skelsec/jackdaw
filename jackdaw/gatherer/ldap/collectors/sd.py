@@ -28,7 +28,7 @@ import json
 
 
 class SDCollector:
-	def __init__(self, session, ldap_mgr, ad_id = None, graph_id = None, agent_cnt = None, sd_target_file_handle = None, resumption = False, progress_queue = None, show_progress = True, store_to_db = True, work_dir = './workdir'):
+	def __init__(self, session, ldap_mgr, ad_id = None, graph_id = None, agent_cnt = None, sd_target_file_handle = None, resumption = False, progress_queue = None, show_progress = True, store_to_db = True, work_dir = './workdir', keep_sd_file = False):
 		self.session = session
 		self.ldap_mgr = ldap_mgr
 		self.agent_cnt = agent_cnt
@@ -41,6 +41,7 @@ class SDCollector:
 		self.show_progress = show_progress
 		self.store_to_db = store_to_db
 		self.work_dir = work_dir
+		self.keep_sd_file = keep_sd_file
 		self.progress_step_size = 1000
 		self.sd_upload_pbar = None
 
@@ -256,10 +257,11 @@ class SDCollector:
 				msg.error = e
 				await self.progress_queue.put(msg)
 		finally:
-			try:
-				os.remove(self.sd_file_path)
-			except:
-				pass
+			if self.keep_sd_file is False:
+				try:
+					os.remove(self.sd_file_path)
+				except:
+					pass
 			
 			if self.show_progress is True and self.sd_upload_pbar is not None:
 				self.sd_upload_pbar.refresh()

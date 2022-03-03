@@ -138,7 +138,7 @@ from .smbfile import SMBFile
 from .kerberostickets import KerberosTicket
 
 
-def create_db(connection, verbosity = 0):
+def create_db(connection, verbosity = 0, inmemory = False):
 	logging.info('Creating database %s' % connection)
 	engine = create_engine(connection, echo=True if verbosity > 1 else False) #'sqlite:///dump.db'	
 	Basemodel.metadata.create_all(engine)
@@ -155,8 +155,12 @@ def create_db(connection, verbosity = 0):
 		session.add(CustomTarget('10.10.30.2', 'testserver'))
 		session.add(CustomTarget('10.10.10.102', 'fileserver'))
 		session.commit()
+		if inmemory is True:
+			return session
+
 	finally:
-		session.close()
+		if inmemory is False:
+			session.close()
 	logging.info('Done creating database %s' % connection)
 
 def get_session(connection, verbosity = 0):

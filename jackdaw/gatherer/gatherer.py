@@ -16,13 +16,13 @@ from jackdaw.gatherer.kerberos.kerberos import KerberoastGatherer
 from aiosmb.commons.connection.url import SMBConnectionURL
 from msldap.commons.url import MSLDAPURLDecoder
 from jackdaw.gatherer.edgecalc import EdgeCalc
-from jackdaw.gatherer.rdns.rdns import RDNS
+from jackdaw.gatherer.rdns.rdns import RDNS, DNSTarget
 from jackdaw.gatherer.rdns.dnsgatherer import DNSGatherer
 from tqdm import tqdm
 from jackdaw.gatherer.progress import *
 
 class Gatherer:
-	def __init__(self, db_session, work_dir, ldap_url, smb_url, kerb_url = None, ad_id = None, calc_edges = True, ldap_worker_cnt = 4, smb_worker_cnt = 100, mp_pool = None, smb_enum_shares = False, smb_gather_types = ['all'], progress_queue = None, show_progress = True, dns = None, store_to_db = True, graph_id = None, stream_data = False, no_work_dir = False, proxy = None):
+	def __init__(self, db_session, work_dir, ldap_url, smb_url, kerb_url = None, ad_id = None, calc_edges = True, ldap_worker_cnt = 4, smb_worker_cnt = 100, mp_pool = None, smb_enum_shares = False, smb_gather_types = ['all'], progress_queue = None, show_progress = True, dns = None, store_to_db = True, graph_id = None, stream_data = False, no_work_dir = False, proxy = None, keep_sd_file = False):
 		self.db_session = db_session
 		self.work_dir = work_dir
 		self.no_work_dir = no_work_dir
@@ -37,6 +37,7 @@ class Gatherer:
 		self.store_to_db = store_to_db
 		self.proxy = proxy
 		self.resumption = False
+		self.keep_sd_file = keep_sd_file
 		if ad_id is not None:
 			self.resumption = True
 
@@ -266,6 +267,7 @@ class Gatherer:
 				base_collection_finish_evt = self.base_collection_finish_evt,
 				stream_data = self.stream_data,
 				no_work_dir=self.no_work_dir,
+				keep_sd_file=self.keep_sd_file,
 			)
 			ad_id, graph_id, err = await self.ldap_gatherer.run()
 			if err is not None:
@@ -346,7 +348,8 @@ class Gatherer:
 				progress_queue = self.progress_queue, 
 				worker_count = None, 
 				mp_pool = self.mp_pool,
-				work_dir=self.work_dir if self.no_work_dir is False else None
+				work_dir=self.work_dir if self.no_work_dir is False else None,
+				from_sdfile = self.ldap_gatherer.full_sd_file_path
 			)
 			res, err = await ec.run()
 			return res, err
@@ -373,7 +376,13 @@ class Gatherer:
 			logger.debug('Setting up connection objects')
 			
 			if self.dns_server is not None:
-				self.rdns_resolver = RDNS(server = self.dns_server, protocol = 'TCP', cache = True, proxy = self.proxy)
+				dnsproxy = None
+				if self.proxy is not None:
+					dnsproxy = SocksClientURL.from_urls(self.proxy)
+				dnstarget = self.dns_server
+				if isinstance(self.dns_server, str):
+					dnstarget = DNSTarget(self.dns_server, protocol = 'TCP', proxy = dnsproxy)
+				self.rdns_resolver = RDNS(dnstarget, cache = True)
 			
 			if self.ldap_url is not None:
 				self.ldap_mgr = self.ldap_url

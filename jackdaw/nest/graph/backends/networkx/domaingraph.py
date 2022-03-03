@@ -91,7 +91,7 @@ class JackDawDomainGraphNetworkx(JackDawDomainGraph):
 			self.adids.append(graphad.ad_id)
 
 	@staticmethod
-	def create(dbsession, graph_id, graph_dir, sqlite_file = None):
+	def create(dbsession, graph_id, graph_dir, sqlite_file = None, show_progress = True):
 		logger.info('Create called!')
 		graph_id = int(graph_id)
 		graph_file = graph_dir.joinpath(JackDawDomainGraphNetworkx.graph_file_name)
@@ -135,7 +135,7 @@ class JackDawDomainGraphNetworkx(JackDawDomainGraph):
 				using_sqlite_tool = True
 				logger.info('sqlite3 dumping method OK!')
 			else:
-				logger.warining('Failed to use the sqlite3 tool to speed up graph datafile generation. Reason: %s' % stderr)
+				logger.info('Failed to use the sqlite3 tool to speed up graph datafile generation. Reason: %s' % stderr)
 				
 
 		if using_sqlite_tool is False:
@@ -146,16 +146,41 @@ class JackDawDomainGraphNetworkx(JackDawDomainGraph):
 				q = dbsession.query(Edge).filter_by(graph_id = graph_id).filter(EdgeLookup.id == Edge.src).filter(EdgeLookup.oid != None)
 
 				with open(graph_file, 'w', newline = '') as f:
-					for edge in tqdm(windowed_query(q,Edge.id, 10000), desc = 'edge', total = t2):
-						r = '%s %s\r\n' % (edge.src, edge.dst)
-						f.write(r)
+					buffer = ''
+					i = 0
+					if show_progress is True:
+						for edge in tqdm(windowed_query(q,Edge.id, 10000), desc = 'edge', total = t2):
+							i += 1
+							buffer += '%s %s\r\n' % (edge.src, edge.dst)
+							if i == 1000:
+								f.write(buffer)
+								buffer = ''
+								i = 0
+						if len(buffer) > 0:
+							f.write(buffer)
+							buffer = ''
+					else:
+						for edge in windowed_query(q,Edge.id, 10000):
+							i += 1
+							buffer += '%s %s\r\n' % (edge.src, edge.dst)
+							if i == 1000:
+								f.write(buffer)
+								buffer = ''
+								i = 0
+						if len(buffer) > 0:
+							f.write(buffer)
+							buffer = ''
+		
 		logger.info('Graphcache file created!')
+		return str(graph_file)
 
 	@staticmethod
-	def load(dbsession, graph_id, graph_cache_dir, use_cache = True):
+	def load(dbsession, graph_id, graph_cache_dir, use_cache = True, graph_file = None):
 		logger.info('Loading Graphcache file to memory')
-		graph_file = graph_cache_dir.joinpath(JackDawDomainGraphNetworkx.graph_file_name)
 		graph = nx.DiGraph()
+		if graph_file is None:
+			graph_file = graph_cache_dir.joinpath(JackDawDomainGraphNetworkx.graph_file_name)
+		
 		g = JackDawDomainGraphNetworkx(dbsession, graph_id, graph_dir=graph_cache_dir, use_cache=use_cache)
 		g.graph = nx.read_edgelist(str(graph_file), nodetype=int, create_using=graph)
 		g.setup()

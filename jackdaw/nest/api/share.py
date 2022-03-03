@@ -7,7 +7,7 @@ def get_by_id(shareid):
 	res = db.session.query(NetShare).get(shareid)
 	return res
 
-def get_by_machinesid(domaind, machinesid):
+def get_by_machinesid(domainid, machinesid):
 	db = current_app.db
 	shares = []
 	for res in db.session.query(NetShare).filter_by(machine_sid = machinesid).filter(NetShare.ad_id == domainid):

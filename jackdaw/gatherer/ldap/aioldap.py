@@ -52,7 +52,7 @@ from jackdaw.gatherer.ldap.collectors.membership import MembershipCollector
 import pathlib
 
 class LDAPGatherer:
-	def __init__(self, db_session, ldap_mgr, agent_cnt = None, progress_queue = None, ad_id = None, graph_id = None, work_dir = None, show_progress = True, store_to_db = True, base_collection_finish_evt = None, stream_data = False, no_work_dir = False, proxy = None):
+	def __init__(self, db_session, ldap_mgr, agent_cnt = None, progress_queue = None, ad_id = None, graph_id = None, work_dir = None, show_progress = True, store_to_db = True, base_collection_finish_evt = None, stream_data = False, no_work_dir = False, proxy = None, keep_sd_file = False):
 		self.db_session = db_session
 		self.ldap_mgr = ldap_mgr
 		self.work_dir = work_dir
@@ -62,6 +62,8 @@ class LDAPGatherer:
 		self.progress_queue = progress_queue
 		self.base_collection_finish_evt = base_collection_finish_evt
 		self.proxy = proxy
+		self.keep_sd_file = keep_sd_file
+		self.full_sd_file_path = None
 
 		self.agent_in_q = None
 		self.agent_out_q = None
@@ -141,12 +143,15 @@ class LDAPGatherer:
 				progress_queue = self.progress_queue, 
 				show_progress = self.show_progress,
 				store_to_db = self.store_to_db,
-				work_dir=self.work_dir
+				work_dir=self.work_dir,
+				keep_sd_file=True
 			)
 			
 			_, err = await sdc.run()
 			if err is not None:
 				raise err
+			if self.keep_sd_file is True:
+				self.full_sd_file_path = sdc.sd_file_path
 			return True, None
 		except Exception as e:
 			return False, e

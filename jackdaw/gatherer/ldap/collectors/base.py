@@ -74,6 +74,7 @@ class BaseCollector:
 
 		self.enum_types = [
 			'adinfo',
+			#'schema',
 			'trusts',
 			'users', 
 			'machines',
@@ -81,7 +82,6 @@ class BaseCollector:
 			'ous', 
 			'gpos',
 			'spns',
-			'schema',
 		]
 		self.enum_types_len = len(self.enum_types)
 

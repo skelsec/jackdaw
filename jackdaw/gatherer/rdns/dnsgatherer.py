@@ -50,7 +50,7 @@ class DNSGatherer:
 			for _ in range(self.worker_cnt):
 				await self.in_q.put(None)
 		except Exception as e:
-			logger.exception('smb generate_targets')
+			logger.exception('dns generate_targets')
 
 
 	async def run(self):
@@ -113,7 +113,7 @@ class DNSGatherer:
 
 			return True, None
 		except Exception as e:
-			logger.debug('[DNSGatherer] Exception %s' % e)
+			logger.exception('[DNSGatherer] Exception %s' % e)
 			return False, e
 
 
