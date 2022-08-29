@@ -93,7 +93,7 @@ class SMBGathererManager:
 			target, result, error = x
 			if result is None and error is not None:
 				#something went error
-				logger.debug('[AIOSMBScanner][TargetError][%s] %s' % (target.get_ip(), error))
+				logger.debug('[AIOSMBScanner][TargetError][%s] %s' % (target.get_ip_or_hostname(), error))
 				if self.use_progress_bar is True:
 					self.prg_errors.update()
 
@@ -177,7 +177,7 @@ class AIOSMBGatherer(multiprocessing.Process):
 							await self.out_q.coro_put((connection.target, None, 'Failed to list shares. Reason: %s' % format_exc(err)))
 							continue
 						share = NetShare()
-						share.ip = connection.target.get_ip()
+						share.ip = connection.target.get_ip_or_hostname()
 						share.netname = smbshare.name
 						share.type = smbshare.type
 						share.remark = smbshare.remark
@@ -192,7 +192,7 @@ class AIOSMBGatherer(multiprocessing.Process):
 							continue
 
 						sess = NetSession()
-						sess.source = connection.target.get_ip()
+						sess.source = connection.target.get_ip_or_hostname()
 						sess.ip = session.ip_addr.replace('\\','').strip()
 						sess.username = session.username
 
@@ -206,7 +206,7 @@ class AIOSMBGatherer(multiprocessing.Process):
 								continue
 
 							lg = LocalGroup()
-							lg.ip = connection.target.get_ip()
+							lg.ip = connection.target.get_ip_or_hostname()
 							lg.hostname = connection.target.get_hostname()
 							lg.sid = sid
 							lg.groupname = group_name

@@ -16,7 +16,6 @@ from aiosmb.commons.interfaces.machine import SMBMachine
 
 
 from jackdaw import logger
-from asysocks import logger as asylogger
 
 # https://stackoverflow.com/questions/1094841/get-human-readable-version-of-file-size
 def sizeof_fmt(num, suffix='B'):
@@ -70,7 +69,7 @@ class AIOSMBGathererAgent:
 						else:
 							share = NetShare()
 							share.machine_sid = tid
-							share.ip = connection.target.get_ip()
+							share.ip = connection.target.get_ip_or_hostname()
 							share.netname = smbshare.name
 							share.type = smbshare.type
 							await self.out_q.put((tid, connection.target, share, None))
@@ -85,7 +84,7 @@ class AIOSMBGathererAgent:
 							try:
 								sess = NetSession()
 								sess.machine_sid = tid
-								sess.source = connection.target.get_ip()
+								sess.source = connection.target.get_ip_or_hostname()
 								sess.ip = session.ip_addr.replace('\\','').strip()
 								sess.username = session.username
 
@@ -101,7 +100,7 @@ class AIOSMBGathererAgent:
 							else:
 								lg = LocalGroup()
 								lg.machine_sid = tid
-								lg.ip = connection.target.get_ip()
+								lg.ip = connection.target.get_ip_or_hostname()
 								lg.hostname = connection.target.get_hostname()
 								lg.sid = sid
 								lg.groupname = group_name

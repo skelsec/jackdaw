@@ -113,7 +113,7 @@ class SMBGathererManager:
 			tid, target, result, error = x
 			if result is None and error is not None:
 				#something went error
-				logger.debug('[AIOSMBScanner][TargetError][%s] %s' % (target.get_ip(), error))
+				logger.debug('[AIOSMBScanner][TargetError][%s] %s' % (target.get_ip_or_hostname(), error))
 				if self.use_progress_bar is True:
 					self.prg_errors.update()
 
@@ -211,7 +211,7 @@ class AIOSMBGatherer(multiprocessing.Process):
 							continue
 						share = NetShare()
 						share.machine_id = tid
-						share.ip = connection.target.get_ip()
+						share.ip = connection.target.get_ip_or_hostname()
 						share.netname = smbshare.name
 						share.type = smbshare.type
 						share.remark = smbshare.remark
@@ -227,7 +227,7 @@ class AIOSMBGatherer(multiprocessing.Process):
 
 						sess = NetSession()
 						sess.machine_id = tid
-						sess.source = connection.target.get_ip()
+						sess.source = connection.target.get_ip_or_hostname()
 						sess.ip = session.ip_addr.replace('\\','').strip()
 						sess.username = session.username
 
@@ -242,7 +242,7 @@ class AIOSMBGatherer(multiprocessing.Process):
 
 							lg = LocalGroup()
 							lg.machine_id = tid
-							lg.ip = connection.target.get_ip()
+							lg.ip = connection.target.get_ip_or_hostname()
 							lg.hostname = connection.target.get_hostname()
 							lg.sid = sid
 							lg.groupname = group_name

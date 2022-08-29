@@ -7,7 +7,7 @@
 
 import asyncio
 import datetime
-from aiosmb.commons.connection.url import SMBConnectionURL
+from aiosmb.commons.connection.factory import SMBConnectionFactory
 
 from tqdm import tqdm
 
@@ -21,7 +21,6 @@ from jackdaw.common.cpucount import get_cpu_count
 from jackdaw.gatherer.smb.agent.agentfile import AIOSMBFileGathererAgent
 from jackdaw.gatherer.progress import *
 
-from aiosmb.commons.connection.url import SMBConnectionURL
 from aiosmb.commons.utils.extb import format_exc
 from sqlalchemy import func
 
@@ -130,7 +129,7 @@ class SMBFileGatherer:
 			self.in_q = asyncio.Queue(self.queue_size)
 			self.out_q = asyncio.Queue(self.queue_size)
 			if isinstance(self.smb_mgr, str):
-				self.smb_mgr = SMBConnectionURL(self.smb_mgr)
+				self.smb_mgr = SMBConnectionFactory.from_url(self.smb_mgr)
 			
 			
 			info = self.session.query(ADInfo).get(self.ad_id)
@@ -178,7 +177,7 @@ class SMBFileGatherer:
 					#something went error
 					if tid is None and target is None:
 						continue
-					logger.debug('[AIOSMBScanner][TargetError][%s] %s' % (target.get_ip(), error))
+					logger.debug('[AIOSMBScanner][TargetError][%s] %s' % (target.get_ip_or_hostname(), error))
 					if self.show_progress is True:
 						self.prg_errors.update()
 					if self.progress_queue is not None:

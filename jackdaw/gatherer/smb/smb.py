@@ -169,7 +169,7 @@ class SMBGatherer:
 					#something went error
 					if tid is None and target is None:
 						continue
-					logger.debug('[AIOSMBScanner][TargetError][%s] %s' % (target.get_ip(), error))
+					logger.debug('[AIOSMBScanner][TargetError][%s] %s' % (target.get_ip_or_hostname(), error))
 					if self.show_progress is True:
 						self.prg_errors.update()
 					if self.progress_queue is not None:

@@ -10,9 +10,9 @@ import traceback
 import pprint
 
 import aiohttp
-from msldap.commons.url import MSLDAPURLDecoder
+from msldap.commons.factory import LDAPConnectionFactory
 from msldap.commons.exceptions import LDAPModifyException
-from aiosmb.commons.connection.url import SMBConnectionURL
+from aiosmb.commons.connection.factory import SMBConnectionFactory
 
 
 class ACLPwn:
@@ -32,10 +32,10 @@ class ACLPwn:
 		self.is_graph_loaded = False
 
 	def get_ldap(self):
-		return MSLDAPURLDecoder(self.ldap_url)
+		return LDAPConnectionFactory.from_url(self.ldap_url)
 
 	def get_smb(self):
-		return SMBConnectionURL(self.smb_url)
+		return SMBConnectionFactory.from_url(self.smb_url)
 
 	async def get_start_user_sid(self):
 		try:

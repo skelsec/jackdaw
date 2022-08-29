@@ -7,18 +7,14 @@ import typing
 import copy
 from aardwolf.connection import RDPConnection
 
-from aiosmb.commons.connection.url import SMBConnectionURL
-from aiosmb.commons.connection.proxy import SMBProxy, SMBProxyType
+from aiosmb.commons.connection.factory import SMBConnectionFactory
 
 from minikerberos.common.url import KerberosClientURL
-from minikerberos.common.proxy import KerberosProxy
-from msldap.commons.url import MSLDAPURLDecoder
+from msldap.commons.factory import LDAPConnectionFactory
 
 from sqlalchemy.exc import IntegrityError
 from msldap.commons.target import MSLDAPTarget
-from msldap.commons.proxy import MSLDAPProxy, MSLDAPProxyType
 
-from msldap.commons.credential import MSLDAPCredential, LDAPAuthProtocol
 from msldap.connection import MSLDAPClientConnection
 from msldap.client import MSLDAPClient
 
@@ -56,9 +52,7 @@ from jackdaw.dbmodel.credential import Credential
 from jackdaw.dbmodel.customcred import CustomCred
 from jackdaw.dbmodel.customtarget import CustomTarget
 
-from aiosmb.commons.connection.target import SMBTarget, SMBConnectionProtocol, SMB2_NEGOTIATE_DIALTECTS_2
-from aiosmb.commons.connection.credential import SMBCredential, SMBAuthProtocol, SMBCredentialsSecretType
-from aiosmb.commons.connection.authbuilder import AuthenticatorBuilder
+from aiosmb.commons.connection.target import SMBTarget
 from aiosmb.connection import SMBConnection
 from aiosmb.commons.interfaces.machine import SMBMachine
 
@@ -68,16 +62,13 @@ from jackdaw.dbmodel.aduser import ADUser
 from jackdaw.dbmodel.adobjprops import ADObjProps
 from jackdaw.dbmodel.credential import Credential
 
-from aardwolf.commons.url import RDPConnectionURL
-from aardwolf.commons.target import RDPTarget, RDPConnectionProtocol, RDPConnectionDialect
-from aardwolf.commons.credential import RDPAuthProtocol
+from aardwolf.commons.target import RDPTarget, RDPConnectionDialect
 from aardwolf.commons.iosettings import RDPIOSettings
 from aardwolf.commons.queuedata import RDPDATATYPE
 from aardwolf.commons.queuedata.keyboard import RDP_KEYBOARD_SCANCODE
 from aardwolf.commons.queuedata.mouse import RDP_MOUSE
 from aardwolf.utils.qt import RDPBitmapToQtImage
 from PyQt5.QtCore import QByteArray, QBuffer
-from aardwolf.commons.proxy import RDPProxy, RDPProxyType
 
 from jackdaw.nest.ws.operator.operator import NestOperator
 
@@ -1140,7 +1131,7 @@ class JackDawAgent:
 				if err is not None:
 					raise err
 
-				ldap_url = MSLDAPURLDecoder(None, ldapcred, ldaptarget)
+				ldap_url = LDAPConnectionFactory(ldapcred, ldaptarget)
 				
 				#ldap_url.ldap_scheme = ldaptarget.proto
 				#ldap_url.auth_scheme = ldapcred.auth_method
@@ -1177,7 +1168,7 @@ class JackDawAgent:
 				if err is not None:
 					raise err
 				
-				smb_url = SMBConnectionURL(None, smbcredential, smbtarget)
+				smb_url = SMBConnectionFactory(smbcredential, smbtarget)
 			
 			kerberos_url = None
 			if cmd.kerberos_creds is None:

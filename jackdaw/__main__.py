@@ -20,7 +20,6 @@ from aiosmb import logger as smblogger
 from aiosmb._version import __version__ as smbversion
 from msldap import logger as msldaplogger
 from msldap._version import __version__ as ldapversion
-from asysocks import logger as asysockslogger
 
 from jackdaw.dbmodel import create_db, get_session
 from jackdaw.gatherer.gatherer import Gatherer
@@ -31,7 +30,7 @@ from jackdaw import logger as jdlogger
 from jackdaw.utils.argshelper import construct_ldapdef, construct_smbdef
 from jackdaw.credentials.credentials import JackDawCredentials
 from jackdaw.gatherer.smb.smbfile import SMBFileGatherer
-from msldap.commons.url import MSLDAPURLDecoder
+from msldap.commons.factory import LDAPConnectionFactory
 
 import multiprocessing
 
@@ -115,7 +114,6 @@ async def run(args):
 			logging.basicConfig(level=logging.INFO)
 			jdlogger.setLevel(logging.INFO)
 			msldaplogger.setLevel(logging.CRITICAL)
-			asysockslogger.setLevel(logging.CRITICAL)
 			smblogger.setLevel(100)
 			
 		elif args.verbose == 1:
@@ -123,14 +121,12 @@ async def run(args):
 			jdlogger.setLevel(logging.DEBUG)
 			msldaplogger.setLevel(logging.WARNING)
 			smblogger.setLevel(logging.CRITICAL)
-			asysockslogger.setLevel(logging.CRITICAL)
 			
 		elif args.verbose > 1:
 			logging.basicConfig(level=1)
 			msldaplogger.setLevel(logging.DEBUG)
 			jdlogger.setLevel(1)
 			smblogger.setLevel(1)
-			asysockslogger.setLevel(1)
 
 		if not args.sql and args.command != 'auto':
 			print('SQL connection identification is missing! You need to provide the --sql parameter')
@@ -173,7 +169,6 @@ async def run(args):
 					ad_id=None,
 					dns=args.dns,
 					no_work_dir=args.no_work_dir,
-					proxy=args.proxy,
 					keep_sd_file=True,
 				)
 				res, err = await gatherer.run()
@@ -223,7 +218,6 @@ async def run(args):
 					calc_edges=args.calculate_edges,
 					ad_id=args.ad_id,
 					no_work_dir=args.no_work_dir,
-					proxy=args.proxy
 				)
 				_, err = await gatherer.run()
 				if err is not None:
@@ -244,7 +238,6 @@ async def run(args):
 				show_progress=False,
 				calc_edges=False,
 				ad_id=args.ad_id,
-				proxy=args.proxy
 			)
 			_, err = await gatherer.run()
 			if err is not None:
@@ -269,7 +262,6 @@ async def run(args):
 				progress_queue=None, 
 				show_progress=args.silent,
 				calc_edges=False,
-				proxy=args.proxy
 			)
 			_, err = await gatherer.run()
 			if err is not None:
@@ -290,7 +282,6 @@ async def run(args):
 				show_progress=args.silent,
 				calc_edges=False,
 				dns=args.dns,
-				proxy=args.proxy
 			)
 			_, err = await gatherer.run()
 			if err is not None:
@@ -435,14 +426,13 @@ def main():
 	
 	version_group = subparsers.add_parser('version', help='version info')
 
-	ldap_group = subparsers.add_parser('ldap', formatter_class=argparse.RawDescriptionHelpFormatter, help='Enumerate potentially vulnerable users via LDAP', epilog = MSLDAPURLDecoder.help_epilog)
+	ldap_group = subparsers.add_parser('ldap', formatter_class=argparse.RawDescriptionHelpFormatter, help='Enumerate potentially vulnerable users via LDAP', epilog = LDAPConnectionFactory.help_epilog)
 	ldap_group.add_argument('ldap_url',  help='Connection specitication in URL format')
 	ldap_group.add_argument('--ldap-workers', type=int, default = 4, help='LDAP worker count for parallelization')
 	ldap_group.add_argument('--ldap-queue-size', type=int, default = 4, help='LDAP worker queue max size.')
 	ldap_group.add_argument('-d', '--ad-id', help='AD id from DB. signals resumption task')
 	ldap_group.add_argument('-c', '--calculate-edges', action='store_true', help='Calculate edges after enumeration')
 	ldap_group.add_argument('--no-work-dir', action='store_true', help='Skip creating subdirs for temp files')
-	ldap_group.add_argument('-x','--proxy', action='append', help='Proxy URL (multiple for chaining)')
 	
 	auto_group = subparsers.add_parser('auto', help='auto mode, windows only!')
 	auto_group.add_argument('--ldap-workers', type=int, default = 4, help='LDAP worker count for parallelization')
@@ -454,7 +444,7 @@ def main():
 	recalc_group.add_argument('graphid', help='graph id from DB.')
 	
 	
-	enum_group = subparsers.add_parser('enum', formatter_class=argparse.RawDescriptionHelpFormatter, help='Enumerate all stuffs', epilog = MSLDAPURLDecoder.help_epilog)
+	enum_group = subparsers.add_parser('enum', formatter_class=argparse.RawDescriptionHelpFormatter, help='Enumerate all stuffs', epilog = LDAPConnectionFactory.help_epilog)
 	enum_group.add_argument('ldap_url',  help='Connection specitication in URL format')
 	enum_group.add_argument('smb_url',  help='Connection specitication in URL format')
 	enum_group.add_argument('-q', '--same-query', action='store_true', help='Use the same query for LDAP as for SMB. LDAP url must still be present, but without a query')
@@ -466,24 +456,20 @@ def main():
 	enum_group.add_argument('-n','--do-not-store', action='store_false', help='Skip storing membership and SD info to DB. Will skip edge calculation, and will leave the raw file on disk')
 	enum_group.add_argument('-k','--kerberoast', help='Kerberos URL for kerberoasting')
 	enum_group.add_argument('--no-work-dir', action='store_true', help='Skip creating subdirs for temp files')
-	enum_group.add_argument('-x','--proxy', action='append', help='Proxy URL (multiple for chaining)')
 
 	share_group = subparsers.add_parser('shares', help='Enumerate shares on target')
 	share_group.add_argument('ad_id', help='ID of the domainfo to poll targets rom the DB')
 	share_group.add_argument('smb_url',  help='Credential specitication in URL format')
 	share_group.add_argument('--smb-workers', type=int, default = 50, help='SMB worker count for parallelization')
-	share_group.add_argument('-x','--proxy', action='append', help='Proxy URL (multiple for chaining)')
 	
 	smball_group = subparsers.add_parser('smball', help='Enumerate shares on target')
 	smball_group.add_argument('ad_id', help='ID of the domainfo to poll targets rom the DB')
 	smball_group.add_argument('smb_url',  help='Credential specitication in URL format')
 	smball_group.add_argument('--smb-workers', type=int, default = 50, help='SMB worker count for parallelization')
-	smball_group.add_argument('-x','--proxy', action='append', help='Proxy URL (multiple for chaining)')
 
 	dns_group = subparsers.add_parser('dns', help='DNS lookup for all hosts')
 	dns_group.add_argument('ad_id', help='ID of the domainfo to poll targets rom the DB')
 	dns_group.add_argument('dns', help='DNS server for resolving IPs')
-	dns_group.add_argument('-x','--proxy', action='append', help='Proxy URL (multiple for chaining)')
 
 	files_group = subparsers.add_parser('smbfiles', help='Enumerate files on targets')
 	files_group.add_argument('ad_id', help='ID of the domainfo to poll targets rom the DB')
@@ -491,25 +477,21 @@ def main():
 	files_group.add_argument('--depth', type=int, default = 3, help='Recursion depth for folder enumeration')
 	files_group.add_argument('--smb-workers', type=int, default = 50, help='SMB worker count for parallelization. Read: connection/share')
 	files_group.add_argument('-o', '--out-file', help='Write results to file instead of DB')
-	files_group.add_argument('-x','--proxy', action='append', help='Proxy URL (multiple for chaining)')
 	
 
 	localgroup_group = subparsers.add_parser('localgroups', help='Enumerate local group memberships on target')
 	localgroup_group.add_argument('ad_id', help='ID of the domainfo to poll targets rom the DB')
 	localgroup_group.add_argument('smb_url',  help='Credential specitication in URL format')
 	localgroup_group.add_argument('--smb-workers', type=int, default = 50, help='SMB worker count for parallelization')
-	localgroup_group.add_argument('-x','--proxy', action='append', help='Proxy URL (multiple for chaining)')
 	
 	session_group = subparsers.add_parser('sessions', help='Enumerate connected sessions on target')
 	session_group.add_argument('ad_id', help='ID of the domainfo to poll targets rom the DB')
 	session_group.add_argument('smb_url',  help='Credential specitication in URL format')
 	session_group.add_argument('--smb-workers', type=int, default = 50, help='SMB worker count for parallelization')
-	session_group.add_argument('-x','--proxy', action='append', help='Proxy URL (multiple for chaining)')
 
 	kerberoast_group = subparsers.add_parser('kerberoast', help='Kerberoast')
 	kerberoast_group.add_argument('ad_id', help='ID of the domainfo to poll targets rom the DB')
 	kerberoast_group.add_argument('kerberos_url',  help='Kerberos URL')
-	kerberoast_group.add_argument('-x','--proxy', action='append', help='Proxy URL (multiple for chaining)')
 	
 	credential_group = subparsers.add_parser('creds', help='Add credential information from impacket')
 	credential_group.add_argument('impacket_file', help='file with LM and NT hashes, generated by impacket secretsdump.py')

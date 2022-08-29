@@ -4,8 +4,8 @@
 import connexion
 from flask import current_app
 
-from aiosmb.commons.connection.url import SMBConnectionURL
-from msldap.commons.url import MSLDAPURLDecoder
+from aiosmb.commons.connection.factory import SMBConnectionFactory
+from msldap.commons.factory import LDAPConnectionFactory
 from jackdaw.gatherer.smb.smb import SMBGatherer
 from jackdaw.gatherer.ldap.aioldap import LDAPGatherer
 
@@ -18,8 +18,8 @@ def scan_enum(params):
 	ldap_workers = params['ldap_workers']
 	smb_workers = params['smb_workers']
 
-	smb_mgr = SMBConnectionURL(smb_url)
-	ldap_mgr = MSLDAPURLDecoder(ldap_url)
+	smb_mgr = SMBConnectionFactory.from_url(smb_url)
+	ldap_mgr = LDAPConnectionFactory.from_url(ldap_url)
 
 	mgr = LDAPGatherer(db_conn, ldap_mgr, agent_cnt=ldap_workers)
 	adifo_id = mgr.run()

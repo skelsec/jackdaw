@@ -61,7 +61,6 @@ class LDAPGatherer:
 		self.store_to_db = store_to_db
 		self.progress_queue = progress_queue
 		self.base_collection_finish_evt = base_collection_finish_evt
-		self.proxy = proxy
 		self.keep_sd_file = keep_sd_file
 		self.full_sd_file_path = None
 
@@ -322,7 +321,9 @@ class LDAPGatherer:
 			
 
 if __name__ == '__main__':
-	from msldap.commons.url import MSLDAPURLDecoder
+	from msldap.commons.factory import LDAPConnectionFactory
+
+
 
 	import sys
 	sql = sys.argv[1]
@@ -332,7 +333,7 @@ if __name__ == '__main__':
 	print(ldap_conn_url)
 	logger.setLevel(2)
 
-	ldap_mgr = MSLDAPURLDecoder(ldap_conn_url)
+	ldap_mgr = LDAPConnectionFactory.from_url(ldap_conn_url)
 
 	mgr = LDAPEnumeratorManager(sql, ldap_mgr)
 	mgr.run()

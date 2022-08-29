@@ -680,7 +680,7 @@ class LDAPEnumeratorManager:
 
 
 if __name__ == '__main__':
-	from msldap.commons.url import MSLDAPURLDecoder
+	from msldap.commons.factory import LDAPConnectionFactory
 
 	import sys
 	sql = sys.argv[1]
@@ -690,7 +690,7 @@ if __name__ == '__main__':
 	print(ldap_conn_url)
 	logger.setLevel(2)
 
-	ldap_mgr = MSLDAPURLDecoder(ldap_conn_url)
+	ldap_mgr = LDAPConnectionFactory.from_url(ldap_conn_url)
 
 	mgr = LDAPEnumeratorManager(sql, ldap_mgr)
 	mgr.run()

