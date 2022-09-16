@@ -59,7 +59,7 @@ setup(
 		('jackdaw/nest/site/nui/dist', ['jackdaw/nest/site/nui/dist/user.png', 'jackdaw/nest/site/nui/dist/user.png']),		
 	],
 	install_requires=[
-		'asyauth>=0.0.1',
+		'asyauth>=0.0.3',
 		'asysocks>=0.2.0',
 		'minikerberos>=0.3.0',
 		'aiosmb>=0.4.0',
