@@ -24,7 +24,7 @@
     "eslint": "^6.4.0",
     "eslint-loader": "^3.0.0",
     "eslint-plugin-react": "^7.14.3",
-    "jest": "^24.9.0",
+    "jest": "^29.0.3",
     "json-loader": "^0.5.7",
     "node-sass": "^4.11.0",
     "sass-loader": "^7.0.3",
