@@ -76,6 +76,7 @@ setup(
 		'flask-sqlalchemy>=2.5.1',
 		'connexion[swagger-ui]',
 		'websockets',
+		'jsonschema',
 		'swagger-ui-bundle>=0.0.2',
 		'colorama; platform_system=="Windows"',
 		'python-igraph', #'python-igraph==0.8.3',

@@ -35,7 +35,7 @@ from msldap.commons.factory import LDAPConnectionFactory
 import multiprocessing
 
 
-async def run_auto(ldap_worker_cnt = None, smb_worker_cnt = 500, dns = None, work_dir = './workdir', db_conn = None, show_progress = True, no_work_dir = False):
+async def run_auto(ldap_worker_cnt = None, smb_worker_cnt = 500, dns = None, work_dir = './workdir', db_conn = None, show_progress = True, no_work_dir = False, use_plain_ldap = False):
 	try:
 		if platform.system() != 'Windows':
 			raise Exception('auto mode only works on windows!')
@@ -65,7 +65,11 @@ async def run_auto(ldap_worker_cnt = None, smb_worker_cnt = 500, dns = None, wor
 			db_loc = '%s_%s.db' % (logon['domain'], datetime.datetime.utcnow().strftime("%Y%m%d_%H%M%S"))
 			db_conn = 'sqlite:///%s' % db_loc
 			create_db(db_conn)
-		ldap_url = 'ldap+sspi-ntlm://%s\\%s:jackdaw@%s' % (logon['domain'], logon['username'], logon['logonserver'])
+		
+		ldap_url = 'ldaps'
+		if use_plain_ldap is True:
+			ldap_url = 'ldap'
+		ldap_url += '+sspi-ntlm://%s\\%s:jackdaw@%s' % (logon['domain'], logon['username'], logon['logonserver'])
 		#smb_url = 'smb2+sspi-kerberos://%s\\%s:jackdaw@%s' % (logon['domain'], logon['username'], logon['logonserver'])
 		smb_url = 'smb2+sspi-ntlm://%s\\%s:jackdaw@%s' % (logon['domain'], logon['username'], logon['logonserver'])
 
@@ -84,7 +88,7 @@ async def run_auto(ldap_worker_cnt = None, smb_worker_cnt = 500, dns = None, wor
 		kerb_url = 'auto'
 		with multiprocessing.Pool() as mp_pool:
 			gatherer = Gatherer(
-				db_conn, 
+				get_session(db_conn), 
 				work_dir, 
 				ldap_url, 
 				smb_url,
@@ -182,7 +186,8 @@ async def run(args):
 				dns=args.dns,
 				work_dir=work_dir,
 				show_progress=args.silent,
-				no_work_dir=args.no_work_dir
+				no_work_dir=args.no_work_dir,
+				use_plain_ldap=args.ldap_plain
 			)
 			if err is not None:
 				print(err)
@@ -439,6 +444,7 @@ def main():
 	auto_group.add_argument('--smb-workers', type=int, default = 50, help='SMB worker count for parallelization')
 	auto_group.add_argument('-d','--dns', help='DNS server for resolving IPs')
 	auto_group.add_argument('--no-work-dir', action='store_true', help='Skip creating subdirs for temp files')
+	auto_group.add_argument('--ldap-plain', action='store_true', help='Use plaintext LDAP')
 
 	recalc_group = subparsers.add_parser('recalc', help='Recalculate edges from SDs')
 	recalc_group.add_argument('graphid', help='graph id from DB.')
