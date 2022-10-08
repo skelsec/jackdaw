@@ -1,6 +1,5 @@
 from setuptools import setup, find_packages
 import re
-import platform
 
 VERSIONFILE="jackdaw/_version.py"
 verstrline = open(VERSIONFILE, "rt").read()
@@ -68,22 +67,11 @@ setup(
 		'sqlalchemy>=1.4',
 		'tqdm',
 		'networkx',
-		'itsdangerous<2.0,>=0.24',
-		'werkzeug<2.0,>=1.0',
-		'flask<2,>=1.0.4',
-		'Jinja2<3.0,>=2.10.1',
-		'connexion>=2.9.0',
-		'flask-sqlalchemy>=2.5.1',
-		'connexion[swagger-ui]',
 		'websockets',
-		'jsonschema',
-		'swagger-ui-bundle>=0.0.2',
 		'colorama; platform_system=="Windows"',
 		'python-igraph', #'python-igraph==0.8.3',
 		'aiosqlite',
 	],
-	# 'aiohttp',
-	#'p y p y k a t z>=0.4.8',
 	entry_points={
 		'console_scripts': [
 			'jackdaw = jackdaw.__main__:main',

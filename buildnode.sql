@@ -1,4 +1,4 @@
-.open /home/webdev/test.db
+.open /home/webdev/Desktop/test.db
 .mode csv
 .output workdir/graphcache/1/networkx.csv
 .separator " "

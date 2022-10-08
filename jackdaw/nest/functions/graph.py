@@ -5,6 +5,7 @@ from jackdaw import logger
 from jackdaw.dbmodel.graphinfo import GraphInfo, GraphInfoAD
 from jackdaw.dbmodel.adinfo import ADInfo
 
+# creates graph cache file
 def create(graph_id, dbsession, work_dir, backend_object, db_url):
 	if isinstance(work_dir, str):
 		work_dir = Path(work_dir)

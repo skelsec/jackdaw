@@ -57,7 +57,7 @@ class JackDawCredentials:
 			
 			logger.info('Added %d users. Failed inserts: %d' % (ctr, ctr_fail))
 		except Exception as e:
-			logger.exception()
+			logger.exception('')
 		finally:
 			self.dbsession.close()
 
