@@ -332,6 +332,9 @@ class Gatherer:
 
 	async def calc_edges(self):
 		try:
+			sdfilepath = None
+			if self.ldap_gatherer is not None:
+				sdfilepath = self.ldap_gatherer.full_sd_file_path
 			ec = EdgeCalc(
 				self.db_session, 
 				self.ad_id, 
@@ -342,7 +345,7 @@ class Gatherer:
 				worker_count = None, 
 				mp_pool = self.mp_pool,
 				work_dir=self.work_dir if self.no_work_dir is False else None,
-				from_sdfile = self.ldap_gatherer.full_sd_file_path
+				from_sdfile = sdfilepath
 			)
 			res, err = await ec.run()
 			return res, err
