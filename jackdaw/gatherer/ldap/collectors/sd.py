@@ -57,19 +57,22 @@ class SDCollector:
 		self.agents = []
 
 	async def store_sd(self, sd):
-		if sd['adsec'] is None:
-			return
-		jdsd = JackDawSD()
+		try:
+			if sd['adsec'] is None:
+				return
+			jdsd = JackDawSD()
 
-		jdsd.ad_id = self.ad_id
-		jdsd.guid =  sd['guid']
-		jdsd.sid = sd['sid']
-		jdsd.object_type = sd['object_type']
-		jdsd.sd = base64.b64encode(sd['adsec']).decode()
+			jdsd.ad_id = self.ad_id
+			jdsd.guid =  sd['guid']
+			jdsd.sid = sd['sid']
+			jdsd.object_type = sd['object_type']
+			jdsd.sd = base64.b64encode(sd['adsec']).decode()
 
-		jdsd.sd_hash = sha1(sd['adsec']).hexdigest()
+			jdsd.sd_hash = sha1(sd['adsec']).hexdigest()
 
-		self.sd_file.write(jdsd.to_json().encode() + b'\r\n')
+			self.sd_file.write(jdsd.to_json().encode() + b'\r\n')
+		except Exception as e:
+			logger.exception('Failed to store sd. %s' % sd)
 	
 	async def resumption_target_gen(self,q, id_filed, obj_type, jobtype):
 		for dn, sid, guid in windowed_query(q, id_filed, 10, is_single_entity = False):

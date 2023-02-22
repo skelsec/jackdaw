@@ -38,7 +38,10 @@ from jackdaw.dbmodel.regsession import RegSession
 from jackdaw.dbmodel.localgroup import LocalGroup
 from jackdaw.dbmodel.credential import Credential
 from jackdaw.dbmodel.graphinfo import GraphInfo, GraphInfoAD
+from jackdaw.dbmodel.adgmsa import ADGMSAUser
 from jackdaw.gatherer.sdcalc import calc_sd_edges
+from winacl.dtyp.security_descriptor import SECURITY_DESCRIPTOR
+from winacl.dtyp.ace import ACEType
 
 from sqlalchemy.orm.session import make_transient
 from tqdm import tqdm
@@ -140,6 +143,33 @@ class EdgeCalc:
 		
 		self.total_edges += cnt
 		logger.debug('Added %s trusts edges' % cnt)
+	
+	def gmsa_edges(self):
+		logger.debug('Adding gmsa edges')
+		cnt = 0
+		for gmsa in self.db_session.query(ADGMSAUser).filter_by(ad_id = self.ad_id):
+			sd = SECURITY_DESCRIPTOR.from_bytes(bytes.fromhex(gmsa.msDSGroupMSAMembership))
+			for ace in sd.Dacl.aces:
+				if ace.AceType == ACEType.ACCESS_ALLOWED_ACE_TYPE:
+					self.add_edge(str(ace.Sid), gmsa.objectSid, 'ReadGMSAPassword')
+					cnt += 1
+		logger.debug('Added %s gmsa edges' % cnt)
+
+	def ou_contains(self):
+		logger.debug('Adding ou contains edges')
+		cnt = 0
+		for ou in self.db_session.query(ADOU).filter_by(ad_id = self.ad_id):
+			for aduser in self.db_session.query(ADUser).filter_by(ad_id = self.ad_id).filter(ADUser.dn.like("%%%s" % ou.dn)):
+				self.add_edge(ou.objectGUID, aduser.objectSid,'contains')
+				cnt += 1
+			for aduser in self.db_session.query(Group).filter_by(ad_id = self.ad_id).filter(Group.dn.like("%%%s" % ou.dn)):
+				self.add_edge(ou.objectGUID, aduser.objectSid,'contains')
+				cnt += 1
+			for aduser in self.db_session.query(Machine).filter_by(ad_id = self.ad_id).filter(Machine.dn.like("%%%s" % ou.dn)):
+				self.add_edge(ou.objectGUID, aduser.objectSid,'contains')
+				cnt += 1
+		
+		logger.debug('Added %s ou contains edges' % cnt)
 
 	def sqladmin_edges(self):
 		logger.debug('Adding sqladmin edges')
@@ -562,12 +592,16 @@ class EdgeCalc:
 
 			await self.log_msg('Adding gplink edges')
 			self.gplink_edges()
+			await self.log_msg('Adding ou contains edges')
+			self.ou_contains()
 			#await self.log_msg()
 			#self.groupmembership_edges()
 			await self.log_msg('Adding trusts edges')
 			self.trust_edges()
 			await self.log_msg('Adding sqladmin edges')
 			self.sqladmin_edges()
+			await self.log_msg('Adding gmsa edges')
+			self.gmsa_edges()
 			await self.log_msg('Adding hassession edges')
 			self.hasession_edges()
 			await self.log_msg('Adding localgroup edges')

@@ -136,7 +136,7 @@ from .regsession import RegSession
 from .smbinterface import SMBInterface
 from .smbfile import SMBFile
 from .kerberostickets import KerberosTicket
-
+from .adgmsa import ADGMSAUser
 
 def create_db(connection, verbosity = 0, inmemory = False):
 	logging.info('Creating database %s' % connection)

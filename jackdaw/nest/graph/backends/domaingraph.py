@@ -13,7 +13,9 @@ from jackdaw.dbmodel import windowed_query
 from jackdaw.nest.graph.graphdata import GraphData, GraphNode
 from jackdaw.dbmodel.graphinfo import GraphInfo, GraphInfoAD
 from jackdaw.dbmodel.adobjprops import ADObjProps
-
+from jackdaw.dbmodel.adou import ADOU
+from jackdaw.dbmodel.adgmsa import ADGMSAUser
+from jackdaw.dbmodel.adgpo import GPO
 
 class JackDawDomainGraph:
 	def __init__(self, dbsession, graph_id, graph_dir, use_cache = False):
@@ -212,6 +214,21 @@ class JackDawDomainGraph:
 			
 			elif otype == 'domain':
 				tsid = self.dbsession.query(ADInfo.distinguishedName).filter(ADInfo.objectSid == sid).first()
+				if tsid is not None:
+					self.sid_name_lookup[sid] = tsid[0]
+
+			elif otype == 'ou':
+				tsid = self.dbsession.query(ADOU.name).filter(ADOU.objectGUID == sid).first()
+				if tsid is not None:
+					self.sid_name_lookup[sid] = tsid[0]
+			
+			elif otype == 'gmsa':
+				tsid = self.dbsession.query(ADGMSAUser.sAMAccountName).filter(ADGMSAUser.objectSid == sid).first()
+				if tsid is not None:
+					self.sid_name_lookup[sid] = tsid[0]
+			
+			elif otype == 'gpo':
+				tsid = self.dbsession.query(GPO.name).filter(GPO.objectGUID == sid).first()
 				if tsid is not None:
 					self.sid_name_lookup[sid] = tsid[0]
 		

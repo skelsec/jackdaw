@@ -25,19 +25,19 @@ from jackdaw.dbmodel.edge import Edge
 from jackdaw.dbmodel.edgelookup import EdgeLookup
 from jackdaw.dbmodel.adallowedtoact import MachineAllowedToAct
 from jackdaw.dbmodel.adschemaentry import ADSchemaEntry
-
+from jackdaw.dbmodel.adgmsa import ADGMSAUser
+from msldap.client import MSLDAPClient
 
 class LDAPGathererAgent:
 	def __init__(self, ldap_mgr, agent_in_q, agent_out_q):
 		self.ldap_mgr = ldap_mgr
 		self.agent_in_q = agent_in_q
 		self.agent_out_q = agent_out_q
-		self.ldap = None
+		self.ldap:MSLDAPClient = None
 		self.test_ctr = 0
 
 	async def get_sds(self, data):
 		try:
-			#print(data)
 			if data is None:
 				await self.agent_out_q.put((LDAPAgentCommand.SDS_FINISHED, None))
 				return
@@ -252,6 +252,18 @@ class LDAPGathererAgent:
 			await self.agent_out_q.put((LDAPAgentCommand.EXCEPTION, str(traceback.format_exc())))
 		finally:
 			await self.agent_out_q.put((LDAPAgentCommand.DOMAININFO_FINISHED, None))
+	
+	async def get_all_gmsa(self):
+		try:
+			async for gmsa, err in self.ldap.get_all_gmsa():
+				if err is not None:
+					raise err
+				gmsauser = ADGMSAUser.from_adgmsa(gmsa)
+				await self.agent_out_q.put((LDAPAgentCommand.GMSA, gmsauser))
+		except:
+			await self.agent_out_q.put((LDAPAgentCommand.EXCEPTION, str(traceback.format_exc())))
+		finally:
+			await self.agent_out_q.put((LDAPAgentCommand.GMSA_FINISHED, None))
 
 	async def setup(self):
 		try:
@@ -298,6 +310,8 @@ class LDAPGathererAgent:
 					await self.get_sds(res.data)
 				elif res.command == LDAPAgentCommand.TRUSTS:
 					await self.get_all_trusts()
+				elif res.command == LDAPAgentCommand.GMSA:
+					await self.get_all_gmsa()
 		except Exception as e:
 			logger.exception('Agent main!')
 		finally:

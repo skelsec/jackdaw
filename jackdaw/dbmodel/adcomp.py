@@ -17,7 +17,7 @@ class Machine(Basemodel, Serializer):
 	ad_id = Column(Integer, ForeignKey('adinfo.id'))
 	sn = Column(String)
 	cn = Column(String)
-	dn = Column(String)
+	dn = Column(String, index=True)
 	accountExpires = Column(DateTime)
 	badPasswordTime = Column(DateTime)
 	badPwdCount = Column(String)

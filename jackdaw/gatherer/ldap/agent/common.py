@@ -21,6 +21,7 @@ class LDAPAgentCommand(enum.Enum):
 	GPOS = 16
 	TRUSTS = 17
 	SCHEMA = 18
+	GMSA = 19
 	EXCEPTION = 99
 
 	SPNSERVICES_FINISHED = 31
@@ -35,6 +36,8 @@ class LDAPAgentCommand(enum.Enum):
 	TRUSTS_FINISHED = 40
 	MEMBERSHIP_FINISHED = 41
 	SCHEMA_FINISHED = 42
+	GMSA_FINISHED = 43
+
 
 MSLDAP_JOB_TYPES = {
 	'users' : LDAPAgentCommand.USERS_FINISHED ,
@@ -48,6 +51,7 @@ MSLDAP_JOB_TYPES = {
 	'adinfo' : LDAPAgentCommand.DOMAININFO_FINISHED,
 	'trusts' : LDAPAgentCommand.TRUSTS_FINISHED,
 	'schema' : LDAPAgentCommand.SCHEMA_FINISHED,
+	'gmsa' : LDAPAgentCommand.GMSA_FINISHED,
 }
 MSLDAP_JOB_TYPES_INV = {v: k for k, v in MSLDAP_JOB_TYPES.items()}
 

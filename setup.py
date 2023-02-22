@@ -62,7 +62,7 @@ setup(
 		'asysocks>=0.2.2',
 		'minikerberos>=0.3.2',
 		'aiosmb>=0.4.2',
-		'msldap>=0.4.1',
+		'msldap>=0.5.2',
 		'winacl>=0.1.5',
 		'sqlalchemy>=1.4',
 		'tqdm',

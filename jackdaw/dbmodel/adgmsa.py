@@ -8,19 +8,15 @@ from jackdaw.utils.encoder import UniversalEncoder
 from jackdaw.dbmodel.utils.serializer import Serializer
 import hashlib
 
-class ADUser(Basemodel, Serializer):
-	__tablename__ = 'users'
+class ADGMSAUser(Basemodel, Serializer):
+	__tablename__ = 'adgmsa'
 
 	# Now for the attributes
 	id = Column(Integer, primary_key=True)
 	ad_id = Column(Integer, ForeignKey('adinfo.id'))
 	sn = Column(String)
 	cn = Column(String)
-	dn = Column(String, index=True)
-	description = Column(String)
-	initials = Column(String)
-	givenName = Column(String)
-	displayName = Column(String)
+	dn = Column(String)
 	name = Column(String)
 	objectCategory = Column(String)
 	objectClass = Column(String)
@@ -28,11 +24,13 @@ class ADUser(Basemodel, Serializer):
 	objectSid = Column(String, index=True)
 	primaryGroupID = Column(String)
 	sAMAccountName = Column(String, index=True)
-	userPrincipalName = Column(String)
-	servicePrincipalName = Column(String)
-	## groups
-	memberOf = Column(String) #list, should be extra table
-	member = Column(String) #list, should be extra table
+	dNSHostName = Column(String, index=True)
+	msDSSupportedEncryptionTypes = Column(Integer)
+	msDSManagedPasswordId = Column(Integer)
+	msDSManagedPasswordInterval = Column(Integer)
+	msDSGroupMSAMembership = Column(String)
+	msDSManagedPassword = Column(String)
+	
 	## times
 	accountExpires = Column(DateTime)
 	badPasswordTime = Column(DateTime)
@@ -47,18 +45,6 @@ class ADUser(Basemodel, Serializer):
 	logonCount = Column(Integer)
 	sAMAccountType = Column(Integer)
 	userAccountControl = Column(Integer)
-	adminCount = Column(Integer)
-	
-	## other
-	codePage = Column(Integer)
-	countryCode = Column(Integer)
-	
-	## calculated properties
-	when_pw_change = Column(DateTime)
-	when_pw_expires = Column(DateTime)
-	must_change_pw = Column(DateTime)
-	canLogon = Column(Boolean)
-	isAdmin = Column(Boolean)
 	
 	UAC_SCRIPT = Column(Boolean)
 	UAC_ACCOUNTDISABLE = Column(Boolean)
@@ -90,13 +76,9 @@ class ADUser(Basemodel, Serializer):
 		ctx = hashlib.md5()
 		ctx.update(str(self.sAMAccountName).encode())
 		ctx.update(str(self.userAccountControl).encode())
-		ctx.update(str(self.adminCount).encode())
 		ctx.update(str(self.sAMAccountType).encode())
 		ctx.update(str(self.dn).encode())
 		ctx.update(str(self.cn).encode())
-		ctx.update(str(self.servicePrincipalName).encode())
-		ctx.update(str(self.memberOf).encode())
-		ctx.update(str(self.member).encode())
 		self.checksum = ctx.hexdigest()
 
 	def to_dict(self):
@@ -104,14 +86,9 @@ class ADUser(Basemodel, Serializer):
 			'id' : self.id ,
 			'ad_id' : self.ad_id ,
 			'dn' : self.dn ,
-			'givenName' : self.givenName ,
-			'displayName' : self.displayName ,
-			'description' : self.description,
 			'name' : self.name ,
 			'objectSid' : self.objectSid ,
 			'sAMAccountName' : self.sAMAccountName ,
-			'userPrincipalName' : self.userPrincipalName ,
-			'servicePrincipalName' : self.servicePrincipalName ,
 			'accountExpires' : self.accountExpires ,
 			'badPasswordTime' : self.badPasswordTime ,
 			'lastLogoff' : self.lastLogoff ,
@@ -124,13 +101,6 @@ class ADUser(Basemodel, Serializer):
 			'logonCount' : self.logonCount ,
 			'sAMAccountType' : self.sAMAccountType ,
 			'userAccountControl' : self.userAccountControl ,
-			'codePage' : self.codePage ,
-			'countryCode' : self.countryCode ,
-			'when_pw_change' : self.when_pw_change ,
-			'when_pw_expires' : self.when_pw_expires ,
-			'must_change_pw' : self.must_change_pw ,
-			'adminCount' : self.adminCount,
-			'canLogon' : self.canLogon ,
 			'UAC_SCRIPT' : self.UAC_SCRIPT ,
 			'UAC_ACCOUNTDISABLE' : self.UAC_ACCOUNTDISABLE ,
 			'UAC_HOMEDIR_REQUIRED' : self.UAC_HOMEDIR_REQUIRED ,
@@ -159,15 +129,11 @@ class ADUser(Basemodel, Serializer):
 		return json.dumps(self.to_dict(), cls=UniversalEncoder)
 
 	@staticmethod
-	def from_aduser(u):
-		user = ADUser()
+	def from_adgmsa(u):
+		user = ADGMSAUser()
 		user.sn = u.sn
 		user.cn = u.cn
 		user.dn = u.distinguishedName
-		user.description = u.description
-		user.initials = u.initials
-		user.givenName = u.givenName
-		user.displayName = u.displayName
 		user.name = u.name
 		user.objectCategory = u.objectCategory
 		user.objectClass = lf(u.objectClass)
@@ -175,11 +141,6 @@ class ADUser(Basemodel, Serializer):
 		user.objectSid = u.objectSid
 		user.primaryGroupID = u.primaryGroupID
 		user.sAMAccountName = u.sAMAccountName
-		user.userPrincipalName = lf(u.userPrincipalName)
-		user.servicePrincipalName = lf(u.servicePrincipalName)
-	
-		user.memberOf = lf(u.memberOf)
-		user.member = lf(u.member)
 		user.accountExpires = dt(u.accountExpires)
 		user.badPasswordTime = dt(u.badPasswordTime)
 		user.lastLogoff = dt(u.lastLogoff)
@@ -191,19 +152,18 @@ class ADUser(Basemodel, Serializer):
 		user.badPwdCount = u.badPwdCount
 		user.logonCount = u.logonCount
 		user.sAMAccountType = u.sAMAccountType
+		user.dNSHostName = u.dNSHostName
+		user.msDSSupportedEncryptionTypes = u.msDS_SupportedEncryptionTypes
+		user.msDSManagedPasswordId = u.msDS_ManagedPasswordId
+		user.msDSManagedPasswordInterval = u.msDS_ManagedPasswordInterval
+		if u.msDS_GroupMSAMembership is not None:
+			user.msDSGroupMSAMembership = u.msDS_GroupMSAMembership.to_bytes().hex()
+		user.msDSManagedPassword = u.msDS_ManagedPassword
 		try:
 			user.userAccountControl = int(u.userAccountControl)
 		except:
 			pass
 		
-		user.codePage = u.codePage
-		user.countryCode = u.countryCode
-		user.when_pw_change = dt(u.when_pw_change)
-		user.when_pw_expires = dt(u.when_pw_expires)
-		user.must_change_pw = dt(u.must_change_pw)
-		user.adminCount = u.admincount
-		user.canLogon = bc(u.canLogon)
-		user.isAdmin = bc(getattr(u,'isAdmin', None))
 		calc_uac_flags(user)
 		user.gen_checksum()
 		return user
