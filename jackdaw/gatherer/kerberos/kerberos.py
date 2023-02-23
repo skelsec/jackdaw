@@ -13,7 +13,9 @@ from jackdaw.dbmodel import get_session, windowed_query
 from minikerberos.common.utils import TGSTicket2hashcat
 from minikerberos.common.spn import KerberosSPN
 from minikerberos.common.target import KerberosTarget
-from minikerberos.security import KerberosUserEnum, APREPRoast, Kerberoast
+from minikerberos.security import asreproast as ASREPROAST
+from minikerberos.security import kerberoast as KERBEROAST
+from minikerberos.security import krb5userenum
 from minikerberos.common.creds import KerberosCredential
 from minikerberos.common.url import KerberosClientURL
 
@@ -53,23 +55,30 @@ class KerberoastGatherer:
 			else:
 				target = self.kerb_mgr.get_target()
 
+			asrepusernames = []
+			usertouid = {}
 			for uid in self.targets_asreq:
-				ar = APREPRoast(target)
-				res = await ar.run(self.targets_asreq[uid], override_etype = [23])
-				t = KerberoastTable.from_hash(self.ad_id, uid, res)
-				self.db_session.add(t)
-				self.total_targets_finished += 1
+				asrepusernames.append(self.targets_asreq[uid].username)
+				usertouid[self.targets_asreq[uid].username] = uid
+			asrepdomain = self.targets_asreq[0].domain
+			async for username, h, err in asreproast(target, asrepdomain, asrepusernames, override_etype = [23]):
+				if err is not None:
+					errors.append((username,err))
+				else:
+					t = KerberoastTable.from_hash(self.ad_id, usertouid[username], str(h))
+					self.db_session.add(t)
+					self.total_targets_finished += 1
 
-				if self.progress_queue is not None:
-					msg = GathererProgress()
-					msg.type = GathererProgressType.KERBEROAST
-					msg.msg_type = MSGTYPE.PROGRESS 
-					msg.adid = self.ad_id
-					msg.domain_name = self.domain_name
-					msg.total = self.total_targets
-					msg.total_finished = self.total_targets_finished
-					msg.step_size = 1
-					await self.progress_queue.put(msg)
+					if self.progress_queue is not None:
+						msg = GathererProgress()
+						msg.type = GathererProgressType.KERBEROAST
+						msg.msg_type = MSGTYPE.PROGRESS 
+						msg.adid = self.ad_id
+						msg.domain_name = self.domain_name
+						msg.total = self.total_targets
+						msg.total_finished = self.total_targets_finished
+						msg.step_size = 1
+						await self.progress_queue.put(msg)
 				
 			self.db_session.commit()
 			return True, None
@@ -161,31 +170,36 @@ class KerberoastGatherer:
 	
 	async def kerberoast(self):
 		try:
+			ktargets = []
+			usertouid = {}
 			for uid in self.targets_spn:
-				try:
-					cred = self.kerb_mgr.get_creds()
-					target = self.kerb_mgr.get_target()
-					ar = Kerberoast(target, cred)
+				ktargets.append(self.targets_spn[uid].username)
+				kdomain = self.targets_spn[uid].domain
+				usertouid[self.targets_spn[uid].username] = uid
+
+			try:
+				ku = self.kerb_mgr.get_client()
+				async for username, h, err in kerberoast(ku, ktargets, kdomain, [23, 17, 18]):
+					if err is not None:
+						continue
 					
-					hashes = await ar.run([self.targets_spn[uid]], override_etype = [23, 17, 18])
-					for h in hashes:
-						t = KerberoastTable.from_hash(self.ad_id, uid, h)
-						self.db_session.add(t)
+					t = KerberoastTable.from_hash(self.ad_id, usertouid[username], h)
+					self.db_session.add(t)
 
-						self.total_targets_finished += 1
-						if self.progress_queue is not None:
-							msg = GathererProgress()
-							msg.type = GathererProgressType.KERBEROAST
-							msg.msg_type = MSGTYPE.PROGRESS 
-							msg.adid = self.ad_id
-							msg.domain_name = self.domain_name
-							msg.total = self.total_targets
-							msg.total_finished = self.total_targets_finished
-							msg.step_size = 1
-							await self.progress_queue.put(msg)
+					self.total_targets_finished += 1
+					if self.progress_queue is not None:
+						msg = GathererProgress()
+						msg.type = GathererProgressType.KERBEROAST
+						msg.msg_type = MSGTYPE.PROGRESS 
+						msg.adid = self.ad_id
+						msg.domain_name = self.domain_name
+						msg.total = self.total_targets
+						msg.total_finished = self.total_targets_finished
+						msg.step_size = 1
+						await self.progress_queue.put(msg)
 
-				except Exception as e:
-					logger.debug('Could not fetch tgs for %s' % uid)
+			except Exception as e:
+				logger.debug('Could not fetch tgs for %s' % uid)
 			self.db_session.commit()
 			return True, None
 		except Exception as e:

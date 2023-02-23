@@ -114,3 +114,4 @@ build/*
 workdir/*
 buildnode.sql
 *.exe
+*.spec
