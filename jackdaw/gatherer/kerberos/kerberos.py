@@ -17,7 +17,7 @@ from minikerberos.security import asreproast as ASREPROAST
 from minikerberos.security import kerberoast as KERBEROAST
 from minikerberos.security import krb5userenum
 from minikerberos.common.creds import KerberosCredential
-from minikerberos.common.url import KerberosClientURL
+from minikerberos.common.factory import KerberosClientFactory
 
 from asyauth.protocols.kerberos.gssapi import get_gssapi, GSSWrapToken, KRB5_MECH_INDEP_TOKEN
 from minikerberos.protocol.asn1_structs import AP_REQ, TGS_REQ
@@ -256,7 +256,7 @@ class KerberoastGatherer:
 				return True, None
 
 			
-			if isinstance(self.kerb_url, KerberosClientURL):
+			if isinstance(self.kerb_url, KerberosClientFactory):
 				self.kerb_mgr = self.kerb_url
 
 			elif isinstance(self.kerb_url, str):
@@ -274,7 +274,7 @@ class KerberoastGatherer:
 						raise Exception('No kerberos URL was provided and not running on Windows!')
 				
 				elif self.kerb_url.startswith('kerberos'):
-					self.kerb_mgr = KerberosClientURL.from_url(self.kerb_url)
+					self.kerb_mgr = KerberosClientFactory.from_url(self.kerb_url)
 
 					_, err = await self.asreproast()
 					if err is not None:
