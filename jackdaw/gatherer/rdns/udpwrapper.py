@@ -53,8 +53,7 @@ class UDPReader:
 		self._addr = addr
 		self.buff = io.BytesIO(data)
 
-	@asyncio.coroutine
-	def read(self, n = -1):
+	async def read(self, n = -1):
 		if n == -1:
 			self._remaining = 0
 		else:
@@ -62,8 +61,7 @@ class UDPReader:
 		
 		return self.buff.read(n)
 
-	@asyncio.coroutine
-	def readexactly(self, n):
+	async def readexactly(self, n):
 		if n == -1:
 			self._remaining = 0
 		else:
