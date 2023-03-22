@@ -105,16 +105,14 @@ class UDPWriter:
 	def get_local_address(self):
 		return self._sock.getsockname()
 
-	@asyncio.coroutine
-	def drain(self):
+	async def drain(self):
 		return
 
-	@asyncio.coroutine
-	def write(self, data, addr = None):
+	async def write(self, data, addr = None):
 		if addr is None:
-			yield from sendto(self._loop, self._sock, data, self._addr)
+			await sendto(self._loop, self._sock, data, self._addr)
 		else:
-			yield from sendto(self._loop, self._sock, data, addr)
+			await sendto(self._loop, self._sock, data, addr)
 
 
 class UDPClient:

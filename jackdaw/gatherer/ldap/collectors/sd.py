@@ -295,8 +295,8 @@ class SDCollector:
 			adinfo = self.session.query(ADInfo).get(self.ad_id)
 			self.domain_name = str(adinfo.distinguishedName).replace(',','.').replace('DC=','')
 			qs = self.agent_cnt
-			self.agent_in_q = asyncio.Queue(qs) #AsyncProcessQueue()
-			self.agent_out_q = asyncio.Queue(qs) #AsyncProcessQueue(1000)
+			self.agent_in_q = asyncio.Queue(qs)
+			self.agent_out_q = asyncio.Queue(qs)
 			self.sd_file_path = os.path.join(str(self.work_dir), 'sd_' + datetime.datetime.utcnow().strftime("%Y%m%d_%H%M%S") + '.gzip')
 			self.sd_file = gzip.GzipFile(self.sd_file_path, 'w')
 

@@ -497,8 +497,8 @@ class BaseCollector:
 		logger.debug('Basecollector started!')
 
 		qs = self.agent_cnt
-		self.agent_in_q = asyncio.Queue() #AsyncProcessQueue()
-		self.agent_out_q = asyncio.Queue(qs) #AsyncProcessQueue(1000)
+		self.agent_in_q = asyncio.Queue()
+		self.agent_out_q = asyncio.Queue(qs)
 
 		if self.show_progress is True:
 			self.total_progress = tqdm(desc='LDAP info entries', ascii = True)
