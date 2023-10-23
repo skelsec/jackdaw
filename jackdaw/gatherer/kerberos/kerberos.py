@@ -61,9 +61,10 @@ class KerberoastGatherer:
 				asrepusernames.append(self.targets_asreq[uid].username)
 				usertouid[self.targets_asreq[uid].username] = uid
 			asrepdomain = self.targets_asreq[0].domain
-			async for username, h, err in asreproast(target, asrepdomain, asrepusernames, override_etype = [23]):
+			async for username, h, err in ASREPROAST(target, asrepdomain, asrepusernames, override_etype = [23]):
 				if err is not None:
-					errors.append((username,err))
+					continue
+					#errors.append((username,err))
 				else:
 					t = KerberoastTable.from_hash(self.ad_id, usertouid[username], str(h))
 					self.db_session.add(t)
@@ -179,7 +180,7 @@ class KerberoastGatherer:
 
 			try:
 				ku = self.kerb_mgr.get_client()
-				async for username, h, err in kerberoast(ku, ktargets, kdomain, [23, 17, 18]):
+				async for username, h, err in KERBEROAST(ku, ktargets, kdomain, [23, 17, 18]):
 					if err is not None:
 						continue
 					
