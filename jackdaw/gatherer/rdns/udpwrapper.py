@@ -53,8 +53,7 @@ class UDPReader:
 		self._addr = addr
 		self.buff = io.BytesIO(data)
 
-	@asyncio.coroutine
-	def read(self, n = -1):
+	async def read(self, n = -1):
 		if n == -1:
 			self._remaining = 0
 		else:
@@ -62,8 +61,7 @@ class UDPReader:
 		
 		return self.buff.read(n)
 
-	@asyncio.coroutine
-	def readexactly(self, n):
+	async def readexactly(self, n):
 		if n == -1:
 			self._remaining = 0
 		else:
@@ -107,16 +105,14 @@ class UDPWriter:
 	def get_local_address(self):
 		return self._sock.getsockname()
 
-	@asyncio.coroutine
-	def drain(self):
+	async def drain(self):
 		return
 
-	@asyncio.coroutine
-	def write(self, data, addr = None):
+	async def write(self, data, addr = None):
 		if addr is None:
-			yield from sendto(self._loop, self._sock, data, self._addr)
+			await sendto(self._loop, self._sock, data, self._addr)
 		else:
-			yield from sendto(self._loop, self._sock, data, addr)
+			await sendto(self._loop, self._sock, data, addr)
 
 
 class UDPClient:

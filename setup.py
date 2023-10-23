@@ -64,7 +64,7 @@ setup(
 		'aiosmb>=0.4.5',
 		'msldap>=0.5.3',
 		'winacl>=0.1.7',
-		'sqlalchemy>=1.4',
+		'sqlalchemy>=1.4,<2.0', # version 2.0 has different syntax
 		'tqdm',
 		'networkx',
 		'colorama; platform_system=="Windows"',

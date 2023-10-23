@@ -18,10 +18,15 @@ class MachineConstrainedDelegation(Basemodel, Serializer):
 	def from_spn_str(s, machine_sid = None):
 		d = MachineConstrainedDelegation()
 		d.machine_sid = machine_sid
-		if s.find('/') != -1:
-			d.target_service, d.target_server = s.split('/')
-		else:
+
+		t = []
+		s = s.split('/')
+		if len(s) == 1:
 			d.target_server = s
+		elif len(s) == 2:
+			d.target_service, d.target_server = s
+		else:
+			d.target_service, d.target_server, *t = s
 		
 		if d.target_server.find(':') != -1:
 			d.target_server, d.target_port = d.target_server.split(':')
