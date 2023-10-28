@@ -26,7 +26,7 @@
     "eslint-plugin-react": "^7.14.3",
     "jest": "^24.9.0",
     "json-loader": "^0.5.7",
-    "node-sass": "^4.11.0",
+    "node-sass": "^7.0.3",
     "sass-loader": "^7.0.3",
     "style-loader": "^0.23.1",
     "webpack": "^4.35.3",
