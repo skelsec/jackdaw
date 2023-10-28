@@ -43,7 +43,7 @@
     "classnames": "^2.2.6",
     "clsx": "^1.0.4",
     "lodash": "^4.17.11",
-    "moment": "^2.24.0",
+    "moment": "^2.29.4",
     "prop-types": "^15.6.2",
     "react": "16.9.0",
     "react-contextmenu": "^2.11.0",
