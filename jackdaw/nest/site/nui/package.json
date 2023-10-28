@@ -59,7 +59,7 @@
     "react-sortable-tree-theme-file-explorer": "^2.0.0",
     "react-sortablejs": "^1.4.0",
     "react-virtual-list": "^2.3.0",
-    "recharts": "^1.4.2",
+    "recharts": "^2.1.14",
     "redux": "^4.0.0",
     "redux-act": "^1.7.4",
     "sortablejs": "^1.8.0-rc1",
