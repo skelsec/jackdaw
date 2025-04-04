@@ -68,7 +68,7 @@ setup(
 		'tqdm',
 		'networkx',
 		'colorama; platform_system=="Windows"',
-		'python-igraph', #'python-igraph==0.8.3',
+		'igraph', #'python-igraph==0.8.3',
 	],
 	entry_points={
 		'console_scripts': [
