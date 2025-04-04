@@ -115,3 +115,6 @@ workdir/*
 buildnode.sql
 *.exe
 *.spec
+
+# Apple desktop services store
+.DS_Store
